@@ -1,0 +1,25 @@
+name:                upcast
+version:             0.1.0.0
+license-file:        LICENSE
+author:              Vladimir Kirillov
+maintainer:          vlad.ki@zalora.com
+build-type:          Simple
+cabal-version:       >=1.10
+
+executable liftnet
+  main-is:             src/main.hs
+  -- other-modules:       
+  -- other-extensions:    
+  build-depends:       base
+                     , containers
+                     , directory, filepath
+                     , bytestring, text
+                     , unix, process, time
+                     , stm
+                     , async
+                     , interpolate
+                     , direct-sqlite
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+  ghc-options:         -rtsopts -threaded
