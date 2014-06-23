@@ -1,3 +1,4 @@
 /result
 /dist
 /.cabal-sandbox
+*.aterm
