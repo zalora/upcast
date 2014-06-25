@@ -2,6 +2,7 @@
 
 module Main where
 
+import System.FilePath.Posix ((</>))
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import Data.Text (Text(..))
@@ -13,17 +14,12 @@ import Upcast.Nix
 import Upcast.PhysicalSpec
 import Upcast.Command
 
-applyColor index s = "\ESC[1;" ++ color ++ "m" ++ s ++ "\ESC[0m"
-  where
-    color = show $ (31 + (index `mod` 7))
-
-colorize = applyColor 5
-
-
 nixops = "/tank/proger/dev/nix/decl/nixops/nixops/../nix"
 nixPath = "sources"
 stateFile = "deployments.nixops" :: Text
 deploymentName = "staging" :: Text
+closuresPath = "/tmp/machines/1"
+key = "id_rsa.tmp"
 
 nixBaseOptions = [n|
                  -I #{nixPath}
@@ -35,35 +31,54 @@ nixBaseOptions = [n|
                  --show-trace
                  |]
 
-
-sshMaster controlPath (Remote key host) =
-    Cmd Local [n|ssh -x root@#{host} -S #{controlPath} -M -N -f -oNumberOfPasswordPrompts=0 -oServerAliveInterval=60 -i #{key}|]
-
-sshMasterExit controlPath (Remote _ host) =
-    Cmd Local [n|ssh root@#{host} -S #{controlPath} -O exit|]
-
-sshFast controlPath (Cmd (Remote key host) cmd) =
-    Cmd Local [n|ssh -oControlPath=#{controlPath} -i #{key} -x root@#{host} -- '#{cmd}'|]
-
 nixCopyClosureTo (Remote key host) path =
-    Cmd Local [n|nix-copy-closure --to root@#{host} #{path} --gzip|]
+    Cmd Local [n|env NIX_SSHOPTS="-i #{key}" nix-copy-closure --to root@#{host} #{path} --gzip|]
+
+nixCopyClosureToFast controlPath (Remote key host) path =
+    Cmd Local [n|env NIX_SSHOPTS="-i #{key} -S #{controlPath}" nix-copy-closure --to root@#{host} #{path} --gzip|]
+
+nixDeploymentInfo exprs uuid = Cmd Local [n|
+                     nix-instantiate #{nixBaseOptions}
+                     --arg networkExprs '#{listToNix exprs}'
+                     --arg args {}
+                     --argstr uuid #{uuid}
+                     '<nixops/eval-deployment.nix>'
+                     --eval-only --strict --read-write-mode
+                     --arg checkConfigurationOptions false
+                     -A info
+                     |]
 
 nixBuildMachines exprs uuid names outputPath = Cmd Local [n|
-                   nix-build
-                   #{nixBaseOptions}
+                   nix-build #{nixBaseOptions}
                    --arg networkExprs '#{listToNix exprs}'
                    --arg args {}
-                   --argstr uuid #{uuid} <nixops/eval-deployment.nix>
+                   --argstr uuid #{uuid}
                    --arg names '#{listToNix names}'
+                   '<nixops/eval-deployment.nix>'
                    -A machines
                    -o #{outputPath}
                    |]
+
+nixSetProfile remote closure = Cmd remote [n|
+                                  nix-env -p /nix/var/nix/profiles/system --set "#{closure}"
+                                  |]
+
+nixSwitchToConfiguration remote = Cmd remote [n|
+                                  env NIXOS_NO_SYNC=1 /nix/var/nix/profiles/system/bin/switch-to-configuration switch
+                                  |]
+
+-- nixTrySubstitutes remote closure =
+               -- closure = subprocess_check_output(["nix-store", "-qR", path]).splitlines()
+               -- self.run_command("nix-store -j 4 -r --ignore-unknown " + ' '.join(closure), check=False)
 
 
 attr Resource{..} = fromJust . flip lookup resourceAList
 dattr Deployment{..} = fromJust . flip lookup deploymentAList
 
-main = do
+data State = State Deployment [Resource] [String] [Resource]
+           deriving (Show)
+
+state = do
   (deployment, res) <- runState stateFile $ do
     d <- onlyDeployment deploymentName >>= deploymentAttrs
     rs <- resources d >>= sequence . fmap resourceAttrs
@@ -72,5 +87,30 @@ main = do
   let Right exprs = fromNix $ fromJust $ lookup "nixExprs" $ deploymentAList deployment 
   let machines = filter (\Resource{..} -> resourceType == "ec2") res
 
+  return $ State deployment res exprs machines
+
+deploymentInfo (State deployment _ exprs _) =
+    let info = nixDeploymentInfo (exprs) (deploymentUuid deployment)
+        in fgconsume info >>= return . nixValue
+
+buildMachines (State deployment _ exprs machines) = do
   physical <- physicalSpecFile machines
-  print $ nixBuildMachines (physical:exprs) (deploymentUuid deployment) (map (T.unpack . resourceName) machines) "/tmp/machines"
+  return $ nixBuildMachines (physical:exprs) (deploymentUuid deployment) (map (T.unpack . resourceName) machines) closuresPath
+
+install (State _ _ _ machines) =
+    let args m@Resource{..} = (remote m, closuresPath </> (T.unpack resourceName))
+        remote m = Remote ("key") (T.unpack $ attr m "publicIpv4")
+    in concat [ fmap (uncurry nixCopyClosureTo . args) machines
+              , fmap (ssh . uncurry nixSetProfile . args) machines
+              , fmap (ssh . nixSwitchToConfiguration . fst . args) machines
+              ]
+
+deployPlan = do
+    s@(State deployment _ exprs _) <- state
+    _ <- deploymentInfo s
+    -- TODO: do stuff with info
+    build <- buildMachines s
+    let inst = install s
+    return $ build:inst
+
+main = deployPlan >>= mapM_ print

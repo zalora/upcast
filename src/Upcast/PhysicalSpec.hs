@@ -1,6 +1,8 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards #-}
 
-module Upcast.PhysicalSpec  where
+module Upcast.PhysicalSpec (
+  physicalSpecFile
+) where
 
 import Control.Exception (bracket)
 import System.IO
@@ -112,7 +114,7 @@ knownHostTemplate host@EC2Host{..} =
     [nl|
       #{hostname} = {
         hostNames = #{listToNix $ aliases host};
-        publicKeyFile = pkgs.writeFile "#{hostname}-publicHostKey" "#{publicHostKey}";
+        publicKey = "#{publicHostKey}";
       };
     |]
 
