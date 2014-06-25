@@ -23,7 +23,7 @@ executable liftnet
                      , haskell-src-meta, template-haskell
                      , attoparsec, aeson, unordered-containers, vector, scientific
                      , blaze-builder
-                     , conduit
+                     , conduit, resourcet
 
   hs-source-dirs:      src
   default-language:    Haskell2010
