@@ -13,6 +13,7 @@ import Upcast.State
 import Upcast.Nix
 import Upcast.PhysicalSpec
 import Upcast.Command
+import Upcast.Temp
 
 nixops = "/tank/proger/dev/nix/decl/nixops/nixops/../nix"
 nixPath = "sources"
@@ -30,6 +31,10 @@ nixBaseOptions = [n|
                  --option ssh-substituter-hosts me@node1.example.com
                  --show-trace
                  |]
+
+sshAgent socket = Cmd Local [n|ssh-agent -a #{socket}|]
+sshAddKey socket key = Cmd Local [n|echo '#{key}' | env SSH_AUTH_SOCK=#{socket} SSH_ASKPASS=/usr/bin/true ssh-add -|]
+sshListKeys socket = Cmd Local [n|env SSH_AUTH_SOCK=#{socket} ssh-add -l|]
 
 nixCopyClosureTo (Remote key host) path =
     Cmd Local [n|env NIX_SSHOPTS="-i #{key}" nix-copy-closure --to root@#{host} #{path} --gzip|]
@@ -99,18 +104,25 @@ buildMachines (State deployment _ exprs machines) = do
 
 install (State _ _ _ machines) =
     let args m@Resource{..} = (remote m, closuresPath </> (T.unpack resourceName))
-        remote m = Remote ("key") (T.unpack $ attr m "publicIpv4")
+        remote m = Remote "/dev/null" (T.unpack $ attr m "publicIpv4")
     in concat [ fmap (uncurry nixCopyClosureTo . args) machines
               , fmap (ssh . uncurry nixSetProfile . args) machines
               , fmap (ssh . nixSwitchToConfiguration . fst . args) machines
               ]
 
-deployPlan = do
-    s@(State deployment _ exprs _) <- state
+deployPlan s = do
     _ <- deploymentInfo s
     -- TODO: do stuff with info
     build <- buildMachines s
     let inst = install s
     return $ build:inst
 
-main = deployPlan >>= mapM_ print
+main = do 
+    s@(State _ resources _ _) <- state
+    let keypairs = (\Resource{..} -> resourceType == "ec2-keypair") `filter` resources
+    print keypairs
+    agentSocket <- randomTempFileName "ssh-agent.sock."
+    spawn $ sshAgent agentSocket
+    mapM_ (fgrun . sshAddKey agentSocket) $ map (flip attr "privateKey") keypairs
+    fgrun $ sshListKeys agentSocket
+    deployPlan s >>= mapM_ print

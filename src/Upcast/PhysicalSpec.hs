@@ -4,9 +4,6 @@ module Upcast.PhysicalSpec (
   physicalSpecFile
 ) where
 
-import Control.Exception (bracket)
-import System.IO
-
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Maybe (fromJust)
@@ -16,15 +13,10 @@ import Data.List (intercalate)
 import Upcast.State (Resource(..))
 import Upcast.Interpolate (nl)
 import Upcast.Nix
-
-writeTempFile :: String -> IO FilePath
-writeTempFile s = bracket (openTempFile "/tmp" "physicalXXX.nix")
-                          (\(_, h) -> hClose h) $ \(p, h) -> do
-                            hPutStrLn h s
-                            return p
+import Upcast.Temp
 
 physicalSpecFile :: [Resource] -> IO FilePath
-physicalSpecFile rs = writeTempFile (physicalSpec rs)
+physicalSpecFile rs = writeTempFile "physical.nix" (physicalSpec rs)
 
 physicalSpec :: [Resource] -> String
 physicalSpec resources = physicalSpecTemplate $ fmap ec2HostTemplate $ ec2Hosts resources
