@@ -18,7 +18,7 @@ import Upcast.Command
 import Upcast.Temp
 
 data DeployContext =
-    DeployContext { nixops, nixPath, stateFile, deploymentName, key :: Text
+    DeployContext { nixops, nixPath, stateFile, deploymentName, key, sshAuthSock :: Text
                   , closuresPath :: String
                   } deriving (Show)
 
@@ -29,6 +29,7 @@ instance Default DeployContext where
           , stateFile = "deployments.nixops"
           , deploymentName = "staging"
           , key = "id_rsa.tmp"
+          , sshAuthSock = "/dev/null"
           , closuresPath = "/tmp/machines/1"
           }
 
@@ -46,8 +47,8 @@ sshAgent socket = Cmd Local [n|ssh-agent -a #{socket}|]
 sshAddKey socket key = Cmd Local [n|echo '#{key}' | env SSH_AUTH_SOCK=#{socket} SSH_ASKPASS=/usr/bin/true ssh-add -|]
 sshListKeys socket = Cmd Local [n|env SSH_AUTH_SOCK=#{socket} ssh-add -l|]
 
-nixCopyClosureTo (Remote key host) path =
-    Cmd Local [n|env NIX_SSHOPTS="-i #{key}" nix-copy-closure --to root@#{host} #{path} --gzip|]
+nixCopyClosureTo sshAuthSock (Remote _ host) path =
+    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} nix-copy-closure --to root@#{host} #{path} --gzip|]
 
 nixCopyClosureToFast controlPath (Remote key host) path =
     Cmd Local [n|env NIX_SSHOPTS="-i #{key} -S #{controlPath}" nix-copy-closure --to root@#{host} #{path} --gzip|]
@@ -115,10 +116,15 @@ buildMachines ctx@DeployContext{..} (State deployment _ exprs machines) = do
 install DeployContext{..} (State _ _ _ machines) =
     let args m@Resource{..} = (remote m, closuresPath </> (T.unpack resourceName))
         remote m = Remote "/dev/null" (T.unpack $ attr m "publicIpv4")
-    in concat [ fmap (uncurry nixCopyClosureTo . args) machines
-              , fmap (ssh . uncurry nixSetProfile . args) machines
-              , fmap (ssh . nixSwitchToConfiguration . fst . args) machines
+    in concat [ fmap (uncurry (nixCopyClosureTo sshAuthSock) . args) machines
+              , fmap (ssh' sshAuthSock . uncurry nixSetProfile . args) machines
+              , fmap (ssh' sshAuthSock . nixSwitchToConfiguration . fst . args) machines
               ]
+
+ssh' :: Text -> Command Remote -> Command Local
+ssh' sshAuthSock (Cmd (Remote _ host) cmd) =
+    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh -x root@#{host} -- '#{cmd}'|]
+
 
 deployPlan ctx@DeployContext{..} s = do
     _ <- deploymentInfo ctx s
@@ -130,10 +136,13 @@ deployPlan ctx@DeployContext{..} s = do
 main = do
     let ctx = def :: DeployContext
     s@(State _ resources _ _) <- state ctx
+
     let keypairs = (\Resource{..} -> resourceType == "ec2-keypair") `filter` resources
     print keypairs
     agentSocket <- randomTempFileName "ssh-agent.sock."
     spawn $ sshAgent agentSocket
     mapM_ (fgrun . sshAddKey agentSocket) $ map (flip attr "privateKey") keypairs
     fgrun $ sshListKeys agentSocket
-    deployPlan ctx s >>= mapM_ print
+
+    let ctx' = ctx{ sshAuthSock = T.pack agentSocket }
+    deployPlan ctx' s >>= mapM_ fgrun
