@@ -30,7 +30,7 @@ data Command a = Cmd a String deriving (Show)
 
 fgrun :: Command Local -> IO ()
 fgrun c = do
-    printCmd c
+    printC c
     runResourceT $ run c $$ awaitForever $ liftIO . BS.putStr . chunk
 
 fgconsume :: Command Local -> IO BS.ByteString
@@ -66,7 +66,7 @@ sshFast controlPath (Cmd (Remote key host) cmd) =
 
 cmd :: String -> CreateProcess
 cmd s = CreateProcess { cmdspec = ShellCommand s
-                      , cwd = Just "/tmp"
+                      , cwd = Nothing
                       , env = Nothing
                       , std_in = CreatePipe
                       , std_out = CreatePipe
@@ -88,7 +88,7 @@ roProcessSource proc stdout stderr =
     (Just stdin, _, _, handle) <- liftIO $ createProcess proc { std_out = UseHandle $ stdout' wh
                                                          , std_err = UseHandle $ stderr' wh }
     liftIO $ hClose stdin
-    bracketP (return handles) (\handles -> mapMBoth_ hClose handles >> waitForProcess handle >>= print) (sourceHandle . fst)
+    bracketP (return handles) (\handles -> mapMBoth_ hClose handles >> waitForProcess handle >>= printC) (sourceHandle . fst)
 
 mapMBoth :: Monad m => (t -> m a) -> (t, t) -> m (a, a)
 mapMBoth f (a, b) = return (,) `ap` f a `ap` f b
@@ -119,4 +119,4 @@ applyColor index s = "\ESC[1;" ++ color ++ "m" ++ s ++ "\ESC[0m"
 colorize :: String -> String
 colorize = applyColor 5
 
-printCmd c = Prelude.putStrLn $ colorize $ show c
+printC c = Prelude.putStrLn $ colorize $ show c
