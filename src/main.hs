@@ -16,6 +16,7 @@ import Upcast.Nix
 import Upcast.PhysicalSpec
 import Upcast.Command
 import Upcast.Temp
+import Upcast.Aws
 
 data DeployContext =
     DeployContext { nixops, nixPath, stateFile, deploymentName, key, sshAuthSock :: Text
@@ -133,7 +134,7 @@ deployPlan ctx@DeployContext{..} s = do
     let inst = install ctx s
     return $ build:inst
 
-main = do
+deploy = do
     let ctx = def :: DeployContext
     s@(State _ resources _ _) <- state ctx
 
@@ -146,3 +147,5 @@ main = do
 
     let ctx' = ctx{ sshAuthSock = T.pack agentSocket }
     deployPlan ctx' s >>= mapM_ fgrun
+
+main = instances

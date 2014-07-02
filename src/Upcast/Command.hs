@@ -52,16 +52,16 @@ spawn (Cmd Local s) = do
 
 ssh :: Command Remote -> Command Local
 ssh (Cmd (Remote key host) cmd) =
-    Cmd Local [n|ssh -i #{key} -x root@#{host} -- '#{cmd}'|]
+    Cmd Local [n|ssh -i '#{key}' -x root@'#{host}' -- '#{cmd}'|]
 
 sshMaster controlPath (Remote key host) =
-    Cmd Local [n|ssh -x root@#{host} -S #{controlPath} -M -N -f -oNumberOfPasswordPrompts=0 -oServerAliveInterval=60 -i #{key}|]
+    Cmd Local [n|ssh -x root@'#{host}' -S '#{controlPath}' -M -N -f -oNumberOfPasswordPrompts=0 -oServerAliveInterval=60 -i '#{key}'|]
 
 sshMasterExit controlPath (Remote _ host) =
-    Cmd Local [n|ssh root@#{host} -S #{controlPath} -O exit|]
+    Cmd Local [n|ssh root@'#{host}' -S '#{controlPath}' -O exit|]
 
 sshFast controlPath (Cmd (Remote key host) cmd) =
-    Cmd Local [n|ssh -oControlPath=#{controlPath} -i #{key} -x root@#{host} -- '#{cmd}'|]
+    Cmd Local [n|ssh -oControlPath='#{controlPath}' -i '#{key}' -x root@'#{host}' -- '#{cmd}'|]
 
 
 cmd :: String -> CreateProcess
@@ -86,7 +86,7 @@ roProcessSource proc stdout stderr =
   in do
     handles@(rh, wh) <- liftIO createPipeHandle
     (Just stdin, _, _, handle) <- liftIO $ createProcess proc { std_out = UseHandle $ stdout' wh
-                                                         , std_err = UseHandle $ stderr' wh }
+                                                              , std_err = UseHandle $ stderr' wh }
     liftIO $ hClose stdin
     bracketP (return handles) (\handles -> mapMBoth_ hClose handles >> waitForProcess handle >>= printC) (sourceHandle . fst)
 
