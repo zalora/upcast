@@ -371,6 +371,11 @@ in
       '';
     };
 
+    deployment.ec2.subnet = mkOption {
+      type = union types.str (resource "ec2-subnet");
+      default = "";
+    };
+
     fileSystems = mkOption {
       options = {
         ec2 = mkOption {

@@ -5,6 +5,12 @@
     baseModules = import <nixpkgs/nixos/modules/module-list.nix> ++ [ ./options.nix ];
   };
 
+  subnets = {
+    pluralDisplayName = "EC2 VPC Subnets";
+
+    baseModules = [ ./ec2-subnet.nix ./resource.nix ];
+  };
+
   sqsQueues = {
     pluralDisplayName = "SQS queues";
 

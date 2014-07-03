@@ -6,11 +6,14 @@ import Control.Monad.Trans (liftIO)
 import Control.Monad (ap, join, (<=<))
 import System.FilePath (FilePath)
 import System.Process (createProcess, waitForProcess, CreateProcess(..), CmdSpec(..), StdStream(..), shell, ProcessHandle)
+import System.Exit (ExitCode(..))
 import GHC.IO.Handle (hClose, Handle, hSetBinaryMode)
 import System.IO (hSetBuffering, BufferMode(..), stdout, IOMode(..), openFile)
 import System.Posix.IO (createPipe, fdToHandle)
-import Data.Maybe (maybe)
 import Control.Monad.Trans.Resource (runResourceT, liftResourceT, MonadResource(..))
+import Data.List as L
+import Data.Maybe (maybe)
+import Data.Monoid
 
 import Data.ByteString as BS
 
@@ -20,7 +23,7 @@ import Blaze.ByteString.Builder
 
 import Upcast.Interpolate (n)
 
-type ChunkConduit i m r = ConduitM i (Flush Builder) m r
+type ProcessSource i m = ConduitM i ((Maybe ExitCode, Flush Builder)) m ()
 type Key = FilePath
 
 data Local = Local deriving (Show)
@@ -28,21 +31,38 @@ data Remote = Remote Key String deriving (Show)
 
 data Command a = Cmd a String deriving (Show)
 
+instance Monoid ExitCode where
+    mempty = ExitSuccess
+    _ `mappend` e@(ExitFailure _) = e
+    e@(ExitFailure _) `mappend` _ = e
+    a `mappend` b = a
+
+
 fgrun :: Command Local -> IO ()
 fgrun c = do
     printC c
-    runResourceT $ run c $$ awaitForever $ liftIO . BS.putStr . chunk
+    runResourceT $ run c $$ awaitForever $ liftIO . output . chunk
+  where
+    output (maybeCode, s) = do
+      BS.putStr s
+      case maybeCode of
+        Just c -> printC c
+        Nothing -> return ()
 
 fgconsume :: Command Local -> IO BS.ByteString
-fgconsume (Cmd Local s) = (runResourceT $ proc $$ CL.consume) >>= return . concat
+fgconsume c@(Cmd Local s) = do
+    printC c
+    (Just code, output) <- (runResourceT $ proc $$ CL.consume) >>= return . concat
+    printC code
+    return output
     where
-      proc = bracketP (openFile "/dev/null" WriteMode) hClose $ \null -> roProcessSource (cmd s) Nothing (Just null)
-      concat = BS.concat . fmap chunk
+      proc = bracketP (openFile "/dev/stderr" WriteMode) (hClose) $ \wh -> roProcessSource (cmd s) Nothing (Just wh)
+      concat = L.foldl' mappend (Just ExitSuccess, BS.empty) . fmap chunk
 
-chunk (Chunk a) = toByteString a
-chunk _ = ""
+chunk (x, Chunk a) = (x, toByteString a)
+chunk (x, _) = (x, BS.empty)
 
-run :: MonadResource m => Command Local -> ConduitM i (Flush Builder) m ()
+run :: MonadResource m => Command Local -> ProcessSource i m
 run (Cmd Local s) = roProcessSource (cmd s) Nothing Nothing
 
 spawn :: Command Local -> IO ProcessHandle
@@ -75,20 +95,21 @@ cmd s = CreateProcess { cmdspec = ShellCommand s
                       , create_group = True
                       , delegate_ctlc = False
                       }
+
 roProcessSource
   :: MonadResource m =>
        CreateProcess
-            -> Maybe Handle -> Maybe Handle -> ConduitM i (Flush Builder) m ()
+            -> Maybe Handle -> Maybe Handle -> ProcessSource i m
 roProcessSource proc stdout stderr =
   let
     stdout' d = maybe d id stdout
     stderr' d = maybe d id stderr
   in do
     handles@(rh, wh) <- liftIO createPipeHandle
-    (Just stdin, _, _, handle) <- liftIO $ createProcess proc { std_out = UseHandle $ stdout' wh
+    (Just stdin, _, _, prochn) <- liftIO $ createProcess proc { std_out = UseHandle $ stdout' wh
                                                               , std_err = UseHandle $ stderr' wh }
     liftIO $ hClose stdin
-    bracketP (return handles) (\handles -> mapMBoth_ hClose handles >> waitForProcess handle >>= printC) (sourceHandle . fst)
+    bracketP (return handles) (mapMBoth_ hClose) (\(rh, _) -> sourceHandle (Just prochn) rh)
 
 mapMBoth :: Monad m => (t -> m a) -> (t, t) -> m (a, a)
 mapMBoth f (a, b) = return (,) `ap` f a `ap` f b
@@ -99,16 +120,21 @@ mapMBoth_ f (a, b) = f a >> f b  >> return ()
 createPipeHandle :: IO (Handle, Handle)
 createPipeHandle = join $ fmap (mapMBoth fdToHandle) createPipe
 
-sourceHandle :: MonadResource m => Handle -> ConduitM i (Flush Builder) m ()
-sourceHandle h = loop
+sourceHandle :: MonadResource m => Maybe ProcessHandle -> Handle -> ProcessSource i m
+sourceHandle ph h = loop
   where
     loop = do
         x <- liftIO $ BS.hGetSome h 128
         if BS.null x
-            then return ()
+            then 
+            case ph of
+              Just handle -> do
+                code <- liftIO $ waitForProcess handle
+                yield (Just code, Flush)
+              Nothing -> return ()
             else do
-              yield $ Chunk $ fromByteString x
-              yield Flush
+              yield $ (Nothing, Chunk $ fromByteString x)
+              yield (Nothing, Flush)
               loop
 
 applyColor :: Int -> String -> String
