@@ -3,6 +3,7 @@
            , RecordWildCards
            , NamedFieldPuns
            , OverloadedStrings
+           , MultiWayIf
            #-}
 
 module Aws.Ec2.Types (
@@ -42,9 +43,10 @@ data ElementKind = ObjectLike
                  | Other
                  deriving (Show)
 
-elementKind nodes = if isXMLArray then ArrayLike
-                                  else if isObject then ObjectLike
-                                                   else Other
+elementKind nodes
+  | isXMLArray = ArrayLike
+  | isObject = ObjectLike
+  | otherwise = Other
   where
     filtered = filterNodes nodes
     elems = onlyElements nodes

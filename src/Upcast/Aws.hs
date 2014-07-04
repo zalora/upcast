@@ -1,25 +1,31 @@
 
-module Upcast.Aws (
-  instances
-, inst
-) where
+module Upcast.Aws where
+
+import Control.Monad
+import Data.Text (Text)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy.Char8 as LBS
+import Data.Aeson.Encode.Pretty
 
 import qualified Aws
-import qualified Aws.S3 as S3
 import Aws.Ec2.Core
-
-import Data.Conduit (($$+-))
-import Data.Conduit.Binary (sinkFile)
-import Network.HTTP.Conduit (withManager, responseBody)
+import Aws.Ec2.Types
 
 import qualified Aws.Ec2.Commands.DescribeInstances as DI
+import qualified Aws.Ec2.Commands.DescribeVpcs as DV
+import qualified Aws.Ec2.Commands.CreateVpc as CV
+import qualified Aws.Ec2.Commands.DescribeSubnets as DS
+import qualified Aws.Ec2.Commands.CreateSubnet as CS
 
-instances = undefined
+simpleAws arg region = do
+    -- cfg <- Aws.dbgConfiguration
+    cfg <- Aws.baseConfiguration
+    Aws.simpleAws cfg (EC2Configuration region) arg
 
-inst :: IO DI.DescribeInstancesResponse
-inst = do
-  cfg <- Aws.dbgConfiguration
-  let ec2cfg = Aws.defServiceConfig :: EC2Configuration Aws.NormalQuery
+pe = LBS.putStrLn . encodePretty
 
-  r <- Aws.simpleAws cfg ec2cfg DI.DescribeInstances
-  return r
+instances = pe <=< simpleAws DI.DescribeInstances
+vpcs = pe <=< simpleAws DV.DescribeVpcs
+createVpc block = pe <=< simpleAws (CV.CreateVpc block CV.Default)
+subnets = pe <=< simpleAws DS.DescribeSubnets
+createSubnet vpc block = pe <=< simpleAws (CS.CreateSubnet vpc block)

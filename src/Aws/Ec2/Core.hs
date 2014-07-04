@@ -1,7 +1,9 @@
 {-# LANGUAGE OverloadedStrings
            , FlexibleInstances
            , DeriveDataTypeable
-           , RecordWildCards #-}
+           , RecordWildCards
+           , TypeFamilies
+           #-}
 
 module Aws.Ec2.Core (
   EC2Configuration(..)
@@ -9,6 +11,8 @@ module Aws.Ec2.Core (
 , EC2Request(..)
 , ec2SignQuery
 , ec2ResponseConsumer
+, valueConsumer
+, qArg
 ) where
 
 import qualified Control.Exception as C
@@ -22,10 +26,12 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Maybe
 import Data.Monoid
 import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8)
 import Data.Typeable
 import Data.Byteable
 import Data.IORef
 import Data.String (IsString)
+import qualified Data.HashMap.Strict as H
 
 import Crypto.Hash
 
@@ -33,9 +39,14 @@ import qualified Network.HTTP.Conduit as HTTP
 import qualified Network.HTTP.Types as HTTP
 
 import qualified Text.XML.Cursor as Cu
-import Text.XML.Cursor (($//))
+import Text.XML.Cursor (($//), ($.//))
 
 import Aws.Core
+import Aws.Ec2.Types
+
+instance AsMemoryResponse Value where
+    type MemoryResponse Value = Value
+    loadToMemory = return
 
 data EC2Configuration qt = EC2Configuration
                          { ec2Region :: B.ByteString
@@ -65,15 +76,27 @@ instance Monoid EC2Metadata where
     (EC2Metadata r1) `mappend` (EC2Metadata r2) = EC2Metadata (r1 `mplus` r2)
 
 data EC2Request = DescribeInstances
+                | DescribeVpcs
+                | CreateVpc
+                | DescribeSubnets
+                | CreateSubnet
                 deriving (Show)
 
--- actionName :: EC2Request -> 
 actionName :: IsString a => EC2Request -> a  
 actionName DescribeInstances = "DescribeInstances"
+actionName DescribeVpcs = "DescribeVpcs"
+actionName CreateVpc = "CreateVpc"
+actionName DescribeSubnets = "DescribeSubnets"
+actionName CreateSubnet = "CreateSubnet"
+
+renderBody = HTTP.renderQuery False
+
+qArg :: Text -> Maybe B.ByteString
+qArg = Just . encodeUtf8
 
 -- similar: dySignQuery
-ec2SignQuery :: EC2Request -> a -> EC2Configuration qt -> SignatureData -> SignedQuery
-ec2SignQuery action _ EC2Configuration{..} sd
+ec2SignQuery :: EC2Request -> HTTP.Query -> EC2Configuration qt -> SignatureData -> SignedQuery
+ec2SignQuery action query EC2Configuration{..} sd
     = SignedQuery {
         sqMethod = Post
       , sqProtocol = HTTPS
@@ -87,7 +110,7 @@ ec2SignQuery action _ EC2Configuration{..} sd
       , sqContentMd5 = Nothing
       , sqAmzHeaders = [("X-Amz-Date", sigTime)]
       , sqOtherHeaders = []
-      , sqBody = Just $ HTTP.RequestBodyLBS body
+      , sqBody = Just $ HTTP.RequestBodyBS body
       , sqStringToSign = canonicalRequest
       }
     where
@@ -96,10 +119,15 @@ ec2SignQuery action _ EC2Configuration{..} sd
         port = 443
         sigTime = fmtTime "%Y%m%dT%H%M%SZ" $ signatureTime sd
 
-        body = LBS.concat ["Action=", actionName action , "&Version=2014-06-15"]
+        body = B.concat [ "Action="
+                        , actionName action
+                        , "&Version=2014-06-15"
+                        , if not $ null query then "&" else ""
+                        , renderBody query
+                        ]
         contentType = "application/x-www-form-urlencoded"
 
-        bodyHash = Base16.encode $ toBytes (hashlazy body :: Digest SHA256)
+        bodyHash = Base16.encode $ toBytes (hash body :: Digest SHA256)
 
         enumHeaders = "content-type;host;x-amz-date"
         canonicalRequest = B.concat [ "POST\n"
@@ -141,3 +169,12 @@ ec2ResponseConsumer inner md resp = xmlCursorConsumer parse md resp
       errCode <- force "Missing Error Code"    $ cursor $// elContent "Code"
       errMsg  <- force "Missing Error Message" $ cursor $// elContent "Message"
       throwM $ EC2Error (HTTP.responseStatus resp) errCode errMsg
+
+valueConsumer :: Text -> (Value -> a) -> Cu.Cursor -> Response EC2Metadata a
+valueConsumer tag cons cu = go $ head cu'
+  where
+    cu' = cu $.// Cu.laxElement tag
+    -- unwrap = fromJust . H.lookup tag . (\(Object o) -> o)
+    unwrap = id
+    go = return . cons . unwrap . toValue . Cu.node 
+
