@@ -17,6 +17,7 @@ import Upcast.PhysicalSpec
 import Upcast.Command
 import Upcast.Temp
 import Upcast.Aws
+import Upcast.ATerm (valueForKeyPathS)
 
 data DeployContext =
     DeployContext { nixops, nixPath, stateFile, deploymentName, key, sshAuthSock :: Text
@@ -25,7 +26,7 @@ data DeployContext =
 
 instance Default DeployContext where
     def = DeployContext
-          { nixops = "/tank/proger/dev/nix/decl/nixops/nixops/../nix"
+          { nixops = "/tank/proger/dev/upcast/nix"
           , nixPath = "sources"
           , stateFile = "deployments.nixops"
           , deploymentName = "staging"
@@ -108,7 +109,9 @@ state DeployContext{..} = do
 
 deploymentInfo ctx (State deployment _ exprs _) =
     let info = nixDeploymentInfo ctx (exprs) (deploymentUuid deployment)
-        in fgconsume info >>= return . nixValue
+        in do
+          i <- fgconsume info
+          return $ nixValue i
 
 buildMachines ctx@DeployContext{..} (State deployment _ exprs machines) = do
   physical <- physicalSpecFile machines
@@ -128,11 +131,17 @@ ssh' sshAuthSock (Cmd (Remote _ host) cmd) =
 
 
 deployPlan ctx@DeployContext{..} s = do
-    _ <- deploymentInfo ctx s
-    -- TODO: do stuff with info
+    Right info <- deploymentInfo ctx s
+    print $ fromJust $ valueForKeyPathS "machines.db1.ec2.subnet" info
+    print $ fromJust $ valueForKeyPathS "resources.subnets" info
     build <- buildMachines ctx s
     let inst = install ctx s
     return $ build:inst
+
+planOnly = do
+    let ctx = def :: DeployContext
+    s@(State _ resources _ _) <- state ctx
+    deployPlan ctx s >>= mapM_ print
 
 deploy = do
     let ctx = def :: DeployContext
@@ -148,4 +157,4 @@ deploy = do
     let ctx' = ctx{ sshAuthSock = T.pack agentSocket }
     deployPlan ctx' s >>= mapM_ fgrun
 
-main = instances
+main = planOnly
