@@ -6,12 +6,6 @@ with lib;
 
   options = {
 
-    subnet = mkOption {
-      default = name;
-      type = types.str;
-      description = "EC2 VPC subnet";
-    };
-
     region = mkOption {
       type = types.str;
       description = "Amazon EC2 region.";

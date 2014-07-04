@@ -374,6 +374,7 @@ in
     deployment.ec2.subnet = mkOption {
       type = union types.str (resource "ec2-subnet");
       default = "";
+      apply = x: if builtins.isString x then x else x._name;
     };
 
     fileSystems = mkOption {
