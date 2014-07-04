@@ -19,39 +19,59 @@ import qualified Data.List as L
 
 import Text.XML (Element(..), Name(..), Node(..))
 
+-- import Debug.Trace (trace)
+-- import Text.Show.Pretty (ppShow)
+-- 
+-- traceArg a = ppShow a `trace` a
+traceArg = id
+
 castValue :: FromJSON a => Value -> Maybe a
 castValue v = parseMaybe (const (parseJSON v)) v
 
-toValue :: Node -> Value
 toValue = value
-  where
-    value (NodeElement e@Element{..}) = arrayOrObject e
-    value (NodeContent c) = String c
-    value _ = Null
 
+value :: Node -> Value
+value (NodeElement e@Element{..}) = values elementNodes 
+value (NodeContent c) = String c
+value _ = Null
+
+values elementNodes = uncurry elementValues $ traceArg $ (elementKind elementNodes, elementNodes)
+
+data ElementKind = ObjectLike
+                 | ArrayLike
+                 | Other
+                 deriving (Show)
+
+elementKind nodes = if isXMLArray then ArrayLike
+                                  else if isObject then ObjectLike
+                                                   else Other
+  where
+    filtered = filterNodes nodes
+    elems = onlyElements nodes
+
+    isObject = (not $ null elems) && length filtered == length elems
+    isXMLArray = ["item"] == (L.nub $ fmap forceElementName elems)
+
+elementValues :: ElementKind -> [Node] -> Value
+elementValues ObjectLike ns = object [(forceElementName n, values $ filterNodes $ elementNodes $ unElement n) | n <- onlyElements ns]
+elementValues ArrayLike ns = array $ innerNodes ns
+  where
+    innerNodes :: [Node] -> [Value]
+    innerNodes nodes = fmap (values . filterNodes . elementNodes . unElement) $ onlyElements $ filterNodes $ nodes
+elementValues Other ns = arrayOrValue $ fmap value ns
+  where
     arrayOrValue (x:[]) = x
     arrayOrValue [] = Null
-    arrayOrValue a = Array $ V.fromList a
+    arrayOrValue a = array a
 
-    arrayOrObject Element{ elementName = n
-                         , elementNodes = nodes'
-                         } = object $ [(name, mapping)]
-        where
-          mapping = if isXMLArray
-                      then Array $ V.fromList $ head $ fmap (fmap value . filterNodes . elementNodes . unElement) nodes
-                      else arrayOrValue $ fmap value $ filterNodes nodes'
+forceElementName = nameLocalName . elementName . unElement
+unElement (NodeElement e) = e
+array = Array . V.fromList
 
-          name = nameLocalName n
-          nodes = onlyElements nodes'
-          unElement (NodeElement e) = e
+onlyElements = filter $ \case
+                        NodeElement _ -> True
+                        _ -> False
 
-          isXMLArray = ["item"] == (L.nub $ fmap (nameLocalName . elementName . unElement) nodes)
-
-    onlyElements = filter $ \case
-                            NodeElement _ -> True
-                            _ -> False
-
-    filterNodes = filter $ \case
-                              NodeContent s -> (T.strip s) /= T.empty
-                              _ -> True
- 
+filterNodes = filter $ \case
+                          NodeContent s -> (T.strip s) /= T.empty
+                          _ -> True
