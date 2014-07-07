@@ -4,7 +4,7 @@
 
 ### Motivation
 
-![motivation](http://i.imgur.com/U9WEMKQ.png)
+![motivation](http://i.imgur.com/HY2Gtk5.png)
 
 ### Goals
 
