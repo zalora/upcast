@@ -11,6 +11,7 @@ module Aws.Ec2.TH (
   module Aws.Core
 , module Aws.Ec2.Core
 , module Aws.Ec2.Types
+, module Aws.Ec2.Info
 , ec2ValueTransactionDef
 , ec2ValueTransaction
 ) where
@@ -23,6 +24,7 @@ import Aws.Core
 import Aws.Ec2.Core
 import qualified Aws.Ec2.Core as EC2
 import Aws.Ec2.Types
+import Aws.Ec2.Info
 
 ec2ValueTransactionDef :: Name -> String -> String -> DecsQ
 ec2ValueTransactionDef ty action tag = [d|

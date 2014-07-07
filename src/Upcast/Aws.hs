@@ -16,10 +16,13 @@ import Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Aws
 import Aws.Ec2.Core
 import Aws.Ec2.Types
+import qualified Aws.Ec2.Info as EC2
 
 import qualified Aws.Ec2.Commands.DescribeAvailabilityZones as EC2
-import qualified Aws.Ec2.Commands.DescribeInstances as EC2
 import qualified Aws.Ec2.Commands.DescribeImages as EC2
+
+import qualified Aws.Ec2.Commands.DescribeInstances as EC2
+import qualified Aws.Ec2.Commands.RunInstances as EC2
 
 import qualified Aws.Ec2.Commands.DescribeVpcs as EC2
 import qualified Aws.Ec2.Commands.CreateVpc as EC2

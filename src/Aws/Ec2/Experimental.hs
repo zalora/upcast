@@ -46,18 +46,6 @@ data StateReason = StateReason -- http://docs.aws.amazon.com/AWSEC2/latest/APIRe
                  , sr_message :: Text
                  } deriving (Show, Eq, Ord)
 
-data InstanceBlockDeviceMapping = InstanceBlockDeviceMapping -- http://docs.aws.amazon.com/AWSEC2/latest/APIReference/ApiReference-Type-InstanceBlockDeviceMappingResponseType.html
-                                    { bdm_deviceName :: Text
-                                    , bdm_ebs :: EbsInstanceBlockDeviceMapping
-                                    } deriving (Show, Eq, Ord)
-
-data EbsInstanceBlockDeviceMapping = EbsInstanceBlockDeviceMapping -- http://docs.aws.amazon.com/AWSEC2/latest/APIReference/ApiReference-Type-EbsInstanceBlockDeviceMappingResponseType.html
-                                       { edm_volumeId :: Text
-                                       , edm_status :: Text -- attaching | attached | detaching | detached
-                                       , edm_attachTime :: UTCTime
-                                       , edm_deleteOnTermination :: Bool
-                                       } deriving (Show, Eq, Ord)
-
 data ResourceTag = ResourceTag -- http://docs.aws.amazon.com/AWSEC2/latest/APIReference/ApiReference-ItemType-ResourceTagSetItemType.html
                  { rt_key :: Text
                  , rt_value :: Text

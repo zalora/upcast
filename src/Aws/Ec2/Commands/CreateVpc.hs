@@ -16,9 +16,6 @@ data CreateVpc = CreateVpc
                , cvpc_instanceTenancy :: InstanceTenancy
                } deriving (Show)
 
-data InstanceTenancy = Default | Dedicated
-                     deriving (Show)
-
 instance SignQuery CreateVpc where
     type ServiceConfiguration CreateVpc = EC2Configuration
     signQuery CreateVpc{..} = ec2SignQuery [ ("CidrBlock", qArg cvpc_cidrBlock)
