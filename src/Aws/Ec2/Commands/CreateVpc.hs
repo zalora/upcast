@@ -3,16 +3,13 @@
            , FlexibleInstances
            , OverloadedStrings
            , RecordWildCards
+           , TemplateHaskell
            #-}
 
 module Aws.Ec2.Commands.CreateVpc where
 
 import Data.Text (Text, pack, toLower)
-
-import Aws.Core
-import Aws.Ec2.Core hiding (CreateVpc)
-import qualified Aws.Ec2.Core as EC2
-import Aws.Ec2.Types
+import Aws.Ec2.TH
 
 data CreateVpc = CreateVpc
                { cvpc_cidrBlock :: Text
@@ -24,12 +21,10 @@ data InstanceTenancy = Default | Dedicated
 
 instance SignQuery CreateVpc where
     type ServiceConfiguration CreateVpc = EC2Configuration
-    signQuery CreateVpc{..} = ec2SignQuery EC2.CreateVpc [ ("CidrBlock", qArg cvpc_cidrBlock)
-                                                         , ("InstanceTenancy", qArg $ toLower $ pack $ show cvpc_instanceTenancy)
-                                                         ]
+    signQuery CreateVpc{..} = ec2SignQuery [ ("CidrBlock", qArg cvpc_cidrBlock)
+                                           , ("InstanceTenancy", qArg $ toLower $ pack $ show cvpc_instanceTenancy)
+                                           , ("Action", qArg "CreateVpc")
+                                           , defVersion
+                                           ]
 
-instance ResponseConsumer CreateVpc Value where
-    type ResponseMetadata Value = EC2Metadata
-    responseConsumer _ = ec2ResponseConsumer $ valueConsumer "vpc" id
-
-instance Transaction CreateVpc Value
+ec2ValueTransaction ''CreateVpc "vpc"

@@ -8,11 +8,11 @@
 module Aws.Ec2.Core (
   EC2Configuration(..)
 , EC2Metadata
-, EC2Request(..)
 , ec2SignQuery
 , ec2ResponseConsumer
 , valueConsumer
 , qArg
+, defVersion
 ) where
 
 import qualified Control.Exception as C
@@ -21,17 +21,20 @@ import Control.Monad
 import Control.Monad.Trans.Resource (throwM)
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe
-import Data.Monoid
+import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
+import Data.String (IsString)
+
+import qualified Data.HashMap.Strict as H
+import Data.Maybe
+import Data.Monoid
 import Data.Typeable
 import Data.Byteable
 import Data.IORef
-import Data.String (IsString)
-import qualified Data.HashMap.Strict as H
 
 import Crypto.Hash
 
@@ -75,28 +78,15 @@ instance Monoid EC2Metadata where
     mempty = EC2Metadata Nothing
     (EC2Metadata r1) `mappend` (EC2Metadata r2) = EC2Metadata (r1 `mplus` r2)
 
-data EC2Request = DescribeInstances
-                | DescribeVpcs
-                | CreateVpc
-                | DescribeSubnets
-                | CreateSubnet
-                deriving (Show)
-
-actionName :: IsString a => EC2Request -> a  
-actionName DescribeInstances = "DescribeInstances"
-actionName DescribeVpcs = "DescribeVpcs"
-actionName CreateVpc = "CreateVpc"
-actionName DescribeSubnets = "DescribeSubnets"
-actionName CreateSubnet = "CreateSubnet"
-
-renderBody = HTTP.renderQuery False
-
 qArg :: Text -> Maybe B.ByteString
 qArg = Just . encodeUtf8
 
+defVersion :: HTTP.QueryItem
+defVersion = ("Version", Just "2014-06-15")
+
 -- similar: dySignQuery
-ec2SignQuery :: EC2Request -> HTTP.Query -> EC2Configuration qt -> SignatureData -> SignedQuery
-ec2SignQuery action query EC2Configuration{..} sd
+ec2SignQuery :: HTTP.Query -> EC2Configuration qt -> SignatureData -> SignedQuery
+ec2SignQuery query EC2Configuration{..} sd
     = SignedQuery {
         sqMethod = Post
       , sqProtocol = HTTPS
@@ -119,12 +109,7 @@ ec2SignQuery action query EC2Configuration{..} sd
         port = 443
         sigTime = fmtTime "%Y%m%dT%H%M%SZ" $ signatureTime sd
 
-        body = B.concat [ "Action="
-                        , actionName action
-                        , "&Version=2014-06-15"
-                        , if not $ null query then "&" else ""
-                        , renderBody query
-                        ]
+        body = HTTP.renderQuery False query
         contentType = "application/x-www-form-urlencoded"
 
         bodyHash = Base16.encode $ toBytes (hash body :: Digest SHA256)

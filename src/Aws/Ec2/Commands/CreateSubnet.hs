@@ -3,16 +3,13 @@
            , FlexibleInstances
            , OverloadedStrings
            , RecordWildCards
+           , TemplateHaskell
            #-}
 
 module Aws.Ec2.Commands.CreateSubnet where
 
 import Data.Text (Text)
-
-import Aws.Core
-import Aws.Ec2.Core hiding (EC2Request(..))
-import qualified Aws.Ec2.Core as EC2
-import Aws.Ec2.Types
+import Aws.Ec2.TH
 
 data CreateSubnet = CreateSubnet
                { csub_vpcId :: Text
@@ -21,13 +18,10 @@ data CreateSubnet = CreateSubnet
 
 instance SignQuery CreateSubnet where
     type ServiceConfiguration CreateSubnet = EC2Configuration
-    signQuery CreateSubnet{..} = ec2SignQuery EC2.CreateSubnet [ ("VpcId", qArg csub_vpcId)
-                                                               , ("CidrBlock", qArg csub_cidrBlock)
-                                                               ]
+    signQuery CreateSubnet{..} = ec2SignQuery [ ("Action", qArg "CreateSubnet")
+                                              , defVersion
+                                              , ("VpcId", qArg csub_vpcId)
+                                              , ("CidrBlock", qArg csub_cidrBlock)
+                                              ]
 
-instance ResponseConsumer CreateSubnet Value where
-    type ResponseMetadata Value = EC2Metadata
-    responseConsumer _ = ec2ResponseConsumer $ valueConsumer "subnet" id
-
-instance Transaction CreateSubnet Value
-
+ec2ValueTransaction ''CreateSubnet "subnet"

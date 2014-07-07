@@ -3,11 +3,11 @@
            , TypeFamilies
            #-}
 
-module Aws.Ec2.Commands.DescribeSubnets where
+module Aws.Ec2.Commands.DescribeVolumes where
 
 import Aws.Ec2.TH
 
-data DescribeSubnets = DescribeSubnets
+data DescribeVolumes = DescribeVolumes
                        deriving (Show)
 
-ec2ValueTransactionDef ''DescribeSubnets "DescribeSubnets" "subnetSet" 
+ec2ValueTransactionDef ''DescribeVolumes "DescribeVolumes" "volumeSet"
