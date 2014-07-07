@@ -19,6 +19,7 @@ import Aws.Ec2.Types
 
 import qualified Aws.Ec2.Commands.DescribeAvailabilityZones as EC2
 import qualified Aws.Ec2.Commands.DescribeInstances as EC2
+import qualified Aws.Ec2.Commands.DescribeImages as EC2
 
 import qualified Aws.Ec2.Commands.DescribeVpcs as EC2
 import qualified Aws.Ec2.Commands.CreateVpc as EC2
@@ -66,6 +67,8 @@ volumeStatus = simpleAws EC2.DescribeVolumeStatus
 azs :: B.ByteString -> IO Value
 azs = simpleAws EC2.DescribeAvailabilityZones
 
+images :: B.ByteString -> IO Value
+images = simpleAws EC2.DescribeImages
 
 regions :: [B.ByteString]
 regions = [ "ap-northeast-1"
