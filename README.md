@@ -11,7 +11,7 @@
 - simplicity, extensibility
 - minimum dependency of network latency of the client
 - shared state stored as nix expressions next to machines expressions
-- first-class Nix support, only basic compatbility with nixops
+- first-class Nix support,basic compatbility with nixops to automatically lift existing deployments
 - first-class AWS support (including AWS features nixops doesn't have), as a side-effect, deliver a command-line ec2 toolchain
 - support for running day-to-day operations on deployed resources, services and machines
 
@@ -23,7 +23,7 @@
 ### Roadmap
 
 - implement nixops deploy with VPC and ELB support (needed for eris)
--- proxy (reuse) missing vital features to nixops if possible
+  - proxy (reuse) missing vital features to nixops if possible
 - document
 - ...
 - PROFIT!
