@@ -12,6 +12,7 @@ module Aws.Ec2.Core (
 , ec2ResponseConsumer
 , valueConsumer
 , qArg
+, qShow
 , defVersion
 ) where
 
@@ -80,6 +81,9 @@ instance Monoid EC2Metadata where
 
 qArg :: Text -> Maybe B.ByteString
 qArg = Just . encodeUtf8
+
+qShow :: Show a => a -> Maybe B.ByteString
+qShow = Just . B8.pack . show
 
 defVersion :: HTTP.QueryItem
 defVersion = ("Version", Just "2014-06-15")
