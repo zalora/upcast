@@ -9,7 +9,7 @@ cabal-version:       >=1.10
 data-files:          nix/*
 
 executable upcast
-  main-is:             main.hs
+  main-is:             upcast.hs
   build-depends:       base
                      , containers
                      , directory, filepath

@@ -24,6 +24,7 @@ data DeployContext =
                   , closuresPath :: String
                   } deriving (Show)
 
+-- sorry guys, you'll have to impersonate me for now
 instance Default DeployContext where
     def = DeployContext
           { nixops = "/tank/proger/dev/upcast/nix"
