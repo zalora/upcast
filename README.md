@@ -33,6 +33,7 @@
 Initially developed with GHC 7.8.2 and Cabal 1.20 localhost-style. YMMV.
 
 ```
+$ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys
 $ cabal configure -O2
 $ cabal build
 $ dist/build/ec2/ec2
