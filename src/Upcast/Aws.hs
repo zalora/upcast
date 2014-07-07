@@ -11,11 +11,15 @@ import qualified Aws
 import Aws.Ec2.Core
 import Aws.Ec2.Types
 
-import qualified Aws.Ec2.Commands.DescribeInstances as DI
-import qualified Aws.Ec2.Commands.DescribeVpcs as DV
-import qualified Aws.Ec2.Commands.CreateVpc as CV
-import qualified Aws.Ec2.Commands.DescribeSubnets as DS
-import qualified Aws.Ec2.Commands.CreateSubnet as CS
+import qualified Aws.Ec2.Commands.DescribeInstances as EC2
+
+import qualified Aws.Ec2.Commands.DescribeVpcs as EC2
+import qualified Aws.Ec2.Commands.CreateVpc as EC2
+
+import qualified Aws.Ec2.Commands.DescribeSubnets as EC2
+import qualified Aws.Ec2.Commands.CreateSubnet as EC2
+
+import qualified Aws.Ec2.Commands.DescribeVolumes as EC2
 
 simpleAws arg region = do
     -- cfg <- Aws.dbgConfiguration
@@ -24,8 +28,13 @@ simpleAws arg region = do
 
 pe = LBS.putStrLn . encodePretty
 
-instances = pe <=< simpleAws DI.DescribeInstances
-vpcs = pe <=< simpleAws DV.DescribeVpcs
-createVpc block = pe <=< simpleAws (CV.CreateVpc block CV.Default)
-subnets = pe <=< simpleAws DS.DescribeSubnets
-createSubnet vpc block = pe <=< simpleAws (CS.CreateSubnet vpc block)
+instances = pe <=< simpleAws EC2.DescribeInstances
+
+vpcs = pe <=< simpleAws EC2.DescribeVpcs
+createVpc block = pe <=< simpleAws (EC2.CreateVpc block EC2.Default)
+
+subnets = pe <=< simpleAws EC2.DescribeSubnets
+createSubnet vpc block = pe <=< simpleAws (EC2.CreateSubnet vpc block)
+
+volumes = pe <=< simpleAws EC2.DescribeVolumes
+
