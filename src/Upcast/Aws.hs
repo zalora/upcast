@@ -21,6 +21,8 @@ import qualified Aws.Ec2.Info as EC2
 import qualified Aws.Ec2.Commands.DescribeAvailabilityZones as EC2
 import qualified Aws.Ec2.Commands.DescribeImages as EC2
 
+import qualified Aws.Ec2.Commands.DescribeTags as EC2
+
 import qualified Aws.Ec2.Commands.DescribeInstances as EC2
 import qualified Aws.Ec2.Commands.RunInstances as EC2
 
@@ -72,6 +74,9 @@ azs = simpleAws EC2.DescribeAvailabilityZones
 
 images :: B.ByteString -> IO Value
 images = simpleAws EC2.DescribeImages
+
+tags :: B.ByteString -> IO Value
+tags = simpleAws EC2.DescribeTags
 
 regions :: [B.ByteString]
 regions = [ "ap-northeast-1"
