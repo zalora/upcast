@@ -23,6 +23,11 @@ with lib;
       description = "The AWS Access Key ID.";
     };
 
+    privateKeyFile = mkOption {
+      default = "";
+      description = "Key to import";
+    };
+
   };
 
   config._type = "ec2-keypair";
