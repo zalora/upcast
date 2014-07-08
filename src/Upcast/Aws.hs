@@ -1,19 +1,27 @@
+{-# LANGUAGE FlexibleContexts, TypeFamilies #-}
 
 module Upcast.Aws where
 
 import Control.Monad
+import Control.Applicative
 import Control.Concurrent.Async
 import qualified Control.Exception
 import Data.Either
+import Data.Maybe
 
 import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8)
+import Data.Time.Clock (UTCTime)
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as LBS
+import qualified Data.ByteString.Base64 as Base64
 import Data.Aeson.Types (ToJSON)
 import Data.Aeson (encode)
 import Data.Aeson.Encode.Pretty (encodePretty)
 
 import qualified Aws
+import Aws.Core (Transaction)
 import Aws.Ec2.Core
 import Aws.Ec2.Types
 import qualified Aws.Ec2.Info as EC2
@@ -28,6 +36,7 @@ import qualified Aws.Ec2.Commands.ImportKeyPair as EC2
 
 import qualified Aws.Ec2.Commands.DescribeInstances as EC2
 import qualified Aws.Ec2.Commands.RunInstances as EC2
+import qualified Aws.Ec2.Commands.GetConsoleOutput as EC2
 
 import qualified Aws.Ec2.Commands.DescribeVpcs as EC2
 import qualified Aws.Ec2.Commands.CreateVpc as EC2
@@ -45,6 +54,7 @@ catchAny = Control.Exception.catch
 
 type DescribeFun = B.ByteString -> IO Value
 
+simpleAws :: (Transaction r Value, Aws.ServiceConfiguration r ~ EC2Configuration) => r -> B.ByteString -> IO Value
 simpleAws arg region = do
     -- cfg <- Aws.dbgConfiguration
     cfg <- Aws.baseConfiguration
@@ -55,6 +65,19 @@ pprint = LBS.putStrLn . encodePretty
 
 instances :: DescribeFun
 instances = simpleAws EC2.DescribeInstances
+
+console :: Text -> B.ByteString -> IO (UTCTime, B.ByteString)
+console inst reg = cast <$> simpleAws (EC2.GetConsoleOutput inst) reg
+  where
+    cast v = let o = out v in (EC2.timestamp o, decode o)
+    decode = Base64.decodeLenient . encodeUtf8 . EC2.output
+    out = fromJust . (castValue :: Value -> Maybe EC2.ConsoleOutput)
+
+pconsole :: Text -> B.ByteString -> IO ()
+pconsole inst reg = do
+    (t, o) <- console inst reg
+    B8.putStrLn o
+    putStrLn $ concat ["last output: ", show t]
 
 vpcs :: DescribeFun
 vpcs = simpleAws EC2.DescribeVpcs

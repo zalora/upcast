@@ -12,6 +12,9 @@ module Aws.Ec2.TH (
 , module Aws.Ec2.Core
 , module Aws.Ec2.Types
 , module Aws.Ec2.Info
+, Text
+, UTCTime
+, FromJSON
 , ec2ValueTransactionDef
 , ec2ValueTransaction
 ) where
@@ -19,6 +22,10 @@ module Aws.Ec2.TH (
 import Language.Haskell.TH
 import Language.Haskell.TH.Lib
 import Language.Haskell.TH.Syntax
+
+import Data.Text (Text)
+import Data.Aeson.Types (FromJSON(..))
+import Data.Time.Clock (UTCTime)
 
 import Aws.Core
 import Aws.Ec2.Core
