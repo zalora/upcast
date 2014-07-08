@@ -19,10 +19,12 @@ import Aws.Ec2.Types
 import qualified Aws.Ec2.Info as EC2
 
 import qualified Aws.Ec2.Commands.DescribeAvailabilityZones as EC2
+import qualified Aws.Ec2.Commands.DescribeRegions as EC2
 import qualified Aws.Ec2.Commands.DescribeImages as EC2
 
 import qualified Aws.Ec2.Commands.DescribeTags as EC2
 import qualified Aws.Ec2.Commands.DescribeKeyPairs as EC2
+import qualified Aws.Ec2.Commands.ImportKeyPair as EC2
 
 import qualified Aws.Ec2.Commands.DescribeInstances as EC2
 import qualified Aws.Ec2.Commands.RunInstances as EC2
@@ -84,17 +86,20 @@ tags = simpleAws EC2.DescribeTags
 keypairs :: DescribeFun
 keypairs = simpleAws EC2.DescribeKeyPairs
 
-regions :: [B.ByteString]
-regions = [ "ap-northeast-1"
-          , "ap-southeast-1"
-          , "ap-southeast-2"
-          , "eu-west-1"
-          , "eu-central-1" -- coming soon!
-          , "sa-east-1"
-          , "us-east-1"
-          , "us-west-1"
-          , "us-west-2"
-          ]
+regions :: DescribeFun
+regions = simpleAws EC2.DescribeRegions
 
-status = mapConcurrently ((flip catchAny $ \e -> return $ Left e) . fmap Right . azs) regions
+knownRegions :: [B.ByteString]
+knownRegions = [ "ap-northeast-1"
+               , "ap-southeast-1"
+               , "ap-southeast-2"
+               , "eu-west-1"
+               , "eu-central-1" -- coming soon!
+               , "sa-east-1"
+               , "us-east-1"
+               , "us-west-1"
+               , "us-west-2"
+               ]
+
+status = mapConcurrently ((flip catchAny $ \e -> return $ Left e) . fmap Right . azs) knownRegions
 pstatus = fmap rights status >>= mapM_ (LBS.putStrLn . encode)
