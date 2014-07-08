@@ -22,6 +22,7 @@ import qualified Aws.Ec2.Commands.DescribeAvailabilityZones as EC2
 import qualified Aws.Ec2.Commands.DescribeImages as EC2
 
 import qualified Aws.Ec2.Commands.DescribeTags as EC2
+import qualified Aws.Ec2.Commands.DescribeKeyPairs as EC2
 
 import qualified Aws.Ec2.Commands.DescribeInstances as EC2
 import qualified Aws.Ec2.Commands.RunInstances as EC2
@@ -40,6 +41,8 @@ import qualified Aws.Ec2.Commands.AttachVolume as EC2
 catchAny :: IO a -> (Control.Exception.SomeException -> IO a) -> IO a
 catchAny = Control.Exception.catch
 
+type DescribeFun = B.ByteString -> IO Value
+
 simpleAws arg region = do
     -- cfg <- Aws.dbgConfiguration
     cfg <- Aws.baseConfiguration
@@ -48,35 +51,38 @@ simpleAws arg region = do
 pprint :: ToJSON a => a -> IO ()
 pprint = LBS.putStrLn . encodePretty
 
-instances :: B.ByteString -> IO Value
+instances :: DescribeFun
 instances = simpleAws EC2.DescribeInstances
 
-vpcs :: B.ByteString -> IO Value
+vpcs :: DescribeFun
 vpcs = simpleAws EC2.DescribeVpcs
 
-createVpc :: Text -> B.ByteString -> IO Value
+createVpc :: Text -> DescribeFun
 createVpc block = simpleAws (EC2.CreateVpc block EC2.Default)
 
-subnets :: B.ByteString -> IO Value
+subnets :: DescribeFun
 subnets = simpleAws EC2.DescribeSubnets
 
-createSubnet :: Text -> Text -> B.ByteString -> IO Value
+createSubnet :: Text -> Text -> DescribeFun
 createSubnet vpc block = simpleAws (EC2.CreateSubnet vpc block)
 
-volumes :: B.ByteString -> IO Value
+volumes :: DescribeFun
 volumes = simpleAws EC2.DescribeVolumes
 
-volumeStatus :: B.ByteString -> IO Value
+volumeStatus :: DescribeFun
 volumeStatus = simpleAws EC2.DescribeVolumeStatus
 
-azs :: B.ByteString -> IO Value
+azs :: DescribeFun
 azs = simpleAws EC2.DescribeAvailabilityZones
 
-images :: B.ByteString -> IO Value
+images :: DescribeFun
 images = simpleAws EC2.DescribeImages
 
-tags :: B.ByteString -> IO Value
+tags :: DescribeFun
 tags = simpleAws EC2.DescribeTags
+
+keypairs :: DescribeFun
+keypairs = simpleAws EC2.DescribeKeyPairs
 
 regions :: [B.ByteString]
 regions = [ "ap-northeast-1"
