@@ -11,8 +11,11 @@ module Upcast.State (
 , resourceAttrs
 , deploymentAttrs
 -- * types
+, State(..)
 , Resource(..)
 , Deployment(..)
+-- *
+, emptyState
 -- * forward declarations
 , Database
 ) where
@@ -27,6 +30,12 @@ import Data.Text (Text)
 import Database.SQLite3 (open, close, Database, prepare, bind, SQLData(..), step, finalize, columns, StepResult(..))
 
 import Upcast.Interpolate (n)
+
+data State = State Deployment [Resource] [String] [Resource] -- deployment resources expressions machines
+           deriving (Show)
+
+emptyState expression = State (Deployment "new-upcast-deployment" []) [] [expression] []
+
 
 runState :: Text -> ReaderT Database IO c -> IO c
 runState stateFile value = withStateConn stateFile $ runReaderT value

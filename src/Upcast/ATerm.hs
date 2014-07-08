@@ -2,8 +2,8 @@
 
 module Upcast.ATerm (
   parse
-, valueForKeyPath
-, valueForKeyPathS
+, alookup
+, alookupS
 , Value(..)
 ) where
 
@@ -22,15 +22,15 @@ import Data.Attoparsec.ByteString.Char8 hiding (parse)
 
 parse = parseOnly value
 
-valueForKeyPath :: [Text] -> Value -> Maybe Value
-valueForKeyPath keys o@(Object h) =
+alookup :: [Text] -> Value -> Maybe Value
+alookup keys o@(Object h) =
     case keys of
-      (x:xs) -> HM.lookup x h >>= valueForKeyPath xs
+      (x:xs) -> HM.lookup x h >>= alookup xs
       [] -> return o
-valueForKeyPath [] o = return o
-valueForKeyPath (_:_) _ = Nothing
+alookup [] o = return o
+alookup (_:_) _ = Nothing
 
-valueForKeyPathS = valueForKeyPath . split (== '.')
+alookupS = alookup . split (== '.')
 
 value :: Parser Value
 value = do
