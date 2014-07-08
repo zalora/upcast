@@ -54,7 +54,7 @@ catchAny = Control.Exception.catch
 
 type DescribeFun = B.ByteString -> IO Value
 
-simpleAws :: (Transaction r Value, Aws.ServiceConfiguration r ~ EC2Configuration) => r -> B.ByteString -> IO Value
+simpleAws :: (Transaction r Value, Aws.ServiceConfiguration r ~ EC2Configuration) => r -> DescribeFun
 simpleAws arg region = do
     -- cfg <- Aws.dbgConfiguration
     cfg <- Aws.baseConfiguration
@@ -100,8 +100,9 @@ volumeStatus = simpleAws EC2.DescribeVolumeStatus
 azs :: DescribeFun
 azs = simpleAws EC2.DescribeAvailabilityZones
 
-images :: DescribeFun
-images = simpleAws EC2.DescribeImages
+-- for example: Upcast.Aws.images ["ami-f8d98faa"] "ap-southeast-1" >>= pprint
+images :: [Text] -> DescribeFun
+images amis = simpleAws $ EC2.DescribeImages amis
 
 tags :: DescribeFun
 tags = simpleAws EC2.DescribeTags
