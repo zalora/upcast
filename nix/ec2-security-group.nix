@@ -2,6 +2,8 @@
 
 with lib;
 
+let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource; in
+
 {
 
   options = {
@@ -27,6 +29,12 @@ with lib;
       default = "";
       type = types.str;
       description = "The AWS Access Key ID.";
+    };
+
+    vpc = mkOption {
+      type = union types.str (resource "ec2-vpc");
+      apply = x: if builtins.isString x then x else x._name;
+      description = "If specified, the security group is created under this VPC.";
     };
 
     groupId = mkOption {

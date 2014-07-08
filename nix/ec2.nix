@@ -9,18 +9,7 @@ let
 
   cfg = config.deployment.ec2;
 
-  # FIXME: move to nixpkgs/lib/types.nix.
-  union = t1: t2: mkOptionType {
-    name = "${t1.name} or ${t2.name}";
-    check = x: t1.check x || t2.check x;
-    merge = mergeOneOption;
-  };
-
-  resource = type: mkOptionType {
-    name = "resource of type ‘${type}’";
-    check = x: x._type or "" == type;
-    merge = mergeOneOption;
-  };
+  inherit (import ./lib.nix { inherit config pkgs utils lib; }) union resource;
 
   defaultEbsOptimized =
     let props = config.deployment.ec2.physicalProperties;

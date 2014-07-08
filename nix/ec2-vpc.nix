@@ -2,7 +2,7 @@
 
 with lib;
 
-let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource; in
+let inherit (import ./lib.nix) union resource; in
 
 {
 
@@ -24,14 +24,8 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource; in
       default = name;
     };
 
-    vpc = mkOption {
-      type = union types.str (resource "ec2-vpc");
-      apply = x: if builtins.isString x then x else x._name;
-      description = "VPC which contains the subnet.";
-    };
-
   };
 
-  config._type = "ec2-subnet";
+  config._type = "ec2-vpc";
 
 }

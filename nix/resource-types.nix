@@ -1,8 +1,15 @@
 {
+
   machines = {
     pluralDisplayName = "machines";
 
     baseModules = import <nixpkgs/nixos/modules/module-list.nix> ++ [ ./options.nix ];
+  };
+
+  vpc = {
+    pluralDisplayName = "EC2 VPCs";
+
+    baseModules = [ ./ec2-vpc.nix ./resource.nix ];
   };
 
   subnets = {
