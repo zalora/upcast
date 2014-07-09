@@ -1,6 +1,28 @@
 {-# LANGUAGE FlexibleContexts, TypeFamilies #-}
 
-module Upcast.Aws where
+module Upcast.Aws (
+  simpleAws
+, pprint
+, instances
+, securityGroups
+, securityGroupsByName
+, console
+, pconsole
+, vpcs
+, createVpc
+, subnets
+, createSubnet
+, volumes
+, volumeStatus
+, azs
+, images
+, tags
+, keypairs
+, regions
+, knownRegions
+, status
+, pstatus
+) where
 
 import Control.Monad
 import Control.Applicative
