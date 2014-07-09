@@ -15,7 +15,7 @@ executable upcast
                      , directory, filepath
                      , bytestring, text
                      , unix, process, time
-                     , mtl
+                     , mtl, free
                      , stm
                      , async
                      , direct-sqlite
@@ -42,7 +42,7 @@ executable ec2
                      , directory, filepath
                      , bytestring, text
                      , unix, process, time
-                     , mtl
+                     , mtl, free
                      , stm
                      , async
                      , direct-sqlite
