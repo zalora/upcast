@@ -53,6 +53,9 @@ import qualified Aws.Ec2.Commands.DescribeRegions as EC2
 import qualified Aws.Ec2.Commands.DescribeImages as EC2
 
 import qualified Aws.Ec2.Commands.DescribeSecurityGroups as EC2
+import qualified Aws.Ec2.Commands.CreateSecurityGroup as EC2
+import qualified Aws.Ec2.Commands.AuthorizeSecurityGroupIngress as EC2
+
 import qualified Aws.Ec2.Commands.DescribeTags as EC2
 import qualified Aws.Ec2.Commands.DescribeKeyPairs as EC2
 import qualified Aws.Ec2.Commands.ImportKeyPair as EC2
@@ -92,6 +95,9 @@ securityGroups :: [EC2.SecurityGroupId] -> [EC2.SecurityGroupName] -> RegionAws
 securityGroups ids names = simpleAws $ EC2.DescribeSecurityGroups ids names
 
 securityGroupsByName name = securityGroups [] [name]
+
+createSecurityGroup :: Text -> Text -> Text -> RegionAws
+createSecurityGroup name desc vpcId = simpleAws $ EC2.CreateSecurityGroup name desc $ Just vpcId
 
 console :: Text -> B.ByteString -> IO (UTCTime, B.ByteString)
 console inst reg = cast <$> simpleAws (EC2.GetConsoleOutput inst) reg

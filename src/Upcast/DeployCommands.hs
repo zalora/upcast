@@ -74,6 +74,7 @@ ssh' :: Text -> Command Remote -> Command Local
 ssh' sshAuthSock (Cmd (Remote _ host) cmd) =
     Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh -x root@#{host} -- '#{cmd}'|]
 
+deploymentInfo :: DeployContext -> State -> IO (Either String Value)
 deploymentInfo ctx (State deployment _ exprs _) =
     let info = nixDeploymentInfo ctx (exprs) (deploymentUuid deployment)
         in do

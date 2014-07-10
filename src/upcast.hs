@@ -2,6 +2,7 @@
 
 module Main where
 
+import System.Environment (getArgs)
 import System.FilePath.Posix ((</>))
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
@@ -62,6 +63,12 @@ planOnly = do
     s@(State _ resources _ _) <- state ctx
     deployPlan ctx s >>= mapM_ print
 
+infoOnly exprFile = do
+    let ctx = def :: DeployContext
+    let s = emptyState exprFile
+    Right info <- deploymentInfo ctx s
+    pprint info
+
 deploy = do
     let ctx = def :: DeployContext
     s@(State _ resources _ _) <- state ctx
@@ -76,4 +83,4 @@ deploy = do
     let ctx' = ctx{ sshAuthSock = T.pack agentSocket }
     deployPlan ctx' s >>= mapM_ fgrun
 
-main = planOnly
+main = fmap head getArgs >>= infoOnly

@@ -4,6 +4,7 @@ module Upcast.ATerm (
   parse
 , alookup
 , alookupS
+, alookupSE
 , Value(..)
 ) where
 
@@ -11,6 +12,8 @@ import Prelude hiding (takeWhile)
 
 import Control.Applicative
 
+import Data.Maybe (maybe)
+import Data.Monoid (mconcat)
 import Data.ByteString.Char8 hiding (takeWhile, split)
 import Data.Text hiding (cons, takeWhile)
 import Data.Text.Encoding (decodeUtf8)
@@ -31,6 +34,8 @@ alookup [] o = return o
 alookup (_:_) _ = Nothing
 
 alookupS = alookup . split (== '.')
+
+alookupSE s v = maybe (Left $ mconcat ["key `", s, "' not found"]) Right $ alookup (split (== '.') s) v
 
 value :: Parser Value
 value = do
