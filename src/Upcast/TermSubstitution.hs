@@ -18,8 +18,9 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as LBS
 
-import Data.Aeson
+import Data.Aeson (Value)
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Encode.Pretty as A
 
 type SubMap = Map Text Value
 data SubStore = SubStore FilePath SubMap deriving (Show)
@@ -32,7 +33,7 @@ loadSubStore path = do
 
 commit :: SubStore -> IO SubStore
 commit s@(SubStore path x) = do
-    LBS.writeFile path $ A.encode x
+    LBS.writeFile path $ A.encodePretty x
     return s
 
 -- XXX: Show is quite nice for debugging purposes (and readability, given thatkeys are expected to be small)
