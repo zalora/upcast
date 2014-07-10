@@ -6,6 +6,7 @@
            #-}
 
 -- boilerplate minimization for experimental stuff
+-- also a hub for module re-exports for ec2 commands
 
 module Aws.Ec2.TH (
   module Aws.Core
