@@ -13,8 +13,8 @@ import Control.Monad.Free
 
 import Data.Monoid
 import Data.Maybe (fromJust)
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import qualified Data.HashMap.Strict as H
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -27,22 +27,29 @@ import Aws.Ec2.Types (castValue)
 import qualified Aws.Ec2.Info as EC2
 import qualified Aws.Ec2.Commands.CreateVpc as EC2
 import qualified Aws.Ec2.Commands.CreateSubnet as EC2
+import qualified Aws.Ec2.Commands.ImportKeyPair as EC2
+import qualified Aws.Ec2.Commands.CreateVolume as EC2
+import qualified Aws.Ec2.Commands.RunInstances as EC2
+-- import qualified Aws.Ec2.Commands.CreateSecurityGroup as EC2
 
-import Upcast.Interpolate (n)
 import Upcast.State
-import Upcast.Nix
-import Upcast.Command
-import Upcast.Temp
 import Upcast.ATerm (alookupS)
 import Upcast.DeployCommands
 import Upcast.Deploy
 
+import Upcast.TermSubstitution
+
 type MapCast a = Value -> Map Text a
+
 justCast :: FromJSON a => Value -> a
 justCast = fromJust . castValue
 
 mvalues = fmap snd . Map.toList
 values = fmap snd . H.toList
+
+mcast :: forall a. FromJSON a => Text -> Value -> [a]
+mcast key value = mvalues $ (justCast :: MapCast a) $ fromJust $ alookupS key value
+
 
 instance FromJSON EC2.CreateVpc where
     parseJSON (Object v) = EC2.CreateVpc <$> v .: "cidrBlock" <*> pure EC2.Default
@@ -66,34 +73,31 @@ resourceVal x = liftF (Val x ())
 
 rplan :: MonadFree ResourceF m => Value -> m ()
 rplan info = do
-    let vpcs@(vpc:_) = mvalues $ (justCast :: MapCast EC2.CreateVpc) $ fromJust $ alookupS "resources.vpc" info
-    let subnets@(subnet:_) = mvalues $ (justCast :: MapCast EC2.CreateSubnet) $ fromJust $ alookupS "resources.subnets" info
-
     vpcId <- resourceVpc vpc
     subnet <- resourceSubnet vpcId subnet
 
     return ()
+  where
+    cast :: FromJSON a => Text -> [a]
+    cast = (`mcast` info)
 
-data S = Cached | Created
-       deriving (Show)
+    vpcs@(vpc:_) = cast "resources.vpc" :: [EC2.CreateVpc]
+    subnets@(subnet:_) = cast "resources.subnets" :: [EC2.CreateSubnet]
+    -- secgroups@(secgroup:_) = mvalues $ (justCast :: MapCast EC2.CreateSecurityGroup) $ fromJust $ alookupS "resources.ec2SecurityGroups" info
+    -- keypairs@(keypair:_) = cast "resources.ec2KeyPairs" :: [EC2.ImportKeyPair]
+    -- volumes@(vol:_) = cast "resources.ebsVolumes" :: [EC2.CreateVolume]
+    -- instances@(inst:_) = cast "resources.machines" :: [EC2.RunInstances]
 
-data V = V S Text TransactionStore Text
-       deriving (Show)
 
-debug :: TransactionStore -> ResourcePlan a -> IO a
+debug :: SubStore -> ResourcePlan a -> IO a
 debug state (Free (VPC value next)) = do
-    let key :: Text = T.pack $ show value
-    v@(V _ _ state'' vpcid) <- case clookup key state of
-                             Nothing -> do
-                               let result = "vpc-00blah" :: Text
-                               state' <- commit (cache key (String result) state) "store"
-                               return $ V Created key state' result
-                             Just x -> return $ V Cached key state $ (justCast :: Value -> Text) x
-    print v
-    debug state'' $ next vpcid
+    sub@(_, state', String val) <- substitute state value (return $ String "vpc-00blahg")
+    print sub
+    debug state' $ next val
 debug state (Free (Subnet vpcid create next)) = do
     let v = create{ EC2.csub_vpcId = vpcid }
-    print v
+    sub@(_, state', res) <- substitute state v (return $ String "subnet-11meh")
+    print sub
     debug state $ next v
 debug state (Free (Val value next)) = do
     print value
@@ -104,21 +108,10 @@ debug state (Pure r) = return r
 evalResources exprFile ctx@DeployContext{..} = do
     let s = emptyState exprFile
     Right info <- deploymentInfo ctx s
-    store <- readTransactionStore "store"
+    store <- loadSubStore "store"
     
     debug store $ rplan info
     return ()
 
-type TransactionStore = Map Text Value
 
-readTransactionStore path = do
-    Just store <- (A.decode :: LBS.ByteString -> Maybe TransactionStore) <$> LBS.readFile path
-    return store
 
-commit :: TransactionStore -> FilePath -> IO TransactionStore
-commit xstore path = do
-    LBS.writeFile path $ A.encode xstore
-    return xstore
-
-clookup = Map.lookup
-cache = Map.insert
