@@ -13,7 +13,7 @@ executable upcast
   build-depends:       base
                      , containers
                      , directory, filepath
-                     , bytestring, text
+                     , bytestring, text, base64-bytestring
                      , unix, process, time
                      , mtl, free
                      , stm
@@ -40,7 +40,7 @@ executable ec2
   build-depends:       base
                      , containers
                      , directory, filepath
-                     , bytestring, text
+                     , bytestring, text, base64-bytestring
                      , unix, process, time
                      , mtl, free
                      , stm
