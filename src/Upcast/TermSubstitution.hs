@@ -15,7 +15,6 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 
 import Data.Text (Text)
-import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as LBS
 
 import Data.Aeson (Value)
@@ -36,12 +35,9 @@ commit s@(SubStore path x) = do
     LBS.writeFile path $ A.encodePretty x
     return s
 
--- XXX: Show is quite nice for debugging purposes (and readability, given thatkeys are expected to be small)
---      Perhaps pick another key serialization format (ToJSON won't help because terms can't be used as keys).
-substitute :: (Show a) => SubStore -> a -> IO Value -> IO (Sub, SubStore, Value)
-substitute state@(SubStore p map) term compute = maybe def wrap $ Map.lookup key map
+substitute :: SubStore -> Text -> IO Value -> IO (Sub, SubStore, Value)
+substitute state@(SubStore p map) key compute = maybe def wrap $ Map.lookup key map
   where
-    key = T.pack $ show term
     wrap = return . (Cached, state, )
     def = do
       result <- compute

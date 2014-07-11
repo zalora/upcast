@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings
            , RecordWildCards
-           , FlexibleContexts
            , ScopedTypeVariables
            , DeriveFunctor
+           , ExistentialQuantification
+           , FlexibleContexts
+           , TypeFamilies
            #-}
 
 module Upcast.Resource where
@@ -18,6 +20,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.HashMap.Strict as H
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Data.Aeson
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
@@ -40,6 +43,12 @@ import Upcast.DeployCommands
 import Upcast.Deploy
 
 import Upcast.TermSubstitution
+
+import Aws.Core
+import Data.Time.Clock
+import Data.IORef (newIORef)
+import Aws.Ec2.Core (EC2Configuration(..))
+import qualified Network.HTTP.Conduit as HTTP
 
 type MapCast a = Value -> Map Text a
 
@@ -96,41 +105,38 @@ instance FromJSON EC2.ImportKeyPair where
     parseJSON (Object v) = EC2.ImportKeyPair <$> v .: "name"
                                              <*> v .: "privateKeyFile" {- XXX: not encoded! -}
 
-data ResourceF next = VPC EC2.CreateVpc (Text -> next)
-                    | Subnet EC2.CreateSubnet (Text -> next)
-                    | SecurityGroup EC2.CreateSecurityGroup (Text -> next)
-                    | SecurityGroupAuth EC2.AuthorizeSecurityGroupIngress next
-                    | KeyPair EC2.ImportKeyPair next
-                    | Val Value next
-                    deriving (Functor)
+-- | Existential type to contain possible EC2-related transactions for `resourceAWS'
+data TX = forall r. (ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => TX r
 
+-- | Transaction that needs a result, obtained from a Value by Text-typed keypath
+data TXR = TXR TX Text
+
+data ResourceF next = AWS TX next
+                    | AWSR TXR (Text -> next)
+                    deriving (Functor)
 type ResourcePlan = Free ResourceF
 
-resourceVpc x = liftF (VPC x id)
-resourceSubnet x = liftF (Subnet x id)
-resourceVal x = liftF (Val x ())
-resourceSecurityGroup x = liftF (SecurityGroup x id)
-resourceSecurityGroupAuth x = liftF (SecurityGroupAuth x id)
-resourceKeyPair x = liftF (KeyPair x ())
+resourceAWS tx = liftF (AWS tx ())
+resourceAWSR txr = liftF (AWSR txr id)
 
 rplan :: MonadFree ResourceF m => Value -> m ()
 rplan info = do
-    vpcId <- resourceVpc vpc
-    subnet <- resourceSubnet subnet{ EC2.csub_vpcId = vpcId }
+    vpcId <- resourceAWSR $ TXR (TX vpc) "vpcId"
+    subnet <- resourceAWSR $ TXR (TX subnet{ EC2.csub_vpcId = vpcId }) "subnetId"
 
     -- AWS needs more than one call per each security group (Create + add rules)
     let Just g = flip A.parseMaybe sg $ \(Object obj) -> do
                                 name <- obj .: "name" :: A.Parser Text
                                 desc <- obj .: "description" :: A.Parser Text
                                 return $ EC2.CreateSecurityGroup name desc $ Just vpcId
-    secGroupId <- resourceSecurityGroup g
+    secGroupId <- resourceAWSR $ TXR (TX g) "groupId"
 
     let Just r = flip A.parseMaybe sg $ \(Object obj) -> do
                                 rules <- obj .: "rules" :: A.Parser [EC2.IpPermission]
                                 return $ EC2.AuthorizeSecurityGroupIngress secGroupId rules
-    resourceSecurityGroupAuth r
+    resourceAWS $ TX r
 
-    resourceKeyPair keypair
+    resourceAWSR $ TXR (TX keypair) "keyFingerprint"
 
     return ()
   where
@@ -150,30 +156,40 @@ rplan info = do
     -- instances@(inst:_) = cast "resources.machines" :: [EC2.RunInstances]
 
 
-debug :: SubStore -> ResourcePlan a -> IO a
-debug state (Free (VPC value next)) = do
-    sub@(_, state', String val) <- substitute state value (return $ String "vpc-00blahg")
-    print sub
-    debug state' $ next val
-debug state (Free (Subnet create next)) = do
-    sub@(_, state', String res) <- substitute state create (return $ String "subnet-11meh")
-    print sub
-    debug state' $ next res
-debug state (Free (SecurityGroup create next)) = do
-    sub@(_, state', String res) <- substitute state create (return $ String "sg-22wow")
-    print sub
-    debug state' $ next res
-debug state (Free (SecurityGroupAuth value next)) = do
+
+canonicalSigData :: IO SignatureData
+canonicalSigData = do
+    emptyRef <- newIORef []
+    return SignatureData { signatureTimeInfo = AbsoluteTimestamp baseTime
+                         , signatureTime = baseTime
+                         , signatureCredentials = Credentials "" "" emptyRef
+                         }
+  where
+    baseTime = UTCTime (toEnum 0) $ secondsToDiffTime 0
+
+substituteTX :: SubStore -> TX -> IO (Sub, SubStore, Value)
+substituteTX state (TX tx) =  do
     -- TODO ignore InvalidPermission.Duplicate
-    print value
-    debug state next
-debug state (Free (KeyPair value next)) = do
-    -- TODO ignore InvalidKeyPair.Duplicate
-    print value
-    debug state next
-debug state (Free (Val value next)) = do
-    print value
-    debug state next
+    --      ignore InvalidKeyPair.Duplicate
+    sig <- canonicalSigData
+    let s = signQuery tx conf sig
+    let Just (HTTP.RequestBodyBS key) = sqBody s
+    substitute state (T.decodeUtf8 key) (return $ object $ [("blahId", String "tx-4321")])
+  where
+    conf = EC2Configuration "us-east-1"
+
+
+debug :: SubStore -> ResourcePlan a -> IO a
+debug state (Free (AWSR (TXR tx keyPath) next)) = do
+    sub@(t, state', val) <- substituteTX state tx
+    -- let result = acast keyPath val :: Text
+    let result = acast "blahId" val :: Text
+    print (t, val, result)
+    debug state' $ next result
+debug state (Free (AWS tx next)) = do
+    sub@(t, state', val) <- substituteTX state tx
+    print (t, val)
+    debug state' $ next
 debug state (Pure r) = return r
 
 
@@ -184,6 +200,5 @@ evalResources exprFile ctx@DeployContext{..} = do
     
     debug store $ rplan info
     return ()
-
 
 
