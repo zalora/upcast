@@ -4,6 +4,7 @@ module Upcast.Aws (
   simpleAws
 , pprint
 , instances
+, instanceStatus
 , securityGroups
 , securityGroupsByName
 , console
@@ -61,6 +62,7 @@ import qualified Aws.Ec2.Commands.DescribeKeyPairs as EC2
 import qualified Aws.Ec2.Commands.ImportKeyPair as EC2
 
 import qualified Aws.Ec2.Commands.DescribeInstances as EC2
+import qualified Aws.Ec2.Commands.DescribeInstanceStatus as EC2
 import qualified Aws.Ec2.Commands.RunInstances as EC2
 import qualified Aws.Ec2.Commands.GetConsoleOutput as EC2
 
@@ -89,7 +91,9 @@ simpleAws arg region = do
 pprint :: ToJSON a => a -> IO ()
 pprint = LBS.putStrLn . encodePretty
 
-instances = simpleAws EC2.DescribeInstances
+instances ids = simpleAws $ EC2.DescribeInstances ids
+
+instanceStatus ids = simpleAws $ EC2.DescribeInstanceStatus ids
 
 securityGroups :: [EC2.SecurityGroupId] -> [EC2.SecurityGroupName] -> RegionAws
 securityGroups ids names = simpleAws $ EC2.DescribeSecurityGroups ids names
