@@ -49,7 +49,7 @@ data Placement = Placement
                } deriving (Show)
 
 enumerateBlockDevices :: [BlockDeviceMapping] -> HTTP.Query
-enumerateBlockDevices mappings = [(mconcat ["BlockDeviceMapping.", pack $ show n, ".", k], v) | (n, (k, v)) <- zip ([1..] :: [Int]) $ concatMap unroll mappings]
+enumerateBlockDevices = enumerateLists "BlockDeviceMapping." . fmap unroll
   where
     unroll BlockDeviceMapping{..} = [ ("DeviceName", qArg bdm_deviceName)
                                     ] +++ case bdm_device of

@@ -34,12 +34,13 @@ data AuthorizeSecurityGroupIngress = AuthorizeSecurityGroupIngress
                } deriving (Show)
 
 enumeratePermissions :: [IpPermission] -> HTTP.Query
-enumeratePermissions perms = [(mconcat ["IpPermissions.", pack $ show n, ".", k], v) | (n, (k, v)) <- zip ([1..] :: [Int]) $ concatMap unroll perms]
+enumeratePermissions = enumerateLists "IpPermissions." . fmap unroll
   where
     unroll (IpPermission proto from to ips) = [ ("IpProtocol", qShow proto)
+                                              , ("FromPort", qShow $ maybe (-1) id from)
+                                              , ("ToPort", qShow $ maybe (-1) id to)
                                               ] +++ [(mconcat [k, ".CidrIp"], v)| (k, v) <- enumerate "IpRanges" ips qArg]
-                                                +++ optional "FromPort" from qShow
-                                                +++ optional "ToPort" to qShow
+
 
 instance SignQuery AuthorizeSecurityGroupIngress where
     type ServiceConfiguration AuthorizeSecurityGroupIngress = EC2Configuration

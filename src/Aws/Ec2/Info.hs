@@ -108,3 +108,7 @@ optionalA k v = optional k v qArg
 enumerate :: String -> [a] -> (a -> Maybe ByteString) -> HTTP.Query
 enumerate k xs f = [(pack $ mconcat [k, ".", show n], f x) | (n, x) <- zip ([1..] :: [Int]) xs]
 
+enumerateLists :: ByteString -> [HTTP.Query] -> HTTP.Query
+enumerateLists key xs = mconcat [prefix pairs $ mconcat [key, pack $ show n, "."] | (n, pairs) <- zip ([1..] :: [Int]) xs]
+  where
+    prefix xs p = [(mconcat [p, k], v) | (k, v) <- xs]
