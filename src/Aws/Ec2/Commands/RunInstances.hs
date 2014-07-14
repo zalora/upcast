@@ -75,7 +75,7 @@ instance SignQuery RunInstances where
                  , ("MaxCount", qShow $ snd run_count)
                  , ("InstanceType", qArg run_instanceType)
                  , ("SubnetId", qArg run_subnetId)
-                 , ("MonitoringEnabled", qShow run_monitoringEnabled)
+                 , ("Monitoring.Enabled", qShow run_monitoringEnabled)
                  , ("DisableApiTermination", qShow run_disableApiTermination)
                  , ("InstanceInitiatedShutdownBehavior", qShow run_instanceInitiatedShutdownBehavior)
                  , ("EbsOptimized", qShow run_ebsOptimized)

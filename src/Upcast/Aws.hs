@@ -47,35 +47,8 @@ import qualified Aws
 import Aws.Core (Transaction)
 import Aws.Ec2.Core
 import Aws.Ec2.Types
-import qualified Aws.Ec2.Info as EC2
 
-import qualified Aws.Ec2.Commands.DescribeAvailabilityZones as EC2
-import qualified Aws.Ec2.Commands.DescribeRegions as EC2
-import qualified Aws.Ec2.Commands.DescribeImages as EC2
-
-import qualified Aws.Ec2.Commands.DescribeSecurityGroups as EC2
-import qualified Aws.Ec2.Commands.CreateSecurityGroup as EC2
-import qualified Aws.Ec2.Commands.AuthorizeSecurityGroupIngress as EC2
-
-import qualified Aws.Ec2.Commands.DescribeTags as EC2
-import qualified Aws.Ec2.Commands.DescribeKeyPairs as EC2
-import qualified Aws.Ec2.Commands.ImportKeyPair as EC2
-
-import qualified Aws.Ec2.Commands.DescribeInstances as EC2
-import qualified Aws.Ec2.Commands.DescribeInstanceStatus as EC2
-import qualified Aws.Ec2.Commands.RunInstances as EC2
-import qualified Aws.Ec2.Commands.GetConsoleOutput as EC2
-
-import qualified Aws.Ec2.Commands.DescribeVpcs as EC2
-import qualified Aws.Ec2.Commands.CreateVpc as EC2
-
-import qualified Aws.Ec2.Commands.DescribeSubnets as EC2
-import qualified Aws.Ec2.Commands.CreateSubnet as EC2
-
-import qualified Aws.Ec2.Commands.DescribeVolumes as EC2
-import qualified Aws.Ec2.Commands.DescribeVolumeStatus as EC2
-import qualified Aws.Ec2.Commands.CreateVolume as EC2
-import qualified Aws.Ec2.Commands.AttachVolume as EC2
+import qualified Aws.Ec2 as EC2
 
 catchAny :: IO a -> (Control.Exception.SomeException -> IO a) -> IO a
 catchAny = Control.Exception.catch

@@ -46,8 +46,9 @@ data EbsBlockDevice = EbsBlockDevice
                     } deriving (Show)
 
 queryEbsBlockDevice EbsBlockDevice{..} = [ ("VolumeType", qShow ebd_volumeType)
-                                         , ("VolumeSize", qShow ebd_volumeSize)
-                                         , ("DeleteOnTermination", qShow ebd_deleteOnTermination)
+                                         -- , ("VolumeSize", qShow ebd_volumeSize)
+                                         , ("Size", qShow ebd_volumeSize) -- RunInstances: VolumeSize
+                                         -- , ("DeleteOnTermination", qShow ebd_deleteOnTermination) -- RunInstances only
                                          , ("Encrypted", qShow ebd_encrypted)
                                          ] +++ optionalA "SnapshotId" ebd_snapshotId
                                            +++ case ebd_volumeType of
