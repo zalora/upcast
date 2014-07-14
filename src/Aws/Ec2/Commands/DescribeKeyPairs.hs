@@ -7,7 +7,7 @@ module Aws.Ec2.Commands.DescribeKeyPairs where
 
 import Aws.Ec2.TH
 
-data DescribeKeyPairs = DescribeKeyPairs
+data DescribeKeyPairs = DescribeKeyPairs [Text]
                        deriving (Show)
 
-ec2ValueTransactionDef ''DescribeKeyPairs "DescribeKeyPairs" "keySet"
+ec2ValueTransactionDef ''DescribeKeyPairs 'DescribeKeyPairs "keySet" "KeyName"

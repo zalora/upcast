@@ -116,31 +116,31 @@ pconsole inst reg = do
     B8.putStrLn o
     putStrLn $ concat ["last output: ", show t]
 
-vpcs = simpleAws EC2.DescribeVpcs
+vpcs ids = simpleAws $ EC2.DescribeVpcs []
 
 createVpc :: Text -> RegionAws
 createVpc block = simpleAws (EC2.CreateVpc block EC2.Default)
 
-subnets = simpleAws EC2.DescribeSubnets
+subnets ids = simpleAws $ EC2.DescribeSubnets []
 
 createSubnet :: Text -> Text -> RegionAws
 createSubnet vpc block = simpleAws (EC2.CreateSubnet vpc block)
 
-volumes = simpleAws EC2.DescribeVolumes
+volumes ids = simpleAws $ EC2.DescribeVolumes ids
 
-volumeStatus = simpleAws EC2.DescribeVolumeStatus
+volumeStatus ids = simpleAws $ EC2.DescribeVolumeStatus ids
 
-azs = simpleAws EC2.DescribeAvailabilityZones
+azs names = simpleAws $ EC2.DescribeAvailabilityZones names
 
 -- for example: Upcast.Aws.images ["ami-f8d98faa"] "ap-southeast-1" >>= pprint
 images :: [Text] -> RegionAws
 images amis = simpleAws $ EC2.DescribeImages amis
 
-tags = simpleAws EC2.DescribeTags
+tags = simpleAws $ EC2.DescribeTags []
 
-keypairs = simpleAws EC2.DescribeKeyPairs
+keypairs names = simpleAws $ EC2.DescribeKeyPairs names
 
-regions = simpleAws EC2.DescribeRegions
+regions names = simpleAws $ EC2.DescribeRegions names
 
 knownRegions :: [B.ByteString]
 knownRegions = [ "ap-northeast-1"
@@ -154,5 +154,5 @@ knownRegions = [ "ap-northeast-1"
                , "us-west-2"
                ]
 
-status = mapConcurrently ((flip catchAny $ \e -> return $ Left e) . fmap Right . azs) knownRegions
+status = mapConcurrently ((flip catchAny $ \e -> return $ Left e) . fmap Right . azs []) knownRegions
 pstatus = fmap rights status >>= mapM_ (LBS.putStrLn . encode)

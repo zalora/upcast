@@ -34,12 +34,15 @@ import qualified Aws.Ec2.Core as EC2
 import Aws.Ec2.Types
 import Aws.Ec2.Info
 
-ec2ValueTransactionDef :: Name -> String -> String -> DecsQ
-ec2ValueTransactionDef ty action tag = [d|
+ec2ValueTransactionDef :: Name -> Name -> String -> String -> DecsQ
+ec2ValueTransactionDef ty cons tag filterKey = do
+                arg <- newName "arg"
+                [d|
                   instance SignQuery $(conT ty) where
                       type ServiceConfiguration $(conT ty) = EC2Configuration
-                      signQuery _ = ec2SignQuery [ ("Action", qArg $(stringE action))
-                                                 , ("Version", qArg "2014-06-15")]
+                      signQuery ($(conP cons [varP arg])) = ec2SignQuery $ [ ("Action", qArg $(stringE $ nameBase ty))
+                                                                           , ("Version", qArg "2014-06-15")
+                                                                           ] +++ enumerate $(stringE filterKey) $(varE arg) qArg
 
                   instance ResponseConsumer $(conT ty) Value where
                       type ResponseMetadata Value = EC2Metadata
