@@ -10,6 +10,7 @@ module Upcast.TermSubstitution (
 ) where
 
 import Control.Applicative
+import Data.Monoid (mconcat)
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -27,8 +28,10 @@ data Sub = Cached | Created deriving (Show)
 
 loadSubStore :: FilePath -> IO SubStore
 loadSubStore path = do
-    Just store <- (A.decode :: LBS.ByteString -> Maybe SubMap) <$> LBS.readFile path
-    return $ SubStore path store
+    store <- (A.eitherDecode :: LBS.ByteString -> Either String SubMap) <$> LBS.readFile path
+    case store of
+      Right s -> return $ SubStore path s
+      Left r -> error $ mconcat ["loadSubStore ", show path, ": ", r]
 
 commit :: SubStore -> IO SubStore
 commit s@(SubStore path x) = do
