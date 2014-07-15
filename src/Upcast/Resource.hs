@@ -143,8 +143,9 @@ rplan expressionName keypairs info = do
         let Just csubnet = flip A.parseMaybe subnet $ \(Object obj) -> do
                                     cidr <- obj .: "cidrBlock"
                                     vpc <- obj .: "vpc"
+                                    zone <- obj .: "zone"
                                     let Just vpcId = lookup vpc vpcA
-                                    return $ EC2.CreateSubnet vpcId cidr
+                                    return $ EC2.CreateSubnet vpcId cidr $ Just zone
         subnetId <- resourceAWSR csubnet "subnetId"
 
         return [(EC2.csub_cidrBlock csubnet, subnetId)]

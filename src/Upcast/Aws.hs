@@ -96,8 +96,8 @@ createVpc block = simpleAws (EC2.CreateVpc block EC2.Default)
 
 subnets ids = simpleAws $ EC2.DescribeSubnets []
 
-createSubnet :: Text -> Text -> RegionAws
-createSubnet vpc block = simpleAws (EC2.CreateSubnet vpc block)
+createSubnet :: Text -> Text -> Maybe Text -> RegionAws
+createSubnet vpc block az = simpleAws (EC2.CreateSubnet vpc block az)
 
 volumes ids = simpleAws $ EC2.DescribeVolumes ids
 

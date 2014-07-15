@@ -13,6 +13,12 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource; in
       description = "Amazon EC2 region.";
     };
 
+    zone = mkOption {
+      example = "us-east-1c";
+      type = types.str;
+      description = "Amazon EC2 availability zone";
+    };
+
     accessKeyId = mkOption {
       default = "";
       type = types.str;
