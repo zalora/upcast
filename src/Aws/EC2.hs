@@ -23,6 +23,11 @@ module Aws.Ec2 (
 
 , module Aws.Ec2.Commands.DescribeVpcs
 , module Aws.Ec2.Commands.CreateVpc
+, module Aws.Ec2.Commands.ModifyVpcAttribute
+, module Aws.Ec2.Commands.CreateInternetGateway
+, module Aws.Ec2.Commands.AttachInternetGateway
+, module Aws.Ec2.Commands.DescribeRouteTables
+, module Aws.Ec2.Commands.CreateRoute
 
 , module Aws.Ec2.Commands.DescribeSubnets
 , module Aws.Ec2.Commands.CreateSubnet
@@ -57,6 +62,11 @@ import Aws.Ec2.Commands.GetConsoleOutput
 
 import Aws.Ec2.Commands.DescribeVpcs
 import Aws.Ec2.Commands.CreateVpc
+import Aws.Ec2.Commands.ModifyVpcAttribute
+import Aws.Ec2.Commands.CreateInternetGateway
+import Aws.Ec2.Commands.AttachInternetGateway
+import Aws.Ec2.Commands.DescribeRouteTables
+import Aws.Ec2.Commands.CreateRoute
 
 import Aws.Ec2.Commands.DescribeSubnets
 import Aws.Ec2.Commands.CreateSubnet

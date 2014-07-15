@@ -64,7 +64,7 @@ instance SignQuery RunInstances where
                                   +++ (optionalA "UserData" run_userData)
                                   +++ (optionalA "KernelId" run_kernelId)
                                   +++ (optionalA "RamdiskId" run_ramdiskId)
-                                  +++ enumerate "SecurityGroupId" run_securityGroupIds qArg
+                                  +++ enumerate "NetworkInterface.0.SecurityGroupId" run_securityGroupIds qArg
                                   +++ enumerateBlockDevices run_blockDeviceMappings
         where
           main :: HTTP.Query
@@ -74,11 +74,14 @@ instance SignQuery RunInstances where
                  , ("MinCount", qShow $ fst run_count)
                  , ("MaxCount", qShow $ snd run_count)
                  , ("InstanceType", qArg run_instanceType)
-                 , ("SubnetId", qArg run_subnetId)
                  , ("Monitoring.Enabled", qShow run_monitoringEnabled)
                  , ("DisableApiTermination", qShow run_disableApiTermination)
                  , ("InstanceInitiatedShutdownBehavior", qShow run_instanceInitiatedShutdownBehavior)
                  , ("EbsOptimized", qShow run_ebsOptimized)
+                 -- cheating:
+                 , ("NetworkInterface.0.DeviceIndex", qShow 0)
+                 , ("NetworkInterface.0.SubnetId", qArg run_subnetId)
+                 , ("NetworkInterface.0.AssociatePublicIpAddress", qShow True) -- default is False if subnets are present
                  ]
 
 ec2ValueTransaction ''RunInstances "RunInstancesResponse"
