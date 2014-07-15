@@ -33,8 +33,9 @@ data RunInstances = RunInstances
                   , run_kernelId :: Maybe Text
                   , run_ramdiskId :: Maybe Text
                   , run_clientToken :: Maybe Text
+                  , run_availabilityZone :: Maybe Text
                   -- , run_placement :: Maybe Placement
-                  -- missing: NetworkInterface
+                  -- also missing: NetworkInterface
                   } deriving (Show)
 
 data InstanceInitiatedShutdownBehavior = Stop | Terminate
@@ -42,12 +43,6 @@ data InstanceInitiatedShutdownBehavior = Stop | Terminate
 instance Show InstanceInitiatedShutdownBehavior where
     show Stop = "stop"
     show Terminate = "terminate"
-
-data Placement = Placement
-               { pla_availabilityZone :: Text
-               , pla_groupName :: Text
-               , pla_tenancy :: InstanceTenancy
-               } deriving (Show)
 
 enumerateBlockDevices :: [BlockDeviceMapping] -> HTTP.Query
 enumerateBlockDevices = enumerateLists "BlockDeviceMapping." . fmap unroll
@@ -66,6 +61,7 @@ instance SignQuery RunInstances where
                                   +++ (optionalA "KernelId" run_kernelId)
                                   +++ (optionalA "RamdiskId" run_ramdiskId)
                                   +++ (optionalA "ClientToken" run_clientToken)
+                                  +++ (optionalA "Placement.AvailabilityZone" run_availabilityZone)
                                   +++ enumerate "NetworkInterface.0.SecurityGroupId" run_securityGroupIds qArg
                                   +++ enumerateBlockDevices run_blockDeviceMappings
         where

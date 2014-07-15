@@ -8,7 +8,7 @@ with lib;
 
     name = mkOption {
       example = "My Big Fat Disk";
-      default = "nixops-${uuid}-${name}";
+      default = name;
       type = types.str;
       description = "Description of the EBS volume.  This is the <literal>Name</literal> tag of the disk.";
     };

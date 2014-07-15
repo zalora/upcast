@@ -70,6 +70,9 @@ mcast key value = mvalues $ (justCast :: MapCast a) $ forceLookup key value
 acast :: forall a. FromJSON a => Text -> Value -> a
 acast key value = (justCast :: Value -> a) $ forceLookup key value
 
+scast :: forall a. FromJSON a => Text -> Value -> Maybe a
+scast k v = alookupS k v >>= castValue
+
 --
 -- orphanarium:
 --
@@ -185,22 +188,20 @@ rplan expressionName keypairs info = do
                                     return $ (name, EC2.CreateVolume{..})
 
         volumeId <- resourceAWSR v "volumeId"
+
+        (wait . EC2.DescribeVolumes) [volumeId]
+        resourceAWS (EC2.CreateTags [volumeId] (("Name", name):defTags))
+
         return [(name, volumeId)]
 
-    (wait . EC2.DescribeVolumes) $ fmap snd volumeA
-    resourceAWS (EC2.CreateTags (fmap snd volumeA) defTags)
-
     instanceA <- fmap mconcat $ forM instances $ \inst -> do
-        let Just (name, cinst) = flip A.parseMaybe inst $ \(Object obj) -> do
+        let Just (name, blockDevs, cinst) = flip A.parseMaybe inst $ \(Object obj) -> do
                                     String name <- obj .: "targetHost"
                                     Object ec2 <- obj .: "ec2" :: A.Parser Value
                                     securityGroupNames <- ec2 .: "securityGroups"
                                     subnet <- ec2 .: "subnet"
                                     let Just subnetId = lookup subnet subnetA
-                                    -- TODO:
-                                    -- let bds = acast "blockDeviceMapping" (Object ec2) :: Map Text Value
-                                    -- Map.foldMapWithKey bds `Map.foldMapWithKey` $ \k v ->
-                                    --                EC2.BlockDeviceMapping k $ EC2.EBS EC2.EbsBlockDevice{..}
+                                    let blockDevs = scast "blockDeviceMapping" (Object ec2) :: Maybe (Map Text Value)
 
                                     run_imageId <- ec2 .: "ami"
                                     let run_count = (1, 1)
@@ -218,15 +219,25 @@ rplan expressionName keypairs info = do
                                     let run_kernelId = Nothing
                                     let run_ramdiskId = Nothing
                                     let run_clientToken = Just name -- need a unique string to prevent substituting one call for many
-
-                                    return (name, EC2.RunInstances{..})
+                                    run_availabilityZone <- ec2 .:? "zone"
+                                   
+                                    return (name, maybe [] Map.toList blockDevs, EC2.RunInstances{..})
         instanceId <- resourceAWSR cinst "instancesSet.instanceId"
         resourceAWS (EC2.CreateTags [instanceId] (("Name", name):defTags))
-        return [(name, instanceId)]
+        return [(name, (instanceId, blockDevs))]
 
-    (wait . EC2.DescribeInstanceStatus) $ fmap snd instanceA
+    (wait . EC2.DescribeInstanceStatus) $ fmap (fst . snd) instanceA
 
-    -- TODO: attach volumes
+    forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
+      let blockA = (\(mapping, v) -> (mapping, let t = acast "disk" v :: Text
+                                                   td = T.drop 4 t
+                                                   in case "res-" `T.isPrefixOf` t of
+                                                        True -> case lookup td volumeA of
+                                                                  Nothing -> error $ mconcat [show td, " not found in volumeA = ", show volumeA]
+                                                                  Just x -> x
+                                                        False -> error $ mconcat ["can not handle disk: ", T.unpack t])) <$> blockDevs
+      forM_ blockA $ \(avol_device, avol_volumeId) -> do
+        resourceAWS EC2.AttachVolume{..}
 
     return ()
   where
