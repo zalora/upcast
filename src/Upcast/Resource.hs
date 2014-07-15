@@ -17,6 +17,7 @@ import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Resource (ResourceT, liftResourceT, runResourceT)
 import Control.Monad.Free
 import qualified Control.Exception.Lifted as E
+import Control.Concurrent (threadDelay)
 
 import Data.Monoid
 import Data.Maybe (fromJust)
@@ -253,25 +254,27 @@ evalPlan state (Free (Wait (TX tx) next)) = do
     awsConf <- liftIO $ Aws.baseConfiguration
     mgr <- ask
     let conf = EC2Configuration "eu-west-1"
-    (r :: Value) <- liftIO $ runResourceT $ retry $ Aws.pureAws awsConf conf mgr tx
+    r <- liftIO $ runResourceT $ retryAws awsConf conf mgr tx
     liftIO $ print r
     evalPlan state next
 evalPlan state (Pure r) = return r
 
 
--- TODO: backoff
-retry :: ResourceT IO a -> ResourceT IO a
-retry action = do
-    result <- catchAll action
-    case result of
-      Left x -> do
-        liftIO $ BS.putStrLn $ mconcat ["retrying: ", BS.pack $ show x]
-        retry action
-      Right y -> return y
+retryAws :: (ServiceConfiguration r ~ EC2Configuration, Transaction r Value) =>
+            Aws.Configuration -> EC2Configuration NormalQuery -> HTTP.Manager -> r -> ResourceT IO Value
+retryAws awsConf conf mgr tx = loop 
   where
-    catchAll :: ResourceT IO a -> ResourceT IO (Either E.SomeException a)
-    catchAll = E.handle (return . Left) . fmap Right
+    loop = do
+      result <- catchAll $ Aws.pureAws awsConf conf mgr tx
+      case result of
+        Left x -> warn x >> loop
+        Right Null -> warn Null >> loop
+        Right y -> return y
 
+    warn val = liftIO $ BS.putStrLn (mconcat ["retrying after 1: ", BS.pack $ show val]) >> threadDelay 1000000
+
+    catchAll :: ResourceT IO Value -> ResourceT IO (Either E.SomeException Value)
+    catchAll = E.handle (return . Left) . fmap Right
 
 
 evalResources exprFile ctx@DeployContext{..} = do

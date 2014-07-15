@@ -15,6 +15,7 @@ executable upcast
                      , directory, filepath
                      , bytestring, text, base64-bytestring
                      , unix, process, time
+                     , lifted-base
                      , mtl, free
                      , stm
                      , async
@@ -42,6 +43,7 @@ executable ec2
                      , directory, filepath
                      , bytestring, text, base64-bytestring
                      , unix, process, time
+                     , lifted-base
                      , mtl, free
                      , stm
                      , async
