@@ -32,6 +32,7 @@ data RunInstances = RunInstances
                   , run_userData :: Maybe Text -- Base64-encoded
                   , run_kernelId :: Maybe Text
                   , run_ramdiskId :: Maybe Text
+                  , run_clientToken :: Maybe Text
                   -- , run_placement :: Maybe Placement
                   -- missing: NetworkInterface
                   } deriving (Show)
@@ -64,6 +65,7 @@ instance SignQuery RunInstances where
                                   +++ (optionalA "UserData" run_userData)
                                   +++ (optionalA "KernelId" run_kernelId)
                                   +++ (optionalA "RamdiskId" run_ramdiskId)
+                                  +++ (optionalA "ClientToken" run_clientToken)
                                   +++ enumerate "NetworkInterface.0.SecurityGroupId" run_securityGroupIds qArg
                                   +++ enumerateBlockDevices run_blockDeviceMappings
         where
