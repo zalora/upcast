@@ -30,6 +30,10 @@ alookup keys o@(Object h) =
     case keys of
       (x:xs) -> HM.lookup x h >>= alookup xs
       [] -> return o
+alookup keys@(_:_) a@(Array v) =
+    case V.length v of
+      1 -> alookup keys $ V.head v
+      _ -> Nothing
 alookup [] o = return o
 alookup (_:_) _ = Nothing
 
