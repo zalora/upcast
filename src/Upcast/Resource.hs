@@ -119,6 +119,16 @@ rplan keypairs info = do
 
     (wait . TX . EC2.DescribeVpcs) $ fmap snd vpcA
 
+    -- give the internet to VPCs
+    forM (fmap snd vpcA) $ \vpcId -> do
+      resourceAWS $ TX (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsSupport True))
+      resourceAWS $ TX (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsHostnames True))
+      gwId <- resourceAWSR $ TXR (TX EC2.CreateInternetGateway) "internetGatewayId"
+      resourceAWS $ TX (EC2.AttachInternetGateway gwId vpcId)
+
+      rtbId <- resourceAWSR $ TXR (TX (EC2.DescribeRouteTables vpcId)) "routeTableId"
+      resourceAWS $ TX (EC2.CreateRoute rtbId "0.0.0.0/0" (EC2.GatewayId gwId))
+
     subnetA <- fmap mconcat $ forM subnets $ \subnet -> do
         let Just csubnet = flip A.parseMaybe subnet $ \(Object obj) -> do
                                     cidr <- obj .: "cidrBlock"
