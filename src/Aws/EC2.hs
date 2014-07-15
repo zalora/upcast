@@ -12,6 +12,7 @@ module Aws.Ec2 (
 , module Aws.Ec2.Commands.CreateSecurityGroup
 , module Aws.Ec2.Commands.AuthorizeSecurityGroupIngress
 
+, module Aws.Ec2.Commands.CreateTags
 , module Aws.Ec2.Commands.DescribeTags
 , module Aws.Ec2.Commands.DescribeKeyPairs
 , module Aws.Ec2.Commands.ImportKeyPair
@@ -51,6 +52,7 @@ import Aws.Ec2.Commands.DescribeSecurityGroups
 import Aws.Ec2.Commands.CreateSecurityGroup
 import Aws.Ec2.Commands.AuthorizeSecurityGroupIngress
 
+import Aws.Ec2.Commands.CreateTags
 import Aws.Ec2.Commands.DescribeTags
 import Aws.Ec2.Commands.DescribeKeyPairs
 import Aws.Ec2.Commands.ImportKeyPair
