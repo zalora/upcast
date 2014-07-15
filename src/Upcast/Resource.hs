@@ -29,7 +29,9 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Aeson
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Encode.Pretty as A
 import qualified Data.Aeson.Types as A
+import qualified Data.Vector as V
 import Data.Time.Clock
 import Data.IORef (newIORef)
 import System.FilePath.Posix (splitFileName)
@@ -105,6 +107,7 @@ data TXR = TXR TX Text
 
 data ResourceF next = AWS TX next
                     | AWSR TXR (Text -> next)
+                    | AWSV TX (Value -> next)
                     | Wait TX next
                     deriving (Functor)
 type ResourcePlan = Free ResourceF
@@ -115,10 +118,13 @@ resourceAWS tx = liftF (AWS (TX tx) ())
 resourceAWSR :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> Text -> m Text
 resourceAWSR tx k = liftF (AWSR (TXR (TX tx) k) id)
 
+aws :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> m Value
+aws tx = liftF (AWSV (TX tx) id)
+
 wait :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> m ()
 wait tx = liftF (Wait (TX tx) ())
 
-rplan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> m ()
+rplan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> m [(Text, Value)]
 rplan expressionName keypairs info = do
     mapM_ (\k -> resourceAWSR k "keyFingerprint") keypairs
 
@@ -227,7 +233,9 @@ rplan expressionName keypairs info = do
         resourceAWS (EC2.CreateTags [instanceId] (("Name", name):defTags))
         return [(name, (instanceId, blockDevs))]
 
-    (wait . EC2.DescribeInstanceStatus) $ fmap (fst . snd) instanceA
+    let instanceIds = fmap (fst . snd) instanceA
+
+    (wait . EC2.DescribeInstanceStatus) instanceIds
 
     forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
       let blockA = (\(mapping, v) -> (mapping, let t = acast "disk" v :: Text
@@ -240,7 +248,8 @@ rplan expressionName keypairs info = do
       forM_ blockA $ \(avol_device, avol_volumeId) -> do
         resourceAWS EC2.AttachVolume{..}
 
-    return ()
+    Array instanceInfos <- aws (EC2.DescribeInstances instanceIds)
+    return $ zip (fmap fst instanceA) (V.toList instanceInfos)
   where
     cast :: FromJSON a => Text -> [a]
     cast = (`mcast` info)
@@ -264,6 +273,9 @@ canonicalSigData = do
   where
     baseTime = UTCTime (toEnum 0) $ secondsToDiffTime 0
 
+-- TODO: respect regions
+conf = EC2Configuration "eu-west-1"
+
 substituteTX :: SubStore -> TX -> HTTP.Manager -> ResourceT IO (Sub, SubStore, Value)
 substituteTX state (TX tx) mgr = do
     awsConf <- liftIO $ Aws.baseConfiguration
@@ -272,8 +284,6 @@ substituteTX state (TX tx) mgr = do
     let Just (HTTP.RequestBodyBS key) = sqBody s
     liftIO $ BS.putStrLn key
     liftIO $ substitute state (T.decodeUtf8 key) (runResourceT $ Aws.pureAws awsConf conf mgr tx)
-  where
-    conf = EC2Configuration "eu-west-1"
 
 
 evalPlan :: SubStore -> ResourcePlan a -> ReaderT HTTP.Manager (ResourceT IO) a
@@ -287,10 +297,14 @@ evalPlan state (Free (AWS tx next)) = do
     sub@(t, state', val) <- ask >>= liftResourceT . substituteTX state tx
     liftIO $ print (t, val)
     evalPlan state' next
+evalPlan state (Free (AWSV (TX tx) next)) = do
+    awsConf <- liftIO $ Aws.baseConfiguration
+    mgr <- ask
+    result <- liftResourceT $ Aws.pureAws awsConf conf mgr tx
+    evalPlan state $ next result
 evalPlan state (Free (Wait (TX tx) next)) = do
     awsConf <- liftIO $ Aws.baseConfiguration
     mgr <- ask
-    let conf = EC2Configuration "eu-west-1"
     r <- liftIO $ runResourceT $ retryAws awsConf conf mgr tx
     liftIO $ print r
     evalPlan state next
@@ -314,6 +328,14 @@ retryAws awsConf conf mgr tx = loop
     catchAll = E.handle (return . Left) . fmap Right
 
 
+data Machine = Machine
+             { m_hostname :: Text
+             , m_publicIp :: Text
+             , m_instanceId :: Text
+             , m_keyFile :: Text
+             } deriving (Show)
+
+evalResources :: FilePath -> DeployContext -> IO [(Text, Machine)]
 evalResources exprFile ctx@DeployContext{..} = do
     let s = emptyState exprFile
     Right info <- deploymentInfo ctx s
@@ -326,10 +348,17 @@ evalResources exprFile ctx@DeployContext{..} = do
                                                   kPK <- obj .: "privateKeyFile" :: A.Parser Text
                                                   return $ (kName, kPK)
                     pubkey <- fgconsume $ Cmd Local $ mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]
-                    return [EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey]
+                    return [(kPK, EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey)]
 
-    HTTP.withManager $ runReaderT $ evalPlan store (rplan name keypairs info)
-    return ()
+    let keypair = fst $ head keypairs
+
+    instances <- HTTP.withManager $ runReaderT $ evalPlan store (rplan name (snd <$> keypairs) info)
+    -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
+    return $ fmap (toMachine keypair) instances
   where
     name = T.pack $ snd $ splitFileName exprFile
-
+    
+    toMachine k (h, info) = (h, Machine (cast "instancesSet.dnsName" :: Text) (cast "instancesSet.ipAddress" :: Text) (cast "instancesSet.instanceId" :: Text) k)
+      where
+        cast :: FromJSON a => Text -> a
+        cast = (`acast` info)
