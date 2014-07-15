@@ -32,6 +32,7 @@ import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import Data.Time.Clock
 import Data.IORef (newIORef)
+import System.FilePath.Posix (splitFileName)
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
@@ -105,29 +106,35 @@ data ResourceF next = AWS TX next
                     deriving (Functor)
 type ResourcePlan = Free ResourceF
 
-resourceAWS tx = liftF (AWS tx ())
-resourceAWSR txr = liftF (AWSR txr id)
-wait tx = liftF (Wait tx ())
+resourceAWS :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> m ()
+resourceAWS tx = liftF (AWS (TX tx) ())
 
-rplan :: (MonadFree ResourceF m, Functor m) => [EC2.ImportKeyPair] -> Value -> m ()
-rplan keypairs info = do
-    mapM_ (\k -> resourceAWSR $ TXR (TX k) "keyFingerprint") keypairs
+resourceAWSR :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> Text -> m Text
+resourceAWSR tx k = liftF (AWSR (TXR (TX tx) k) id)
+
+wait :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> m ()
+wait tx = liftF (Wait (TX tx) ())
+
+rplan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> m ()
+rplan expressionName keypairs info = do
+    mapM_ (\k -> resourceAWSR k "keyFingerprint") keypairs
 
     vpcA <- fmap mconcat $ forM vpcs $ \vpc -> do
-        vpcId <- resourceAWSR $ TXR (TX vpc) "vpcId"
+        vpcId <- resourceAWSR vpc "vpcId"
         return [(EC2.cvpc_cidrBlock vpc, vpcId)]
 
-    (wait . TX . EC2.DescribeVpcs) $ fmap snd vpcA
+    (wait . EC2.DescribeVpcs) $ fmap snd vpcA
+    resourceAWS (EC2.CreateTags (fmap snd vpcA) defTags)
 
     -- give the internet to VPCs
     forM (fmap snd vpcA) $ \vpcId -> do
-      resourceAWS $ TX (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsSupport True))
-      resourceAWS $ TX (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsHostnames True))
-      gwId <- resourceAWSR $ TXR (TX EC2.CreateInternetGateway) "internetGatewayId"
-      resourceAWS $ TX (EC2.AttachInternetGateway gwId vpcId)
+      resourceAWS (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsSupport True))
+      resourceAWS (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsHostnames True))
+      gwId <- resourceAWSR EC2.CreateInternetGateway "internetGatewayId"
+      resourceAWS (EC2.AttachInternetGateway gwId vpcId)
 
-      rtbId <- resourceAWSR $ TXR (TX (EC2.DescribeRouteTables vpcId)) "routeTableId"
-      resourceAWS $ TX (EC2.CreateRoute rtbId "0.0.0.0/0" (EC2.GatewayId gwId))
+      rtbId <- resourceAWSR (EC2.DescribeRouteTables vpcId) "routeTableId"
+      resourceAWS (EC2.CreateRoute rtbId "0.0.0.0/0" (EC2.GatewayId gwId))
 
     subnetA <- fmap mconcat $ forM subnets $ \subnet -> do
         let Just csubnet = flip A.parseMaybe subnet $ \(Object obj) -> do
@@ -135,11 +142,12 @@ rplan keypairs info = do
                                     vpc <- obj .: "vpc"
                                     let Just vpcId = lookup vpc vpcA
                                     return $ EC2.CreateSubnet vpcId cidr
-        subnetId <- resourceAWSR $ TXR (TX csubnet) "subnetId"
+        subnetId <- resourceAWSR csubnet "subnetId"
 
         return [(EC2.csub_cidrBlock csubnet, subnetId)]
 
-    (wait . TX . EC2.DescribeSubnets) $ fmap snd subnetA
+    (wait . EC2.DescribeSubnets) $ fmap snd subnetA
+    resourceAWS (EC2.CreateTags (fmap snd subnetA) defTags)
 
     sgA <- fmap mconcat $ forM secGroups $ \sg -> do
         -- AWS needs more than one transaction for each security group (Create + add rules)
@@ -149,16 +157,17 @@ rplan keypairs info = do
                                     vpc <- obj .: "vpc"
                                     let Just vpcId = lookup vpc vpcA
                                     return $ EC2.CreateSecurityGroup name desc $ Just vpcId
-        secGroupId <- resourceAWSR $ TXR (TX g) "groupId"
+        secGroupId <- resourceAWSR g "groupId"
 
         let Just r = flip A.parseMaybe sg $ \(Object obj) -> do
                                     rules <- obj .: "rules" :: A.Parser [EC2.IpPermission]
                                     return $ EC2.AuthorizeSecurityGroupIngress secGroupId rules
-        resourceAWS $ TX r
+        resourceAWS r
 
         return [(EC2.csec_name g, secGroupId)]
 
-    (wait . TX . flip EC2.DescribeSecurityGroups []) $ fmap snd sgA
+    (wait . flip EC2.DescribeSecurityGroups []) $ fmap snd sgA
+    resourceAWS (EC2.CreateTags (fmap snd sgA) defTags)
 
     volumeA <- fmap mconcat $ forM volumes $ \vol -> do
         let Just (name, v) = flip A.parseMaybe vol $ \(Object obj) -> do
@@ -175,10 +184,11 @@ rplan keypairs info = do
 
                                     return $ (name, EC2.CreateVolume{..})
 
-        volumeId <- resourceAWSR $ TXR (TX v) "volumeId"
+        volumeId <- resourceAWSR v "volumeId"
         return [(name, volumeId)]
 
-    (wait . TX . EC2.DescribeVolumes) $ fmap snd volumeA
+    (wait . EC2.DescribeVolumes) $ fmap snd volumeA
+    resourceAWS (EC2.CreateTags (fmap snd volumeA) defTags)
 
     instanceA <- fmap mconcat $ forM instances $ \inst -> do
         let Just (name, cinst) = flip A.parseMaybe inst $ \(Object obj) -> do
@@ -207,11 +217,14 @@ rplan keypairs info = do
                                     let run_userData = Nothing
                                     let run_kernelId = Nothing
                                     let run_ramdiskId = Nothing
+                                    let run_clientToken = Just name -- need a unique string to prevent substituting one call for many
+
                                     return (name, EC2.RunInstances{..})
-        instanceId <- resourceAWSR $ TXR (TX cinst) "instancesSet.instanceId"
+        instanceId <- resourceAWSR cinst "instancesSet.instanceId"
+        resourceAWS (EC2.CreateTags [instanceId] (("Name", name):defTags))
         return [(name, instanceId)]
 
-    (wait . TX . EC2.DescribeInstanceStatus) $ fmap snd instanceA
+    (wait . EC2.DescribeInstanceStatus) $ fmap snd instanceA
 
     -- TODO: attach volumes
 
@@ -219,6 +232,8 @@ rplan keypairs info = do
   where
     cast :: FromJSON a => Text -> [a]
     cast = (`mcast` info)
+
+    defTags = [("created-using", "upcast"), ("expression", expressionName)]
 
     vpcs = cast "resources.vpc" :: [EC2.CreateVpc]
     subnets = cast "resources.subnets" :: [Value]
@@ -239,7 +254,7 @@ canonicalSigData = do
 
 substituteTX :: SubStore -> TX -> HTTP.Manager -> ResourceT IO (Sub, SubStore, Value)
 substituteTX state (TX tx) mgr = do
-    awsConf <- liftIO $ Aws.dbgConfiguration
+    awsConf <- liftIO $ Aws.baseConfiguration
     sig <- liftIO $ canonicalSigData
     let s = signQuery tx conf sig
     let Just (HTTP.RequestBodyBS key) = sqBody s
@@ -301,6 +316,8 @@ evalResources exprFile ctx@DeployContext{..} = do
                     pubkey <- fgconsume $ Cmd Local $ mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]
                     return [EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey]
 
-    HTTP.withManager $ runReaderT $ evalPlan store (rplan keypairs info)
+    HTTP.withManager $ runReaderT $ evalPlan store (rplan name keypairs info)
     return ()
+  where
+    name = T.pack $ snd $ splitFileName exprFile
 
