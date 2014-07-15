@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
 
 module Upcast.PhysicalSpec (
   physicalSpecFile
@@ -10,18 +10,26 @@ import Data.Maybe (fromJust)
 
 import Data.List (intercalate)
 
-import Upcast.State (Resource(..))
 import Upcast.Interpolate (nl)
 import Upcast.Nix
 import Upcast.Temp
 
-physicalSpecFile :: [Resource] -> IO FilePath
+import Upcast.State (Resource(..))
+import Upcast.Resource (Machine(..))
+
+class EC2Hostable a where toEC2Host :: a -> EC2Host
+
+instance EC2Hostable Resource where toEC2Host = resourceToEC2Host
+instance EC2Hostable Machine where toEC2Host = machineToEC2Host
+
+physicalSpecFile :: EC2Hostable a => [a] -> IO FilePath
 physicalSpecFile rs = writeTempFile "physical.nix" (physicalSpec rs)
 
-physicalSpec :: [Resource] -> String
-physicalSpec resources = physicalSpecTemplate $ fmap ec2HostTemplate $ ec2Hosts resources
+physicalSpec :: EC2Hostable a => [a] -> String
+physicalSpec rs = physicalSpecTemplate $ fmap ec2HostTemplate $ ec2Hosts rs
 
-ec2Hosts = interlink . fmap resourceToEC2Host
+ec2Hosts :: EC2Hostable a => [a] -> [EC2Host]
+ec2Hosts = interlink . fmap toEC2Host
 
 data EC2Host = EC2Host
              { hostname :: String
@@ -31,7 +39,7 @@ data EC2Host = EC2Host
              , publicIPv4 :: String
              , knownHosts :: [String]
              , instanceId :: String
-             , publicHostKey :: String
+             , publicHostKey :: Maybe String
              } deriving (Show, Eq)
 
 
@@ -43,9 +51,19 @@ resourceToEC2Host Resource{..} =
             (attr "publicIpv4")
             []
             (attr "vmId")
-            (attr "ec2.publicHostKey")
+            (Just $ attr "ec2.publicHostKey")
   where
     attr = T.unpack . fromJust . flip lookup resourceAList
+
+machineToEC2Host Machine{..} =
+    EC2Host (T.unpack m_hostname)
+            []
+            []
+            (T.unpack m_privateIp)
+            (T.unpack m_publicIp)
+            []
+            (T.unpack m_instanceId)
+            Nothing
 
 interlink hosts = zipWith link hosts $ others hosts
   where
@@ -102,11 +120,11 @@ ec2HostTemplate EC2Host{..} = [nl|
 aliases EC2Host{..} = [hostname, hostname ++ "-encrypted", hostname ++ "-unencrypted"]
 extraHostsTemplate EC2Host{..} = [nl|#{privateIPv4} #{hostname} #{hostname}-unencrypted|]
 
-knownHostTemplate host@EC2Host{..} =
-    [nl|
+knownHostTemplate host@EC2Host{publicHostKey = Nothing} = [nl||]
+knownHostTemplate host@EC2Host{hostname, publicHostKey = (Just k)} = [nl|
       #{hostname} = {
         hostNames = #{listToNix $ aliases host};
-        publicKey = "#{publicHostKey}";
+        publicKey = "#{k}";
       };
     |]
 
@@ -120,7 +138,7 @@ try = physicalSpecTemplate $ map ec2HostTemplate [staging0, staging1, db1]
              , publicIPv4 = "1.1.1.1"
              , knownHosts = []
              , instanceId = "i-babadeda"
-             , publicHostKey = "sup"
+             , publicHostKey = Just "sup"
              }
     staging0 = base {
                      hostname = "staging0"

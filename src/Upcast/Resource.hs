@@ -50,6 +50,7 @@ import Upcast.State
 import Upcast.ATerm (alookupS, alookupSE)
 import Upcast.DeployCommands
 import Upcast.Deploy
+import Upcast.Types
 import Upcast.Command
 
 import Upcast.TermSubstitution
@@ -331,15 +332,15 @@ retryAws awsConf conf mgr tx = loop
 data Machine = Machine
              { m_hostname :: Text
              , m_publicIp :: Text
+             , m_privateIp :: Text
              , m_instanceId :: Text
              , m_keyFile :: Text
              } deriving (Show)
 
-evalResources :: FilePath -> DeployContext -> IO [(Text, Machine)]
-evalResources exprFile ctx@DeployContext{..} = do
-    let s = emptyState exprFile
-    Right info <- deploymentInfo ctx s
-    store <- loadSubStore "store"
+evalResources :: DeployContext -> IO [(Text, Machine)]
+evalResources ctx@DeployContext{..} = do
+    Right info <- deploymentInfo ctx
+    store <- loadSubStore stateFile
 
     -- pre-calculate EC2.ImportKeyPair values here because we need to do IO
     keypairs <- fmap mconcat $ forM (mcast "resources.ec2KeyPairs" info :: [Value]) $ \keypair -> do
@@ -353,12 +354,16 @@ evalResources exprFile ctx@DeployContext{..} = do
     let keypair = fst $ head keypairs
 
     instances <- HTTP.withManager $ runReaderT $ evalPlan store (rplan name (snd <$> keypairs) info)
-    -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
+    mapM_ LBS.putStrLn $ fmap A.encodePretty instances
     return $ fmap (toMachine keypair) instances
   where
-    name = T.pack $ snd $ splitFileName exprFile
+    name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
     
-    toMachine k (h, info) = (h, Machine (cast "instancesSet.dnsName" :: Text) (cast "instancesSet.ipAddress" :: Text) (cast "instancesSet.instanceId" :: Text) k)
+    toMachine k (h, info) = (h, Machine h -- (cast "instancesSet.dnsName" :: Text)
+                                        (cast "instancesSet.ipAddress" :: Text)
+                                        (cast "instancesSet.privateIpAddress" :: Text)
+                                        (cast "instancesSet.instanceId" :: Text)
+                                        k)
       where
         cast :: FromJSON a => Text -> a
         cast = (`acast` info)

@@ -7,7 +7,7 @@ import Data.Text (Text)
 import Upcast.Interpolate (n)
 
 import Upcast.Nix
-import Upcast.Deploy
+import Upcast.Types
 import Upcast.Command
 import Upcast.State
 
@@ -42,6 +42,7 @@ nixDeploymentInfo ctx exprs uuid = Cmd Local [n|
                      -A info
                      |]
 
+nixBuildMachines :: DeployContext -> [String] -> String -> [String] -> String -> Command Local
 nixBuildMachines ctx exprs uuid names outputPath = Cmd Local [n|
                    env NIX_BUILD_HOOK="$HOME/.nix-profile/libexec/nix/build-remote.pl"
                    NIX_REMOTE_SYSTEMS="$HOME/remote-systems.conf"
@@ -73,11 +74,3 @@ nixSwitchToConfiguration remote = Cmd remote [n|
 ssh' :: Text -> Command Remote -> Command Local
 ssh' sshAuthSock (Cmd (Remote _ host) cmd) =
     Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh -x root@#{host} -- '#{cmd}'|]
-
-deploymentInfo :: DeployContext -> State -> IO (Either String Value)
-deploymentInfo ctx (State deployment _ exprs _) =
-    let info = nixDeploymentInfo ctx (exprs) (deploymentUuid deployment)
-        in do
-          i <- fgconsume info
-          return $ nixValue i
-

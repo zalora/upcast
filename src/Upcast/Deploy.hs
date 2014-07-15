@@ -11,25 +11,22 @@ import Upcast.Interpolate (n)
 
 import Upcast.State
 import Upcast.Nix
-import Upcast.PhysicalSpec
+import Upcast.Command
+import Upcast.DeployCommands
+import Upcast.Types
+import Upcast.Temp
 
-data DeployContext =
-    DeployContext { nixops, nixPath, stateFile, deploymentName, key, sshAuthSock :: Text
-                  , closuresPath :: String
-                  } deriving (Show)
+setupAgent privkeys = do
+    agentSocket <- randomTempFileName "ssh-agent.sock."
+    spawn $ sshAgent agentSocket
+    mapM_ (fgrun . sshAddKey agentSocket) $ privkeys
+    fgrun $ sshListKeys agentSocket
+    return agentSocket
 
--- sorry guys, you'll have to impersonate me for now
-instance Default DeployContext where
-    def = DeployContext
-          { nixops = "/tank/proger/dev/upcast/nix"
-          , nixPath = "sources"
-          , stateFile = "deployments.nixops"
-          , deploymentName = "staging"
-          , key = "id_rsa.tmp"
-          , sshAuthSock = "/dev/null"
-          , closuresPath = "/tmp/machines/1"
-          }
+deploymentInfo :: DeployContext -> IO (Either String Value)
+deploymentInfo ctx =
+    let info = nixDeploymentInfo ctx ([T.unpack $ expressionFile ctx]) (uuid ctx)
+        in do
+          i <- fgconsume info
+          return $ nixValue i
 
-
-attr Resource{..} = fromJust . flip lookup resourceAList
-dattr Deployment{..} = fromJust . flip lookup deploymentAList

@@ -1,3 +1,5 @@
+-- | Legacy NixOps sqlite state
+
 {-# LANGUAGE OverloadedStrings, FlexibleContexts, QuasiQuotes, NamedFieldPuns #-}
 
 module Upcast.State (
@@ -14,8 +16,6 @@ module Upcast.State (
 , State(..)
 , Resource(..)
 , Deployment(..)
--- *
-, emptyState
 -- * forward declarations
 , Database
 ) where
@@ -33,9 +33,6 @@ import Upcast.Interpolate (n)
 
 data State = State Deployment [Resource] [String] [Resource] -- deployment resources expressions machines
            deriving (Show)
-
-emptyState expression = State (Deployment "new-upcast-deployment" []) [] [expression] []
-
 
 runState :: Text -> ReaderT Database IO c -> IO c
 runState stateFile value = withStateConn stateFile $ runReaderT value
