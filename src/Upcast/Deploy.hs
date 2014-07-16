@@ -16,10 +16,12 @@ import Upcast.DeployCommands
 import Upcast.Types
 import Upcast.Temp
 
-setupAgent privkeys = do
+setupAgent privkeys = setupAgentF sshAddKey privkeys
+
+setupAgentF liftKey keyvals = do
     agentSocket <- randomTempFileName "ssh-agent.sock."
     spawn $ sshAgent agentSocket
-    mapM_ (fgrun . sshAddKey agentSocket) $ privkeys
+    mapM_ (fgrun . liftKey agentSocket) $ keyvals
     fgrun $ sshListKeys agentSocket
     return agentSocket
 

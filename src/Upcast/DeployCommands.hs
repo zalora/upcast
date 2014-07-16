@@ -23,10 +23,11 @@ nixBaseOptions DeployContext{..} = [n|
 
 sshAgent socket = Cmd Local [n|ssh-agent -a #{socket}|]
 sshAddKey socket key = Cmd Local [n|echo '#{key}' | env SSH_AUTH_SOCK=#{socket} SSH_ASKPASS=/usr/bin/true ssh-add -|]
+sshAddKeyFile socket keyFile = Cmd Local [n|env SSH_AUTH_SOCK=#{socket} SSH_ASKPASS=/usr/bin/true ssh-add #{keyFile}|]
 sshListKeys socket = Cmd Local [n|env SSH_AUTH_SOCK=#{socket} ssh-add -l|]
 
 nixCopyClosureTo sshAuthSock (Remote _ host) path =
-    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} nix-copy-closure --to root@#{host} #{path} --gzip|]
+    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} NIX_SSHOPTS="-o StrictHostKeyChecking=no" nix-copy-closure --to root@#{host} #{path} --gzip|]
 
 nixCopyClosureToFast controlPath (Remote key host) path =
     Cmd Local [n|env NIX_SSHOPTS="-i #{key} -S #{controlPath}" nix-copy-closure --to root@#{host} #{path} --gzip|]

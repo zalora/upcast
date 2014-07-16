@@ -33,9 +33,27 @@ infoOnly ctx = do
     Right info <- deploymentInfo ctx
     pprint info
 
-deployPlan ctx@DeployContext{..} = do
-    machinesA <- evalResources ctx
-    spec <- physicalSpecFile $ fmap snd machinesA
-    return $ nixBuildMachines ctx [spec, T.unpack expressionFile] uuid (fmap (T.unpack . fst) machinesA) closuresPath
+install DeployContext{..} machines =
+    let args m@Machine{..} = (remote m, closuresPath </> (T.unpack m_hostname))
+        remote Machine{..} = Remote (T.unpack m_keyFile) (T.unpack m_publicIp)
+    in concat [ fmap (uncurry (nixCopyClosureTo sshAuthSock) . args) machines
+              , fmap (ssh' sshAuthSock . uncurry nixSetProfile . args) machines
+              , fmap (ssh' sshAuthSock . nixSwitchToConfiguration . fst . args) machines
+              ]
 
-main = fmap (context . head) getArgs >>= deployPlan >>= fgrun
+deploy ctx@DeployContext{..} = do
+    Right info <- deploymentInfo ctx
+    machinesA <- evalResources ctx info
+    let machines = fmap snd machinesA
+    let machineNames = fmap (T.unpack . fst) machinesA
+    let keyFiles = fmap m_keyFile machines
+    agentSocket <- setupAgentF sshAddKeyFile keyFiles
+    let ctx' = ctx { sshAuthSock = T.pack agentSocket } 
+    spec <- physicalSpecFile machines
+    let build = nixBuildMachines ctx' [spec, T.unpack expressionFile] uuid machineNames closuresPath
+    fgrun build
+    mapM_ fgrun $ install ctx' machines
+
+main = do
+    ctx <- fmap (context . head) getArgs
+    deploy ctx

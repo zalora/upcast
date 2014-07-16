@@ -37,7 +37,7 @@ import Data.IORef (newIORef)
 import System.FilePath.Posix (splitFileName)
 
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.ByteString.Base64 as Base64
 
 import qualified Network.HTTP.Conduit as HTTP
@@ -48,8 +48,6 @@ import qualified Aws.Ec2 as EC2
 
 import Upcast.State
 import Upcast.ATerm (alookupS, alookupSE)
-import Upcast.DeployCommands
-import Upcast.Deploy
 import Upcast.Types
 import Upcast.Command
 
@@ -337,9 +335,8 @@ data Machine = Machine
              , m_keyFile :: Text
              } deriving (Show)
 
-evalResources :: DeployContext -> IO [(Text, Machine)]
-evalResources ctx@DeployContext{..} = do
-    Right info <- deploymentInfo ctx
+evalResources :: DeployContext -> Value -> IO [(Text, Machine)]
+evalResources ctx@DeployContext{..} info = do
     store <- loadSubStore stateFile
 
     -- pre-calculate EC2.ImportKeyPair values here because we need to do IO
@@ -354,7 +351,7 @@ evalResources ctx@DeployContext{..} = do
     let keypair = fst $ head keypairs
 
     instances <- HTTP.withManager $ runReaderT $ evalPlan store (rplan name (snd <$> keypairs) info)
-    mapM_ LBS.putStrLn $ fmap A.encodePretty instances
+    -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
     return $ fmap (toMachine keypair) instances
   where
     name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
