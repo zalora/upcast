@@ -21,6 +21,7 @@ import Control.Concurrent (threadDelay)
 
 import Data.Monoid
 import Data.Maybe (fromJust)
+import qualified Data.List as L
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.HashMap.Strict as H
@@ -272,24 +273,24 @@ canonicalSigData = do
   where
     baseTime = UTCTime (toEnum 0) $ secondsToDiffTime 0
 
--- TODO: respect regions
-conf = EC2Configuration "eu-west-1"
+data EvalContext = EvalContext
+               { mgr :: HTTP.Manager
+               , ec2 :: EC2Configuration NormalQuery
+               }
 
-substituteTX :: SubStore -> TX -> HTTP.Manager -> ResourceT IO (Sub, SubStore, Value)
-substituteTX state (TX tx) mgr = do
+substituteTX :: SubStore -> TX -> EvalContext -> ResourceT IO (Sub, SubStore, Value)
+substituteTX state (TX tx) EvalContext{..} = do
     awsConf <- liftIO $ Aws.baseConfiguration
     sig <- liftIO $ canonicalSigData
-    let s = signQuery tx conf sig
+    let s = signQuery tx ec2 sig
     let Just (HTTP.RequestBodyBS key) = sqBody s
     liftIO $ BS.putStrLn key
-    liftIO $ substitute state (T.decodeUtf8 key) (runResourceT $ Aws.pureAws awsConf conf mgr tx)
+    liftIO $ substitute state (T.decodeUtf8 key) (runResourceT $ Aws.pureAws awsConf ec2 mgr tx)
 
-
-evalPlan :: SubStore -> ResourcePlan a -> ReaderT HTTP.Manager (ResourceT IO) a
+evalPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext (ResourceT IO) a
 evalPlan state (Free (AWSR (TXR tx keyPath) next)) = do
     sub@(t, state', val) <- ask >>= liftResourceT . substituteTX state tx
     let result = acast keyPath val :: Text
-    -- let result = acast "blahId" val :: Text
     liftIO $ print (t, val, result)
     evalPlan state' $ next result
 evalPlan state (Free (AWS tx next)) = do
@@ -297,14 +298,14 @@ evalPlan state (Free (AWS tx next)) = do
     liftIO $ print (t, val)
     evalPlan state' next
 evalPlan state (Free (AWSV (TX tx) next)) = do
+    EvalContext{..} <- ask
     awsConf <- liftIO $ Aws.baseConfiguration
-    mgr <- ask
-    result <- liftResourceT $ Aws.pureAws awsConf conf mgr tx
+    result <- liftResourceT $ Aws.pureAws awsConf ec2 mgr tx
     evalPlan state $ next result
 evalPlan state (Free (Wait (TX tx) next)) = do
+    EvalContext{..} <- ask
     awsConf <- liftIO $ Aws.baseConfiguration
-    mgr <- ask
-    r <- liftIO $ runResourceT $ retryAws awsConf conf mgr tx
+    r <- liftIO $ runResourceT $ retryAws awsConf ec2 mgr tx
     liftIO $ print r
     evalPlan state next
 evalPlan state (Pure r) = return r
@@ -335,8 +336,21 @@ data Machine = Machine
              , m_keyFile :: Text
              } deriving (Show)
 
+findRegions :: [Text] -> Value -> [Text]
+findRegions acc (Object h) = mappend nacc $ join (findRegions [] <$> (fmap snd $ H.toList h))
+  where
+    nacc = maybe [] (\case String x -> [x]; _ -> []) $ H.lookup "region" h
+findRegions acc (Array v) = mappend acc $ join (findRegions [] <$> V.toList v)
+findRegions acc _ = acc
+
 evalResources :: DeployContext -> Value -> IO [(Text, Machine)]
 evalResources ctx@DeployContext{..} info = do
+    region <- let regions = L.nub $ findRegions [] info
+                  in case regions of
+                       reg:[] -> return reg
+                       _ -> error $ mconcat [ "can only operate with expressions that do not span multiple EC2 regions, given: "
+                                            , show regions
+                                            ]
     store <- loadSubStore stateFile
 
     -- pre-calculate EC2.ImportKeyPair values here because we need to do IO
@@ -350,8 +364,11 @@ evalResources ctx@DeployContext{..} info = do
 
     let keypair = fst $ head keypairs
 
-    instances <- HTTP.withManager $ runReaderT $ evalPlan store (rplan name (snd <$> keypairs) info)
+    instances <- HTTP.withManager $ \mgr -> do
+      evalPlan store (rplan name (snd <$> keypairs) info) `runReaderT` EvalContext mgr (EC2Configuration $ T.encodeUtf8 region)
+
     -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
+
     return $ fmap (toMachine keypair) instances
   where
     name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
