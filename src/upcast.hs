@@ -3,11 +3,13 @@
 module Main where
 
 import System.FilePath.Posix
+import System.Posix.Files (readSymbolicLink)
 import System.Environment (getArgs)
 import qualified Data.Text as T
 import Data.Text (Text(..))
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.ByteString.Char8 (split)
 
 import Data.Default
 
@@ -33,13 +35,22 @@ infoOnly ctx = do
     Right info <- deploymentInfo ctx
     pprint info
 
-install DeployContext{..} machines =
-    let args m@Machine{..} = (remote m, closuresPath </> (T.unpack m_hostname))
-        remote Machine{..} = Remote (T.unpack m_keyFile) (T.unpack m_publicIp)
-    in concat [ fmap (uncurry (nixCopyClosureTo sshAuthSock) . args) machines
-              , fmap (ssh' sshAuthSock . uncurry nixSetProfile . args) machines
-              , fmap (ssh' sshAuthSock . nixSwitchToConfiguration . fst . args) machines
-              ]
+install DeployContext{..} machines = do
+    closures <- mapM (fmap (split '\n') . fgconsume . nixClosure . closurePath) machines
+    sysEnv <- mapM (readSymbolicLink . closurePath) machines
+    let margs = zip (fmap remote machines) sysEnv
+    mapM_ fgrun $ commands margs closures
+  where
+    closurePath Machine{..} = closuresPath </> (T.unpack m_hostname)
+    remote Machine{..} = Remote (T.unpack m_keyFile) (T.unpack m_publicIp)
+
+    clargs (cls, m) = (remote m, cls)
+
+    commands margs cls = concat [ fmap (ssh' sshAuthSock . uncurry nixTrySubstitutes . clargs) $ zip cls machines
+                                , fmap (uncurry (nixCopyClosureTo sshAuthSock)) margs
+                                , fmap (ssh' sshAuthSock . uncurry nixSetProfile) margs
+                                , fmap (ssh' sshAuthSock . nixSwitchToConfiguration) $ fmap remote machines
+                                ]
 
 deploy ctx@DeployContext{..} = do
     Right info <- deploymentInfo ctx
@@ -52,7 +63,7 @@ deploy ctx@DeployContext{..} = do
     spec <- physicalSpecFile machines
     let build = nixBuildMachines ctx' [spec, T.unpack expressionFile] uuid machineNames closuresPath
     fgrun build
-    mapM_ fgrun $ install ctx' machines
+    install ctx' machines
 
 main = do
     ctx <- fmap (context . head) getArgs

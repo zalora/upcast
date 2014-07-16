@@ -3,6 +3,7 @@
 module Upcast.DeployCommands where
 
 import Data.Text (Text)
+import Data.ByteString.Char8 (intercalate)
 
 import Upcast.Interpolate (n)
 
@@ -67,10 +68,8 @@ nixSwitchToConfiguration remote = Cmd remote [n|
                                   env NIXOS_NO_SYNC=1 /nix/var/nix/profiles/system/bin/switch-to-configuration switch
                                   |]
 
--- nixTrySubstitutes remote closure =
-               -- closure = subprocess_check_output(["nix-store", "-qR", path]).splitlines()
-               -- self.run_command("nix-store -j 4 -r --ignore-unknown " + ' '.join(closure), check=False)
-
+nixClosure path = Cmd Local [n|nix-store -qR #{path}|]
+nixTrySubstitutes remote closure = Cmd remote [n|nix-store -j 4 -r --ignore-unknown #{intercalate " " closure}|]
 
 ssh' :: Text -> Command Remote -> Command Local
 ssh' sshAuthSock (Cmd (Remote _ host) cmd) =
