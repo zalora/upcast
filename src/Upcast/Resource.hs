@@ -291,11 +291,11 @@ evalPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext (ResourceT IO) a
 evalPlan state (Free (AWSR (TXR tx keyPath) next)) = do
     sub@(t, state', val) <- ask >>= liftResourceT . substituteTX state tx
     let result = acast keyPath val :: Text
-    liftIO $ print (t, val, result)
+    -- liftIO $ print (t, val, result)
     evalPlan state' $ next result
 evalPlan state (Free (AWS tx next)) = do
     sub@(t, state', val) <- ask >>= liftResourceT . substituteTX state tx
-    liftIO $ print (t, val)
+    -- liftIO $ print (t, val)
     evalPlan state' next
 evalPlan state (Free (AWSV (TX tx) next)) = do
     EvalContext{..} <- ask
@@ -306,7 +306,7 @@ evalPlan state (Free (Wait (TX tx) next)) = do
     EvalContext{..} <- ask
     awsConf <- liftIO $ Aws.baseConfiguration
     r <- liftIO $ runResourceT $ retryAws awsConf ec2 mgr tx
-    liftIO $ print r
+    -- liftIO $ print r
     evalPlan state next
 evalPlan state (Pure r) = return r
 
@@ -322,7 +322,7 @@ retryAws awsConf conf mgr tx = loop
         Right Null -> warn Null >> loop
         Right y -> return y
 
-    warn val = liftIO $ BS.putStrLn (mconcat ["retrying after 1: ", BS.pack $ show val]) >> threadDelay 1000000
+    warn val = liftIO $ BS.putStrLn (mconcat ["wait: retrying after 1: ", BS.pack $ show val]) >> threadDelay 1000000
 
     catchAll :: ResourceT IO Value -> ResourceT IO (Either E.SomeException Value)
     catchAll = E.handle (return . Left) . fmap Right
