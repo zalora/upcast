@@ -10,7 +10,7 @@ before_install:
 install:
  - cabal-1.20 update
  - cabal-1.20 sandbox init
- - cabal install --only-dependencies
+ - cabal-1.20 install --only-dependencies
 
 script:
  - cabal-1.20 configure --enable-tests -v2
