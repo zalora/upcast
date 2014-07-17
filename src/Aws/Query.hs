@@ -18,6 +18,7 @@ module Aws.Query (
 , qArg
 , qShow
 , valueConsumer
+, valueConsumerOpt
 , queryResponseConsumer
 , (+++)
 , optional
@@ -146,13 +147,16 @@ qArg = Just . encodeUtf8
 qShow :: Show a => a -> Maybe B.ByteString
 qShow = Just . B8.pack . show
 
--- valueConsumer :: Text -> (Value -> a) -> Cu.Cursor -> Response QueryMetadata a
-valueConsumer tag cons cu = go $ head cu'
+valueConsumer :: Text -> (Value -> a) -> Cu.Cursor -> Response QueryMetadata a
+valueConsumer = valueConsumerOpt (XMLValueOptions "item")
+
+valueConsumerOpt :: XMLValueOptions -> Text -> (Value -> a) -> Cu.Cursor -> Response QueryMetadata a
+valueConsumerOpt options tag cons cu = go $ head cu'
   where
     cu' = cu $.// Cu.laxElement tag
     -- unwrap = fromJust . H.lookup tag . (\(Object o) -> o)
     unwrap = id
-    go = return . cons . unwrap . toValue . Cu.node 
+    go = return . cons . unwrap . toValue options . Cu.node 
 
 -- similar: iamResponseConsumer
 queryResponseConsumer :: (Cu.Cursor -> Response QueryMetadata a)

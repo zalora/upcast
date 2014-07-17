@@ -9,11 +9,14 @@
 
 module Aws.Query.Types (
   Value(..)
+, XMLValueOptions(..)
 , toValue
 , castValue
 ) where
 
+import Data.Text (Text)
 import qualified Data.Text as T
+
 import Data.Aeson
 import Data.Aeson.Types (parseMaybe)
 import qualified Data.Vector as V
@@ -22,6 +25,10 @@ import qualified Data.List as L
 import Text.XML (Element(..), Name(..), Node(..))
 
 import Aws.Core (AsMemoryResponse, MemoryResponse(..))
+
+data XMLValueOptions = XMLValueOptions
+                     { arrayElementTag :: Text
+                     }
 
 instance AsMemoryResponse Value where
     type MemoryResponse Value = Value
@@ -36,21 +43,22 @@ traceArg = id
 castValue :: FromJSON a => Value -> Maybe a
 castValue v = parseMaybe (const (parseJSON v)) v
 
+toValue :: XMLValueOptions -> Node -> Value
 toValue = value
 
-value :: Node -> Value
-value (NodeElement e@Element{..}) = values elementNodes
-value (NodeContent c) = String c
-value _ = Null
+value :: XMLValueOptions -> Node -> Value
+value options (NodeElement e@Element{..}) = values options elementNodes
+value options (NodeContent c) = String c
+value options _ = Null
 
-values elementNodes = uncurry elementValues $ traceArg $ (elementKind elementNodes, elementNodes)
+values options elementNodes = uncurry (elementValues options) $ traceArg $ (elementKind options elementNodes, elementNodes)
 
 data ElementKind = ObjectLike
                  | ArrayLike
                  | Other
                  deriving (Show)
 
-elementKind nodes
+elementKind XMLValueOptions{..} nodes
   | isXMLArray = ArrayLike
   | isObject = ObjectLike
   | otherwise = Other
@@ -59,15 +67,15 @@ elementKind nodes
     elems = onlyElements nodes
 
     isObject = (not $ null elems) && length filtered == length elems
-    isXMLArray = ["item"] == (L.nub $ fmap forceElementName elems)
+    isXMLArray = [arrayElementTag] == (L.nub $ fmap forceElementName elems)
 
-elementValues :: ElementKind -> [Node] -> Value
-elementValues ObjectLike ns = object [(forceElementName n, values $ filterNodes $ elementNodes $ unElement n) | n <- onlyElements ns]
-elementValues ArrayLike ns = array $ innerNodes ns
+elementValues :: XMLValueOptions -> ElementKind -> [Node] -> Value
+elementValues options ObjectLike ns = object [(forceElementName n, values options $ filterNodes $ elementNodes $ unElement n) | n <- onlyElements ns]
+elementValues options ArrayLike ns = array $ innerNodes ns
   where
     innerNodes :: [Node] -> [Value]
-    innerNodes nodes = fmap (values . filterNodes . elementNodes . unElement) $ onlyElements $ filterNodes $ nodes
-elementValues Other ns = arrayOrValue $ fmap value ns
+    innerNodes nodes = fmap (values options . filterNodes . elementNodes . unElement) $ onlyElements $ filterNodes $ nodes
+elementValues options Other ns = arrayOrValue $ fmap (value options) ns
   where
     arrayOrValue (x:[]) = x
     arrayOrValue [] = Null
@@ -77,10 +85,12 @@ forceElementName = nameLocalName . elementName . unElement
 unElement (NodeElement e) = e
 array = Array . V.fromList
 
+onlyElements :: [Node] -> [Node]
 onlyElements = filter $ \case
                         NodeElement _ -> True
                         _ -> False
 
+filterNodes :: [Node] -> [Node]
 filterNodes = filter $ \case
                           NodeContent s -> (T.strip s) /= T.empty
                           _ -> True
