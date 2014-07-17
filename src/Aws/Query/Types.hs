@@ -4,6 +4,7 @@
            , NamedFieldPuns
            , OverloadedStrings
            , MultiWayIf
+           , TypeFamilies
            #-}
 
 module Aws.Query.Types (
@@ -19,6 +20,12 @@ import qualified Data.Vector as V
 import qualified Data.List as L
 
 import Text.XML (Element(..), Name(..), Node(..))
+
+import Aws.Core (AsMemoryResponse, MemoryResponse(..))
+
+instance AsMemoryResponse Value where
+    type MemoryResponse Value = Value
+    loadToMemory = return
 
 -- import Debug.Trace (trace)
 -- import Text.Show.Pretty (ppShow)
