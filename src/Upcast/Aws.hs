@@ -21,6 +21,7 @@ module Upcast.Aws (
 , keypairs
 , regions
 , knownRegions
+, elbs
 , status
 , pstatus
 ) where
@@ -49,6 +50,7 @@ import Aws.Query (QueryAPIConfiguration(..))
 import Aws.Ec2
 
 import qualified Aws.Ec2 as EC2
+import qualified Aws.Elb as ELB
 
 catchAny :: IO a -> (Control.Exception.SomeException -> IO a) -> IO a
 catchAny = Control.Exception.catch
@@ -126,6 +128,8 @@ knownRegions = [ "ap-northeast-1"
                , "us-west-1"
                , "us-west-2"
                ]
+
+elbs names = simpleAws $ ELB.DescribeLoadBalancers names
 
 status = mapConcurrently ((flip catchAny $ \e -> return $ Left e) . fmap Right . azs []) knownRegions
 pstatus = fmap rights status >>= mapM_ (LBS.putStrLn . encode)
