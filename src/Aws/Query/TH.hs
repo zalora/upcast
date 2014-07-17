@@ -29,12 +29,12 @@ import Data.Time.Clock (UTCTime)
 import Aws.Core
 import Aws.Query
 
-queryValueTransactionDef :: Name -> Name -> String -> Name -> Name -> Name -> String -> DecsQ
-queryValueTransactionDef ty cons tag confTy signF version filterKey = do
+queryValueTransactionDef :: Name -> Name -> String -> Name -> Name -> String -> String -> DecsQ
+queryValueTransactionDef ty cons tag signF version item filterKey = do
                 arg <- newName "arg"
                 [d|
                   instance SignQuery $(conT ty) where
-                      type ServiceConfiguration $(conT ty) = $(conT confTy)
+                      type ServiceConfiguration $(conT ty) = QueryAPIConfiguration
                       signQuery ($(conP cons [varP arg])) = $(varE signF) $ [ ("Action", qArg $(stringE $ nameBase ty))
                                                                             , $(varE version)
                                                                             ] +++ enumerate $(stringE filterKey) $(varE arg) qArg

@@ -27,6 +27,6 @@ import Aws.Ec2.Types
 import Aws.Query
 import Aws.Query.TH
 
-ec2ValueTransactionDef ty cons tag filterKey = queryValueTransactionDef ty cons tag ''EC2Configuration 'ec2SignQuery 'defVersion filterKey
+ec2ValueTransactionDef ty cons tag filterKey = queryValueTransactionDef ty cons tag 'ec2SignQuery 'defVersion "item" filterKey
 
 ec2ValueTransaction = queryValueTransaction

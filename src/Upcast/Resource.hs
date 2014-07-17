@@ -44,7 +44,8 @@ import qualified Data.ByteString.Base64 as Base64
 import qualified Network.HTTP.Conduit as HTTP
 import qualified Aws
 import Aws.Core
-import Aws.Ec2 (castValue, EC2Configuration(..))
+import Aws.Query (QueryAPIConfiguration(..))
+import Aws.Ec2 (castValue)
 import qualified Aws.Ec2 as EC2
 
 import Upcast.State
@@ -99,8 +100,8 @@ instance FromJSON EC2.IpPermission where
                                             <*> (fmap (\a -> [a]) $ v .: "sourceIp")
     parseJSON _ = mzero
 
--- | Existential type to contain possible EC2-related transactions for `resourceAWS'
-data TX = forall r. (ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => TX r
+-- | Existential type to contain possible QueryAPI-related transactions for `resourceAWS'
+data TX = forall r. (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => TX r
 
 -- | Transaction that needs a result, obtained from a Value by Text-typed keypath
 data TXR = TXR TX Text
@@ -112,16 +113,16 @@ data ResourceF next = AWS TX next
                     deriving (Functor)
 type ResourcePlan = Free ResourceF
 
-resourceAWS :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> m ()
+resourceAWS :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
 resourceAWS tx = liftF (AWS (TX tx) ())
 
-resourceAWSR :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> Text -> m Text
+resourceAWSR :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> Text -> m Text
 resourceAWSR tx k = liftF (AWSR (TXR (TX tx) k) id)
 
-aws :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> m Value
+aws :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m Value
 aws tx = liftF (AWSV (TX tx) id)
 
-wait :: (MonadFree ResourceF m, ServiceConfiguration r ~ EC2Configuration, Transaction r Value) => r -> m ()
+wait :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
 wait tx = liftF (Wait (TX tx) ())
 
 rplan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> m [(Text, Value)]
@@ -275,17 +276,17 @@ canonicalSigData = do
 
 data EvalContext = EvalContext
                { mgr :: HTTP.Manager
-               , ec2 :: EC2Configuration NormalQuery
+               , qapi :: QueryAPIConfiguration NormalQuery
                }
 
 substituteTX :: SubStore -> TX -> EvalContext -> ResourceT IO (Sub, SubStore, Value)
 substituteTX state (TX tx) EvalContext{..} = do
     awsConf <- liftIO $ Aws.baseConfiguration
     sig <- liftIO $ canonicalSigData
-    let s = signQuery tx ec2 sig
+    let s = signQuery tx qapi sig
     let Just (HTTP.RequestBodyBS key) = sqBody s
     liftIO $ BS.putStrLn key
-    liftIO $ substitute state (T.decodeUtf8 key) (runResourceT $ Aws.pureAws awsConf ec2 mgr tx)
+    liftIO $ substitute state (T.decodeUtf8 key) (runResourceT $ Aws.pureAws awsConf qapi mgr tx)
 
 evalPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext (ResourceT IO) a
 evalPlan state (Free (AWSR (TXR tx keyPath) next)) = do
@@ -300,19 +301,19 @@ evalPlan state (Free (AWS tx next)) = do
 evalPlan state (Free (AWSV (TX tx) next)) = do
     EvalContext{..} <- ask
     awsConf <- liftIO $ Aws.baseConfiguration
-    result <- liftResourceT $ Aws.pureAws awsConf ec2 mgr tx
+    result <- liftResourceT $ Aws.pureAws awsConf qapi mgr tx
     evalPlan state $ next result
 evalPlan state (Free (Wait (TX tx) next)) = do
     EvalContext{..} <- ask
     awsConf <- liftIO $ Aws.baseConfiguration
-    r <- liftIO $ runResourceT $ retryAws awsConf ec2 mgr tx
+    r <- liftIO $ runResourceT $ retryAws awsConf qapi mgr tx
     -- liftIO $ print r
     evalPlan state next
 evalPlan state (Pure r) = return r
 
 
-retryAws :: (ServiceConfiguration r ~ EC2Configuration, Transaction r Value) =>
-            Aws.Configuration -> EC2Configuration NormalQuery -> HTTP.Manager -> r -> ResourceT IO Value
+retryAws :: (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) =>
+            Aws.Configuration -> QueryAPIConfiguration NormalQuery -> HTTP.Manager -> r -> ResourceT IO Value
 retryAws awsConf conf mgr tx = loop 
   where
     loop = do
@@ -365,7 +366,7 @@ evalResources ctx@DeployContext{..} info = do
     let keypair = fst $ head keypairs
 
     instances <- HTTP.withManager $ \mgr -> do
-      evalPlan store (rplan name (snd <$> keypairs) info) `runReaderT` EvalContext mgr (EC2Configuration $ T.encodeUtf8 region)
+      evalPlan store (rplan name (snd <$> keypairs) info) `runReaderT` EvalContext mgr (QueryAPIConfiguration $ T.encodeUtf8 region)
 
     -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
 

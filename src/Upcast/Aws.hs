@@ -45,6 +45,7 @@ import Data.Aeson.Encode.Pretty (encodePretty)
 
 import qualified Aws
 import Aws.Core (Transaction)
+import Aws.Query (QueryAPIConfiguration(..))
 import Aws.Ec2
 
 import qualified Aws.Ec2 as EC2
@@ -54,11 +55,11 @@ catchAny = Control.Exception.catch
 
 type RegionAws = B.ByteString -> IO Value
 
-simpleAws :: (Transaction r Value, Aws.ServiceConfiguration r ~ EC2Configuration) => r -> RegionAws
+simpleAws :: (Transaction r Value, Aws.ServiceConfiguration r ~ QueryAPIConfiguration) => r -> RegionAws
 simpleAws arg region = do
     -- cfg <- Aws.dbgConfiguration
     cfg <- Aws.baseConfiguration
-    Aws.simpleAws cfg (EC2Configuration region) arg
+    Aws.simpleAws cfg (QueryAPIConfiguration region) arg
 
 pprint :: ToJSON a => a -> IO ()
 pprint = LBS.putStrLn . encodePretty

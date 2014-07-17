@@ -4,10 +4,13 @@
 {-# LANGUAGE OverloadedStrings
            , RecordWildCards
            , DeriveDataTypeable
+           , MultiParamTypeClasses
+           , FlexibleInstances
            #-}
 
 module Aws.Query (
   module Aws.Query.Types
+, QueryAPIConfiguration(..)
 , QueryData(..)
 , QueryMetadata(..)
 , QueryError(..)
@@ -52,11 +55,19 @@ import Data.Byteable (toBytes)
 import Aws.Core
 import Aws.Query.Types
 
+data QueryAPIConfiguration qt = QueryAPIConfiguration
+                         { qaRegion :: B.ByteString
+                         } deriving (Show)
+
+instance DefaultServiceConfiguration (QueryAPIConfiguration NormalQuery) where
+  defServiceConfig = QueryAPIConfiguration "us-east-1"
+  debugServiceConfig = QueryAPIConfiguration "us-east-1"
+
 data QueryData = QueryData
                { qdEndpoint :: B.ByteString
                , qdRegion :: B.ByteString
                , qdService :: B.ByteString
-               }
+               } deriving (Show)
 
 data QueryError = QueryError
               { queryStatusCode   :: HTTP.Status
