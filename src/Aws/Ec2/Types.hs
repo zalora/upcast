@@ -1,79 +1,99 @@
-{-# LANGUAGE DeriveGeneric
-           , LambdaCase
+{-# LANGUAGE MultiParamTypeClasses
+           , FlexibleInstances
            , RecordWildCards
-           , NamedFieldPuns
-           , OverloadedStrings
-           , MultiWayIf
+           , LambdaCase
            #-}
 
-module Aws.Ec2.Types (
-  Value(..)
-, toValue
-, castValue
-) where
+module Aws.Ec2.Types where
 
-import qualified Data.Text as T
-import Data.Aeson
-import Data.Aeson.Types (parseMaybe)
-import qualified Data.Vector as V
-import qualified Data.List as L
+import Data.Text (Text)
+import Data.Time.Clock (UTCTime)
+import Data.Monoid
+import Data.ByteString.Char8 (ByteString, pack)
 
-import Text.XML (Element(..), Name(..), Node(..))
+import Network.HTTP.Types as HTTP
 
--- import Debug.Trace (trace)
--- import Text.Show.Pretty (ppShow)
--- 
--- traceArg a = ppShow a `trace` a
-traceArg = id
+import Aws.Query
+import Aws.Ec2.Core
 
-castValue :: FromJSON a => Value -> Maybe a
-castValue v = parseMaybe (const (parseJSON v)) v
+data InstanceTenancy = Default | Dedicated
 
-toValue = value
+instance Show InstanceTenancy where
+    show Default = "default"
+    show Dedicated = "dedicated"
 
-value :: Node -> Value
-value (NodeElement e@Element{..}) = values elementNodes 
-value (NodeContent c) = String c
-value _ = Null
+data VolumeType = Standard | GP2SSD | IOPSSD Int
 
-values elementNodes = uncurry elementValues $ traceArg $ (elementKind elementNodes, elementNodes)
+instance Show VolumeType where
+    show Standard = "standard"
+    show GP2SSD = "gp2"
+    show (IOPSSD _) = "io1"
 
-data ElementKind = ObjectLike
-                 | ArrayLike
-                 | Other
+data BlockDeviceMapping = BlockDeviceMapping
+                                { bdm_deviceName :: Text
+                                , bdm_device :: BlockDevice
+                                } deriving (Show)
+
+data BlockDevice = Ephemeral {bdm_virtualName :: Text}
+                 | EBS EbsBlockDevice
                  deriving (Show)
 
-elementKind nodes
-  | isXMLArray = ArrayLike
-  | isObject = ObjectLike
-  | otherwise = Other
-  where
-    filtered = filterNodes nodes
-    elems = onlyElements nodes
+data EbsBlockDevice = EbsBlockDevice
+                    { ebd_snapshotId :: Maybe Text
+                    , ebd_deleteOnTermination :: Bool
+                    , ebd_volumeType :: VolumeType
+                    , ebd_volumeSize :: Int
+                    , ebd_encrypted :: Bool
+                    } deriving (Show)
 
-    isObject = (not $ null elems) && length filtered == length elems
-    isXMLArray = ["item"] == (L.nub $ fmap forceElementName elems)
+queryEbsBlockDevice EbsBlockDevice{..} = [ ("VolumeType", qShow ebd_volumeType)
+                                         -- , ("VolumeSize", qShow ebd_volumeSize)
+                                         , ("Size", qShow ebd_volumeSize) -- RunInstances: VolumeSize
+                                         -- , ("DeleteOnTermination", qShow ebd_deleteOnTermination) -- RunInstances only
+                                         , ("Encrypted", qShow ebd_encrypted)
+                                         ] +++ optionalA "SnapshotId" ebd_snapshotId
+                                           +++ case ebd_volumeType of
+                                                 IOPSSD iops -> [("Iops", qShow iops)]
+                                                 _ -> []
 
-elementValues :: ElementKind -> [Node] -> Value
-elementValues ObjectLike ns = object [(forceElementName n, values $ filterNodes $ elementNodes $ unElement n) | n <- onlyElements ns]
-elementValues ArrayLike ns = array $ innerNodes ns
-  where
-    innerNodes :: [Node] -> [Value]
-    innerNodes nodes = fmap (values . filterNodes . elementNodes . unElement) $ onlyElements $ filterNodes $ nodes
-elementValues Other ns = arrayOrValue $ fmap value ns
-  where
-    arrayOrValue (x:[]) = x
-    arrayOrValue [] = Null
-    arrayOrValue a = array a
 
-forceElementName = nameLocalName . elementName . unElement
-unElement (NodeElement e) = e
-array = Array . V.fromList
-
-onlyElements = filter $ \case
-                        NodeElement _ -> True
-                        _ -> False
-
-filterNodes = filter $ \case
-                          NodeContent s -> (T.strip s) /= T.empty
-                          _ -> True
+-- http://docs.aws.amazon.com/AWSEC2/latest/APIReference/ApiReference-query-RunInstances.html
+instanceTypes :: [Text]
+instanceTypes = [ "t2.micro"
+                , "t2.small"
+                , "t2.medium"
+                , "m3.medium"
+                , "m3.large"
+                , "m3.xlarge"
+                , "m3.2xlarge"
+                , "m1.small" -- default
+                , "m1.medium"
+                , "m1.large"
+                , "m1.xlarge"
+                , "c3.large"
+                , "c3.xlarge"
+                , "c3.2xlarge"
+                , "c3.4xlarge"
+                , "c3.8xlarge"
+                , "c1.medium"
+                , "c1.xlarge"
+                , "cc2.8xlarge"
+                , "r3.large"
+                , "r3.xlarge"
+                , "r3.2xlarge"
+                , "r3.4xlarge"
+                , "r3.8xlarge"
+                , "m2.xlarge"
+                , "m2.2xlarge"
+                , "m2.4xlarge"
+                , "cr1.8xlarge"
+                , "i2.xlarge"
+                , "i2.2xlarge"
+                , "i2.4xlarge"
+                , "i2.8xlarge"
+                , "hs1.8xlarge"
+                , "hi1.4xlarge"
+                , "t1.micro"
+                , "g2.2xlarge"
+                , "cg1.4xlarge"
+                ]

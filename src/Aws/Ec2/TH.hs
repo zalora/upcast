@@ -11,8 +11,8 @@
 module Aws.Ec2.TH (
   module Aws.Core
 , module Aws.Ec2.Core
+, module Aws.Query
 , module Aws.Ec2.Types
-, module Aws.Ec2.Info
 , Text
 , UTCTime
 , FromJSON
@@ -29,10 +29,10 @@ import Data.Aeson.Types (FromJSON(..))
 import Data.Time.Clock (UTCTime)
 
 import Aws.Core
+import Aws.Query
 import Aws.Ec2.Core
 import qualified Aws.Ec2.Core as EC2
 import Aws.Ec2.Types
-import Aws.Ec2.Info
 
 ec2ValueTransactionDef :: Name -> Name -> String -> String -> DecsQ
 ec2ValueTransactionDef ty cons tag filterKey = do

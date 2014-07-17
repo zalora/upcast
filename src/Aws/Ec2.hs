@@ -1,8 +1,8 @@
 module Aws.Ec2 (
   Transaction
-, module Aws.Ec2.Info
-, module Aws.Ec2.Core
+, module Aws.Query.Types
 , module Aws.Ec2.Types
+, module Aws.Ec2.Core
 
 , module Aws.Ec2.Commands.DescribeAvailabilityZones
 , module Aws.Ec2.Commands.DescribeRegions
@@ -40,9 +40,9 @@ module Aws.Ec2 (
 ) where
 
 import Aws.Core (Transaction)
-import Aws.Ec2.Info
-import Aws.Ec2.Core
+import Aws.Query.Types
 import Aws.Ec2.Types
+import Aws.Ec2.Core
 
 import Aws.Ec2.Commands.DescribeAvailabilityZones
 import Aws.Ec2.Commands.DescribeRegions

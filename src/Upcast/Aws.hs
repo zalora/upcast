@@ -45,8 +45,7 @@ import Data.Aeson.Encode.Pretty (encodePretty)
 
 import qualified Aws
 import Aws.Core (Transaction)
-import Aws.Ec2.Core
-import Aws.Ec2.Types
+import Aws.Ec2
 
 import qualified Aws.Ec2 as EC2
 
