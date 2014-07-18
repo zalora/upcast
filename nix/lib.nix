@@ -16,4 +16,9 @@ with lib;
     merge = mergeOneOption;
   };
 
+  ec2-machine = mkOptionType {
+    name = "ec2 machine";
+    check = x: builtins.hasAttr "ec2" x.deployment;
+    merge = mergeOneOption;
+  };
 }

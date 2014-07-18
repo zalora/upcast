@@ -120,9 +120,7 @@ in
 
 
   config = {
-
     deployment.targetHost = mkDefault config.networking.hostName;
-
   };
 
 }

@@ -65,4 +65,10 @@
 
     baseModules = [ ./elastic-ip.nix ./resource.nix ];
   };
+
+  elbs = {
+    pluralDisplayName = "Elastic load balancers";
+
+    baseModules = [ ./elb.nix ./resource.nix ];
+  };
 }
