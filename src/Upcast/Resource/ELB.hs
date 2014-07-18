@@ -51,7 +51,6 @@ instance FromJSON ELB.Listener where
                                   Just x -> Just x
       return ELB.Listener{..}
 
--- elbPlan :: (MonadFree ResourceF m, Functor m) => InstanceA -> [Value] -> m [Text]
 elbPlan instanceA sgA subnetA elbs = do
     fmap mconcat $ forM elbs $ \elb -> do
         let (clb, attrs, machines) = parse elb $ \(Object obj) -> do
