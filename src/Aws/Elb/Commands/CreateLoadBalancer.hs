@@ -27,7 +27,6 @@ data Listener = Listener
 
 data CreateLoadBalancer = CreateLoadBalancer
                         { clb_name :: Text
-                        , clb_availabilityZones :: [Text]
                         , clb_listeners :: [Listener]
                         , clb_scheme :: Scheme
                         , clb_securityGroupIds :: [Text]
@@ -50,7 +49,6 @@ instance SignQuery CreateLoadBalancer where
                                                     , defVersion
                                                     , ("LoadBalancerName", qArg clb_name)
                                                     ] +++ enumerateListeners clb_listeners
-                                                      +++ enumerate "AvailabilityZones.member" clb_availabilityZones qArg
                                                       +++ enumerate "Subnets.member" clb_subnetIds qArg
                                                       +++ enumerate "SecurityGroups.member" clb_securityGroupIds qArg
                                                       +++ case clb_scheme of

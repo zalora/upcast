@@ -25,10 +25,10 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource ec2-m
       description = "Amazon EC2 region.";
     };
 
-    subnetsPerAZ = mkOption {
-      type = types.attrsOf (union types.str (resource "ec2-subnet"));
-      default = {};
-      apply = mapAttrs (name: value: { inherit name; value = if builtins.isString value then value else value.name; });
+    subnets = mkOption {
+      type = types.listOf (union types.str (resource "ec2-subnet"));
+      default = [];
+      apply = map (x: if builtins.isString x then x else x._name);
     };
 
     machines = mkOption {

@@ -24,19 +24,25 @@ data ModifyLoadBalancerAttributes = ModifyLoadBalancerAttributes
                         , mlba_attributes :: [LoadBalancerAttribute]
                         } deriving (Show)
 
+attributeQuery (AccessLog False _ _ _)
+      = [ ("LoadBalancerAttributes.AccessLog.Enabled", qBool False)
+        ]
 attributeQuery (AccessLog enabled interval bucket prefix)
-      = [ ("LoadBalancerAttributes.AccessLog.Enabled", qShow enabled)
+      = [ ("LoadBalancerAttributes.AccessLog.Enabled", qBool enabled)
         , ("LoadBalancerAttributes.AccessLog.EmitInterval", int interval)
         , ("LoadBalancerAttributes.AccessLog.S3BucketName", qArg bucket)
         , ("LoadBalancerAttributes.AccessLog.S3BucketPrefix", qArg prefix)
         ] where int Min5 = qShow 5
                 int Min60 = qShow 60
+attributeQuery (ConnectionDraining False timeout)
+      = [ ("LoadBalancerAttributes.ConnectionDraining.Enabled", qBool False)
+        ]
 attributeQuery (ConnectionDraining enabled timeout)
-      = [ ("LoadBalancerAttributes.ConnectionDraining.Enabled", qShow enabled)
+      = [ ("LoadBalancerAttributes.ConnectionDraining.Enabled", qBool enabled)
         , ("LoadBalancerAttributes.ConnectionDraining.Timeout", qShow timeout)
         ]
 attributeQuery (CrossZoneLoadBalancing enabled)
-      = [ ("LoadBalancerAttributes.CrossZoneLoadBalancing.Enabled", qShow enabled)
+      = [ ("LoadBalancerAttributes.CrossZoneLoadBalancing.Enabled", qBool enabled)
         ]
 
 instance SignQuery ModifyLoadBalancerAttributes where

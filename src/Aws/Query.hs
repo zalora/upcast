@@ -17,6 +17,7 @@ module Aws.Query (
 , querySignQuery
 , qArg
 , qShow
+, qBool
 , valueConsumer
 , valueConsumerOpt
 , queryResponseConsumer
@@ -146,6 +147,10 @@ qArg = Just . encodeUtf8
 
 qShow :: Show a => a -> Maybe B.ByteString
 qShow = Just . B8.pack . show
+
+qBool :: Bool -> Maybe B.ByteString
+qBool True = Just "true"
+qBool False = Just "false"
 
 valueConsumer :: Text -> (Value -> a) -> Cu.Cursor -> Response QueryMetadata a
 valueConsumer = valueConsumerOpt (XMLValueOptions "item")

@@ -6,6 +6,7 @@ module Upcast.TermSubstitution (
   SubStore
 , Sub(..)
 , loadSubStore
+, emptyStore
 , substitute
 ) where
 
@@ -26,6 +27,9 @@ type SubMap = Map Text Value
 data SubStore = SubStore FilePath SubMap deriving (Show)
 data Sub = Cached | Created deriving (Show)
 
+emptyStore :: SubStore
+emptyStore = SubStore "" (Map.empty :: SubMap)
+
 loadSubStore :: FilePath -> IO SubStore
 loadSubStore path = do
     store <- (A.eitherDecode :: LBS.ByteString -> Either String SubMap) <$> LBS.readFile path
@@ -34,6 +38,7 @@ loadSubStore path = do
       Left r -> error $ mconcat ["loadSubStore ", show path, ": ", r]
 
 commit :: SubStore -> IO SubStore
+commit s@(SubStore "" _) = return s
 commit s@(SubStore path x) = do
     LBS.writeFile path $ A.encodePretty x
     return s
