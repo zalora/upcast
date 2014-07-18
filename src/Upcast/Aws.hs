@@ -22,6 +22,10 @@ module Upcast.Aws (
 , regions
 , knownRegions
 , elbs
+, elbPolicyTypes
+, elbDescribePolicyTypes
+, elbInstanceHealth
+, elbPolicies
 , status
 , pstatus
 ) where
@@ -130,6 +134,10 @@ knownRegions = [ "ap-northeast-1"
                ]
 
 elbs names = simpleAws $ ELB.DescribeLoadBalancers names
+elbPolicyTypes = simpleAws $ ELB.ListLoadBalancerPolicyTypes
+elbDescribePolicyTypes types = simpleAws $ ELB.DescribeLoadBalancerPolicyTypes types
+elbInstanceHealth lb = simpleAws $ ELB.DescribeInstanceHealth lb
+elbPolicies lb = simpleAws $ ELB.DescribeLoadBalancerPolicies lb
 
 status = mapConcurrently ((flip catchAny $ \e -> return $ Left e) . fmap Right . azs []) knownRegions
 pstatus = fmap rights status >>= mapM_ (LBS.putStrLn . encode)

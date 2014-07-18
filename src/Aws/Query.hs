@@ -154,9 +154,7 @@ valueConsumerOpt :: XMLValueOptions -> Text -> (Value -> a) -> Cu.Cursor -> Resp
 valueConsumerOpt options tag cons cu = go $ head cu'
   where
     cu' = cu $.// Cu.laxElement tag
-    -- unwrap = fromJust . H.lookup tag . (\(Object o) -> o)
-    unwrap = id
-    go = return . cons . unwrap . toValue options . Cu.node 
+    go = return . cons . toValue options . Cu.node 
 
 -- similar: iamResponseConsumer
 queryResponseConsumer :: (Cu.Cursor -> Response QueryMetadata a)
