@@ -12,6 +12,8 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Free
 
+import Data.Function (on)
+import Data.List (sortBy)
 import Data.Monoid
 import Data.Maybe (catMaybes)
 import Data.Map.Strict (Map)
@@ -27,6 +29,7 @@ import qualified Data.Vector as V
 import Aws.Query (QueryAPIConfiguration(..), castValue)
 import qualified Aws.Ec2 as EC2
 
+import Upcast.ATerm (alookupS)
 import Upcast.Resource.Types
 import Upcast.Resource.ELB
 
@@ -193,7 +196,12 @@ ec2plan expressionName keypairs info = do
     elbPlan instanceA sgA subnetA elbs
 
     Array instanceInfos <- aws (EC2.DescribeInstances instanceIds)
-    return $ zip (fmap fst instanceA) (V.toList instanceInfos)
+   
+    let orderedInstanceNames = fmap fst $ sortBy (compare `on` (fst . snd)) instanceA
+        err = error "could not sort instanceIds after DescribeInstances"
+        tcast = castValue :: Value -> Maybe Text
+        orderedInfos = sortBy (compare `on` (maybe err id . fmap tcast . alookupS "instancesSet.instanceId")) $ V.toList instanceInfos
+        in return $ zip orderedInstanceNames orderedInfos
   where
     cast :: FromJSON a => Text -> [a]
     cast = (`mcast` info)
