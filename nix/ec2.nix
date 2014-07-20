@@ -296,7 +296,7 @@ in
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
       type = types.listOf (union types.str (resource "ec2-security-group"));
-      apply = map (x: if builtins.isString x then x else x.name);
+      apply = map (x: if builtins.isString x then x else x._name);
       description = ''
         Security groups for the instance.  These determine the
         firewall rules applied to the instance.
