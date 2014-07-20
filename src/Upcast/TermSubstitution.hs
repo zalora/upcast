@@ -10,6 +10,7 @@ module Upcast.TermSubstitution (
 , substitute
 ) where
 
+import System.Posix.Files (fileExist)
 import Control.Applicative
 import Data.Monoid (mconcat)
 
@@ -32,6 +33,10 @@ emptyStore = SubStore "" (Map.empty :: SubMap)
 
 loadSubStore :: FilePath -> IO SubStore
 loadSubStore path = do
+    exists <- fileExist path
+    case exists of
+      True -> return ()
+      False -> LBS.writeFile path "{}"
     store <- (A.eitherDecode :: LBS.ByteString -> Either String SubMap) <$> LBS.readFile path
     case store of
       Right s -> return $ SubStore path s
