@@ -118,7 +118,7 @@ evalPlan state (Pure r) = return r
 txprint :: (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) =>
            r
            -> ReaderT EvalContext IO ()
-txprint tx = 
+txprint tx =
     ask >>= liftIO . runResourceT . txBody tx >>= liftIO . BS.putStrLn
 
 debugPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext IO a
@@ -143,7 +143,7 @@ retryAws :: (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value
             -> HTTP.Manager
             -> r
             -> ResourceT IO Value
-retryAws awsConf conf mgr tx = loop 
+retryAws awsConf conf mgr tx = loop
   where
     loop = do
       result <- catchAll $ Aws.pureAws awsConf conf mgr tx
@@ -181,7 +181,7 @@ debugEvalResources ctx@DeployContext{..} info = do
     return $ fmap (toMachine keypair) instances
   where
     name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
-    
+
     toMachine k (h, info) = (h, Machine h
                                         (cast "instancesSet.ipAddress" :: Text)
                                         (cast "instancesSet.privateIpAddress" :: Text)
@@ -223,7 +223,7 @@ evalResources ctx@DeployContext{..} info = do
     return $ fmap (toMachine keypair) instances
   where
     name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
-    
+
     toMachine k (h, info) = (h, Machine h
                                         (cast "instancesSet.ipAddress" :: Text)
                                         (cast "instancesSet.privateIpAddress" :: Text)
