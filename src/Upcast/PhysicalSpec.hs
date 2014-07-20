@@ -105,6 +105,7 @@ ec2HostTemplate EC2Host{..} = [nl|
       };
       imports = [
         {
+          ec2.metadata = true;
           deployment.ec2 = {
             blockDeviceMapping = {};
             instanceId = "#{instanceId}";
