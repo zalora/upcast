@@ -4,6 +4,7 @@
            , ExistentialQuantification
            , FlexibleContexts
            , LambdaCase
+           , TupleSections
            #-}
 
 module Upcast.Resource.Ec2 where
@@ -142,8 +143,7 @@ createInstances instances subnetA sgA defTags = do
               let run_count = (1, 1)
               run_instanceType <- ec2 .: "instanceType"
               let run_securityGroupIds = catMaybes $ fmap (flip lookup sgA) securityGroupNames
-              -- run_blockDeviceMappings :: [BlockDeviceMapping]
-              run_blockDeviceMappings <- return [] -- TODO
+
               let Just run_subnetId = lookup subnet subnetA
               let run_monitoringEnabled = True
               let run_disableApiTermination = False
@@ -155,25 +155,39 @@ createInstances instances subnetA sgA defTags = do
               let run_ramdiskId = Nothing
               let run_clientToken = Nothing
               run_availabilityZone <- ec2 .:? "zone"
-             
-              return (name, maybe [] Map.toList blockDevs, EC2.RunInstances{..})
+
+              let run_blockDeviceMappings = catMaybes $ fmap parseBlockDevice (Map.toList $ (\case Just bd -> bd) blockDevs)
+
+              return (name, maybe [] (Map.toList) blockDevs, EC2.RunInstances{..})
         instanceId <- aws1 cinst "instancesSet.instanceId"
         aws_ (EC2.CreateTags [instanceId] (("Name", name):defTags))
         return [(name, (instanceId, blockDevs))]
     return instanceA
+  where
+    parseBlockDevice :: (Text, Value) -> Maybe EC2.BlockDeviceMapping
+    parseBlockDevice (bdm_deviceName, v) = flip A.parseMaybe v $ \(Object obj) -> do
+      diskName :: Text <- obj .: "disk"
+      when ("res-" `T.isPrefixOf` diskName) $ fail "ignore (handled later)"
+      unless ("ephemeral" `T.isPrefixOf` diskName) $ fail "ignore (not implemented)"
+      let bdm_device = EC2.Ephemeral diskName
+
+      return EC2.BlockDeviceMapping{..}
 
 attachEBS instanceA volumeA = do
     forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
-      let blockA = (\(mapping, v) -> (mapping, let t = acast "disk" v :: Text
-                                                   td = T.drop 4 t
-                                                   in case "res-" `T.isPrefixOf` t of
-                                                        True -> case lookup td volumeA of
-                                                                  Nothing -> error $ mconcat [show td, " not found in volumeA = ", show volumeA]
-                                                                  Just x -> x
-                                                        False -> error $ mconcat ["can't handle disk: ", T.unpack t])) <$> blockDevs
-
+      let blockA = catMaybes $ (\(mapping, v) -> (mapping, ) <$> test v) <$> blockDevs
       forM_ blockA $ \(avol_device, avol_volumeId) -> do
         aws_ EC2.AttachVolume{..}
+  where
+    test v = let t = acast "disk" v :: Text
+                 td = T.drop 4 t
+                 in do
+                    when ("ephemeral" `T.isPrefixOf` t) $ fail "ignore (handled)"
+                    case "res-" `T.isPrefixOf` t of
+                      True -> case lookup td volumeA of
+                                Nothing -> error $ mconcat [show td, " not found in volumeA = ", show volumeA]
+                                Just x -> return x
+                      False -> error $ mconcat ["can't handle disk: ", T.unpack t]
 
 
 ec2plan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> m [(Text, Value)]
