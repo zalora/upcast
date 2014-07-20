@@ -65,6 +65,21 @@ deploy ctx@DeployContext{..} = do
     fgrun build
     install ctx' machines
 
+debug = do
+    ctx@DeployContext{..} <- fmap (context . head) getArgs
+    Right info <- deploymentInfo ctx
+    pprint info
+    machinesA <- debugEvalResources ctx info
+
+    let machineNames = fmap (T.unpack . fst) machinesA
+    spec <- physicalSpecFile $ fmap snd machinesA
+    let build = nixBuildMachines ctx [spec, T.unpack expressionFile] uuid machineNames closuresPath
+    fgrun build
+
+    -- infoOnly ctx
+    -- deploy ctx
+    return ()
+
 main = do
-    ctx <- fmap (context . head) getArgs
+    ctx@DeployContext{..} <- fmap (context . head) getArgs
     deploy ctx
