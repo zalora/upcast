@@ -35,8 +35,13 @@ ec2plan expressionName keypairs info = do
     mapM_ (\k -> resourceAWSR k "keyFingerprint") keypairs
 
     vpcA <- fmap mconcat $ forM vpcs $ \vpc -> do
-        vpcId <- resourceAWSR vpc "vpcId"
-        return [(EC2.cvpc_cidrBlock vpc, vpcId)]
+        let (aname, cvpc) = parse vpc $ \(Object obj) -> do
+                        aname :: Text <- obj .: "_name"
+                        cvpc <- EC2.CreateVpc <$> obj .: "cidrBlock"
+                                              <*> pure EC2.Default
+                        return (aname, cvpc)
+        vpcId <- resourceAWSR cvpc "vpcId"
+        return [(aname, vpcId)]
 
     (wait . EC2.DescribeVpcs) $ fmap snd vpcA
     resourceAWS (EC2.CreateTags (fmap snd vpcA) defTags)
@@ -52,27 +57,29 @@ ec2plan expressionName keypairs info = do
       resourceAWS (EC2.CreateRoute rtbId "0.0.0.0/0" (EC2.GatewayId gwId))
 
     subnetA <- fmap mconcat $ forM subnets $ \subnet -> do
-        let csubnet = parse subnet $ \(Object obj) -> do
+        let (aname, csubnet) = parse subnet $ \(Object obj) -> do
+                        aname :: Text <- obj .: "_name"
                         cidr <- obj .: "cidrBlock"
                         vpc <- obj .: "vpc"
                         zone <- obj .: "zone"
                         let Just vpcId = lookup vpc vpcA
-                        return $ EC2.CreateSubnet vpcId cidr $ Just zone
+                        return (aname, EC2.CreateSubnet vpcId cidr $ Just zone)
         subnetId <- resourceAWSR csubnet "subnetId"
 
-        return [(EC2.csub_cidrBlock csubnet, subnetId)]
+        return [(aname, subnetId)]
 
     (wait . EC2.DescribeSubnets) $ fmap snd subnetA
     resourceAWS (EC2.CreateTags (fmap snd subnetA) defTags)
 
     sgA <- fmap mconcat $ forM secGroups $ \sg -> do
         -- AWS needs more than one transaction for each security group (Create + add rules)
-        let g = parse sg $ \(Object obj) -> do
-                  name <- obj .: "name" :: A.Parser Text
-                  desc <- obj .: "description" :: A.Parser Text
+        let (aname, g) = parse sg $ \(Object obj) -> do
+                  name :: Text <- obj .: "name"
+                  aname :: Text <- obj .: "_name"
+                  desc :: Text <- obj .: "description"
                   vpc <- obj .: "vpc"
                   let Just vpcId = lookup vpc vpcA
-                  return $ EC2.CreateSecurityGroup name desc $ Just vpcId
+                  return (aname, EC2.CreateSecurityGroup name desc $ Just vpcId)
         secGroupId <- resourceAWSR g "groupId"
 
         let r = parse sg $ \(Object obj) -> do
@@ -80,14 +87,15 @@ ec2plan expressionName keypairs info = do
                   return $ EC2.AuthorizeSecurityGroupIngress secGroupId rules
         resourceAWS r
 
-        return [(EC2.csec_name g, secGroupId)]
+        return [(aname, secGroupId)]
 
     (wait . flip EC2.DescribeSecurityGroups []) $ fmap snd sgA
     resourceAWS (EC2.CreateTags (fmap snd sgA) defTags)
 
     volumeA <- fmap mconcat $ forM volumes $ \vol -> do
-        let (name, v) = parse vol $ \(Object obj) -> do
-              name <- obj .: "name" :: A.Parser Text
+        let (assocName, name, v) = parse vol $ \(Object obj) -> do
+              name :: Text <- obj .: "name"
+              assocName :: Text <- obj .: "_name"
 
               cvol_AvailabilityZone <- obj .: "zone"
               ebd_snapshotId <- fmap (\case "" -> Nothing; x -> Just x) (obj .: "snapshot")
@@ -98,14 +106,14 @@ ec2plan expressionName keypairs info = do
 
               let cvol_ebs = EC2.EbsBlockDevice{..}
 
-              return $ (name, EC2.CreateVolume{..})
+              return $ (assocName, name, EC2.CreateVolume{..})
 
         volumeId <- resourceAWSR v "volumeId"
 
         (wait . EC2.DescribeVolumes) [volumeId]
         resourceAWS (EC2.CreateTags [volumeId] (("Name", name):defTags))
 
-        return [(name, volumeId)]
+        return [(assocName, volumeId)]
 
     (instanceA :: InstanceA) <- fmap mconcat $ forM instances $ \inst -> do
         let (name, blockDevs, cinst) = parse inst $ \(Object obj) -> do
@@ -121,7 +129,7 @@ ec2plan expressionName keypairs info = do
               run_instanceType <- ec2 .: "instanceType"
               let run_securityGroupIds = catMaybes $ fmap (flip lookup sgA) securityGroupNames
               -- run_blockDeviceMappings :: [BlockDeviceMapping]
-              run_blockDeviceMappings <- return []
+              run_blockDeviceMappings <- return [] -- TODO
               let Just run_subnetId = lookup subnet subnetA
               let run_monitoringEnabled = True
               let run_disableApiTermination = False
@@ -150,7 +158,7 @@ ec2plan expressionName keypairs info = do
                                                         True -> case lookup td volumeA of
                                                                   Nothing -> error $ mconcat [show td, " not found in volumeA = ", show volumeA]
                                                                   Just x -> x
-                                                        False -> error $ mconcat ["can not handle disk: ", T.unpack t])) <$> blockDevs
+                                                        False -> error $ mconcat ["can't handle disk: ", T.unpack t])) <$> blockDevs
       forM_ blockA $ \(avol_device, avol_volumeId) -> do
         resourceAWS EC2.AttachVolume{..}
 
@@ -164,7 +172,7 @@ ec2plan expressionName keypairs info = do
 
     defTags = [("created-using", "upcast"), ("expression", expressionName)]
 
-    vpcs = cast "resources.vpc" :: [EC2.CreateVpc]
+    vpcs = cast "resources.vpc" :: [Value]
     subnets = cast "resources.subnets" :: [Value]
     secGroups = cast "resources.ec2SecurityGroups" :: [Value]
     volumes = cast "resources.ebsVolumes" :: [Value]

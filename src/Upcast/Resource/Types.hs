@@ -81,13 +81,11 @@ wait tx = liftF (Wait (TX tx) ())
 
 type InstanceA = [(Text, (Text, [(Text, Value)]))] -- (name (id, blockdevices))
 
+parse obj action = either error id (flip parseEither obj action)
+
 --
 -- orphanarium:
 --
-
-instance FromJSON EC2.CreateVpc where
-    parseJSON (Object v) = EC2.CreateVpc <$> v .: "cidrBlock" <*> pure EC2.Default
-    parseJSON _ = mzero
 
 instance FromJSON EC2.IpProtocol where
     parseJSON (String "tcp") = pure EC2.TCP
@@ -104,5 +102,3 @@ instance FromJSON EC2.IpPermission where
                                             <*> v .:? "toPort"
                                             <*> (fmap (\a -> [a]) $ v .: "sourceIp")
     parseJSON _ = mzero
-
-parse obj action = either error id (flip parseEither obj action)
