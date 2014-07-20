@@ -9,8 +9,11 @@
 
 module Aws.Ec2.Commands.RunInstances where
 
+import Control.Applicative ((<$>))
 import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Data.ByteString.Char8 (pack, ByteString)
+import qualified Data.ByteString.Base64 as Base64
 import qualified Network.HTTP.Types as HTTP
 import Data.Monoid
 import Aws.Ec2.TH
@@ -29,7 +32,7 @@ data RunInstances = RunInstances
                   , run_ebsOptimized :: Bool
 
                   , run_keyName :: Maybe Text
-                  , run_userData :: Maybe Text -- Base64-encoded
+                  , run_userData :: Maybe Text
                   , run_kernelId :: Maybe Text
                   , run_ramdiskId :: Maybe Text
                   , run_clientToken :: Maybe Text
@@ -57,7 +60,7 @@ instance SignQuery RunInstances where
     signQuery RunInstances{..} = ec2SignQuery $
                                   main
                                   +++ (optionalA "KeyName" run_keyName)
-                                  +++ (optionalA "UserData" run_userData)
+                                  +++ (optionalA "UserData" (decodeUtf8 . Base64.encode . encodeUtf8 <$> run_userData))
                                   +++ (optionalA "KernelId" run_kernelId)
                                   +++ (optionalA "RamdiskId" run_ramdiskId)
                                   +++ (optionalA "ClientToken" run_clientToken)

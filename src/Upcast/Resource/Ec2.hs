@@ -136,10 +136,10 @@ ec2plan expressionName keypairs info = do
               let run_instanceInitiatedShutdownBehavior = EC2.Stop
               run_ebsOptimized <- ec2 .: "ebsOptimized"
               run_keyName <- ec2 .:? "keyPair"
-              let run_userData = Nothing
+              let run_userData = Just name -- at least need a unique string to prevent substituting one call for many
               let run_kernelId = Nothing
               let run_ramdiskId = Nothing
-              let run_clientToken = Just name -- need a unique string to prevent substituting one call for many
+              let run_clientToken = Nothing
               run_availabilityZone <- ec2 .:? "zone"
              
               return (name, maybe [] Map.toList blockDevs, EC2.RunInstances{..})
