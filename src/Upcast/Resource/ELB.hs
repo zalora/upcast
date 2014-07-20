@@ -86,15 +86,15 @@ elbPlan instanceA sgA subnetA elbs = do
 
               return (clb, [crossAttr, accessAttr, drainingAttr], machines)
 
-        resourceAWS clb
+        aws_ clb
 
         let name = ELB.clb_name clb
         wait $ ELB.DescribeLoadBalancers [name]
 
-        resourceAWS $ ELB.ModifyLoadBalancerAttributes name attrs
+        aws_ $ ELB.ModifyLoadBalancerAttributes name attrs
 
         let instances = fmap fst $ catMaybes $ fmap (flip lookup instanceA) machines
-        resourceAWS $ ELB.RegisterInstancesWithLoadBalancer name instances
+        aws_ $ ELB.RegisterInstancesWithLoadBalancer name instances
 
         return [(clb, attrs)]
 

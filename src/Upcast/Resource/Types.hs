@@ -67,11 +67,11 @@ data ResourceF next = AWS TX next
                     deriving (Functor)
 type ResourcePlan = Free ResourceF
 
-resourceAWS :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
-resourceAWS tx = liftF (AWS (TX tx) ())
+aws_ :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
+aws_ tx = liftF (AWS (TX tx) ())
 
-resourceAWSR :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> Text -> m Text
-resourceAWSR tx k = liftF (AWSR (TXR (TX tx) k) id)
+aws1 :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> Text -> m Text
+aws1 tx k = liftF (AWSR (TXR (TX tx) k) id)
 
 aws :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m Value
 aws tx = liftF (AWSV (TX tx) id)

@@ -30,32 +30,35 @@ import qualified Aws.Ec2 as EC2
 import Upcast.Resource.Types
 import Upcast.Resource.ELB
 
-ec2plan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> m [(Text, Value)]
-ec2plan expressionName keypairs info = do
-    mapM_ (\k -> resourceAWSR k "keyFingerprint") keypairs
-
+createVPC vpcs defTags = do
     vpcA <- fmap mconcat $ forM vpcs $ \vpc -> do
         let (aname, cvpc) = parse vpc $ \(Object obj) -> do
                         aname :: Text <- obj .: "_name"
                         cvpc <- EC2.CreateVpc <$> obj .: "cidrBlock"
                                               <*> pure EC2.Default
                         return (aname, cvpc)
-        vpcId <- resourceAWSR cvpc "vpcId"
+        vpcId <- aws1 cvpc "vpcId"
         return [(aname, vpcId)]
 
     (wait . EC2.DescribeVpcs) $ fmap snd vpcA
-    resourceAWS (EC2.CreateTags (fmap snd vpcA) defTags)
+    aws_ (EC2.CreateTags (fmap snd vpcA) defTags)
 
+    return vpcA
+
+internetAccess vpcA defTags = do
     -- give the internet to VPCs
     forM (fmap snd vpcA) $ \vpcId -> do
-      resourceAWS (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsSupport True))
-      resourceAWS (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsHostnames True))
-      gwId <- resourceAWSR EC2.CreateInternetGateway "internetGatewayId"
-      resourceAWS (EC2.AttachInternetGateway gwId vpcId)
+      aws_ (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsSupport True))
+      aws_ (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsHostnames True))
+      gwId <- aws1 EC2.CreateInternetGateway "internetGatewayId"
+      aws_ (EC2.AttachInternetGateway gwId vpcId)
+      aws_ (EC2.CreateTags [gwId] defTags)
 
-      rtbId <- resourceAWSR (EC2.DescribeRouteTables vpcId) "routeTableId"
-      resourceAWS (EC2.CreateRoute rtbId "0.0.0.0/0" (EC2.GatewayId gwId))
+      rtbId <- aws1 (EC2.DescribeRouteTables vpcId) "routeTableId"
+      aws_ (EC2.CreateRoute rtbId "0.0.0.0/0" (EC2.GatewayId gwId))
+      aws_ (EC2.CreateTags [rtbId] defTags)
 
+createSubnets subnets vpcA defTags = do
     subnetA <- fmap mconcat $ forM subnets $ \subnet -> do
         let (aname, csubnet) = parse subnet $ \(Object obj) -> do
                         aname :: Text <- obj .: "_name"
@@ -64,13 +67,16 @@ ec2plan expressionName keypairs info = do
                         zone <- obj .: "zone"
                         let Just vpcId = lookup vpc vpcA
                         return (aname, EC2.CreateSubnet vpcId cidr $ Just zone)
-        subnetId <- resourceAWSR csubnet "subnetId"
+        subnetId <- aws1 csubnet "subnetId"
 
         return [(aname, subnetId)]
 
     (wait . EC2.DescribeSubnets) $ fmap snd subnetA
-    resourceAWS (EC2.CreateTags (fmap snd subnetA) defTags)
+    aws_ (EC2.CreateTags (fmap snd subnetA) defTags)
 
+    return subnetA
+
+createSecurityGroups secGroups vpcA defTags = do
     sgA <- fmap mconcat $ forM secGroups $ \sg -> do
         -- AWS needs more than one transaction for each security group (Create + add rules)
         let (aname, g) = parse sg $ \(Object obj) -> do
@@ -80,18 +86,21 @@ ec2plan expressionName keypairs info = do
                   vpc <- obj .: "vpc"
                   let Just vpcId = lookup vpc vpcA
                   return (aname, EC2.CreateSecurityGroup name desc $ Just vpcId)
-        secGroupId <- resourceAWSR g "groupId"
+        secGroupId <- aws1 g "groupId"
 
         let r = parse sg $ \(Object obj) -> do
                   rules <- obj .: "rules" :: A.Parser [EC2.IpPermission]
                   return $ EC2.AuthorizeSecurityGroupIngress secGroupId rules
-        resourceAWS r
+        aws_ r
 
         return [(aname, secGroupId)]
 
     (wait . flip EC2.DescribeSecurityGroups []) $ fmap snd sgA
-    resourceAWS (EC2.CreateTags (fmap snd sgA) defTags)
+    aws_ (EC2.CreateTags (fmap snd sgA) defTags)
 
+    return sgA
+
+createEBS volumes defTags = do
     volumeA <- fmap mconcat $ forM volumes $ \vol -> do
         let (assocName, name, v) = parse vol $ \(Object obj) -> do
               name :: Text <- obj .: "name"
@@ -108,13 +117,15 @@ ec2plan expressionName keypairs info = do
 
               return $ (assocName, name, EC2.CreateVolume{..})
 
-        volumeId <- resourceAWSR v "volumeId"
+        volumeId <- aws1 v "volumeId"
 
         (wait . EC2.DescribeVolumes) [volumeId]
-        resourceAWS (EC2.CreateTags [volumeId] (("Name", name):defTags))
+        aws_ (EC2.CreateTags [volumeId] (("Name", name):defTags))
 
         return [(assocName, volumeId)]
+    return volumeA
 
+createInstances instances subnetA sgA defTags = do
     (instanceA :: InstanceA) <- fmap mconcat $ forM instances $ \inst -> do
         let (name, blockDevs, cinst) = parse inst $ \(Object obj) -> do
               String name <- obj .: "targetHost"
@@ -143,14 +154,12 @@ ec2plan expressionName keypairs info = do
               run_availabilityZone <- ec2 .:? "zone"
              
               return (name, maybe [] Map.toList blockDevs, EC2.RunInstances{..})
-        instanceId <- resourceAWSR cinst "instancesSet.instanceId"
-        resourceAWS (EC2.CreateTags [instanceId] (("Name", name):defTags))
+        instanceId <- aws1 cinst "instancesSet.instanceId"
+        aws_ (EC2.CreateTags [instanceId] (("Name", name):defTags))
         return [(name, (instanceId, blockDevs))]
+    return instanceA
 
-    let instanceIds = fmap (fst . snd) instanceA
-
-    (wait . EC2.DescribeInstanceStatus) instanceIds
-
+attachEBS instanceA volumeA = do
     forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
       let blockA = (\(mapping, v) -> (mapping, let t = acast "disk" v :: Text
                                                    td = T.drop 4 t
@@ -159,8 +168,27 @@ ec2plan expressionName keypairs info = do
                                                                   Nothing -> error $ mconcat [show td, " not found in volumeA = ", show volumeA]
                                                                   Just x -> x
                                                         False -> error $ mconcat ["can't handle disk: ", T.unpack t])) <$> blockDevs
+
       forM_ blockA $ \(avol_device, avol_volumeId) -> do
-        resourceAWS EC2.AttachVolume{..}
+        aws_ EC2.AttachVolume{..}
+
+
+ec2plan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> m [(Text, Value)]
+ec2plan expressionName keypairs info = do
+    mapM_ (\k -> aws1 k "keyFingerprint") keypairs
+
+    vpcA <- createVPC vpcs defTags
+    internetAccess vpcA defTags
+    subnetA <- createSubnets subnets vpcA defTags
+    sgA <- createSecurityGroups secGroups vpcA defTags
+
+    volumeA <- createEBS volumes defTags
+    instanceA <- createInstances instances subnetA sgA defTags
+
+    attachEBS instanceA volumeA
+
+    let instanceIds = fmap (fst . snd) instanceA
+    (wait . EC2.DescribeInstanceStatus) instanceIds
 
     elbPlan instanceA sgA subnetA elbs
 
