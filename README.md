@@ -18,7 +18,7 @@ Next generation cloud deployment tool, replacement for NixOps.
 
 #### Operation modes
 
-- The only supported command is `deploy`. No `create`, `modify`, `clone`, `set-args`, `send-keys`.
+- The only supported command is `deploy` (so far). No `create`, `modify`, `clone`, `set-args`, `send-keys` non-sense.
 - NixOps SQLite state files are abandoned, separate text files ([json dict for state](https://github.com/zalora/upcast/blob/master/src/Upcast/TermSubstitution.hs) and a private key file) are used instead.
 
 #### Resources
