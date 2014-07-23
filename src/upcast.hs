@@ -6,35 +6,46 @@ import Control.Monad (join)
 import Control.Applicative
 import Options.Applicative
 
+import System.Directory (canonicalizePath)
 import System.FilePath.Posix
 import System.Posix.Files (readSymbolicLink)
-import System.Environment (getArgs)
+import System.Posix.Env (getEnvDefault)
+
+import Data.List (intercalate)
 import qualified Data.Text as T
 import Data.Text (Text(..))
-import Data.Map (Map)
-import qualified Data.Map as Map
 import Data.ByteString.Char8 (split)
-
 import Data.Default
 
 import Upcast.Interpolate (n)
-
 import Upcast.Nix
 import Upcast.PhysicalSpec
 import Upcast.Aws
 import Upcast.Types
-
 import Upcast.Resource
 import Upcast.Deploy
 import Upcast.DeployCommands
 import Upcast.Command
-
+import Upcast.Temp
 import qualified Upcast.Nixops as Legacy
+import Paths_upcast
 
-context :: FilePath -> DeployContext
-context exprFile = def { expressionFile = T.pack exprFile
-                       , stateFile = replaceExtension exprFile "store"
-                       }
+context :: String -> [String] -> IO DeployContext
+context file args = do
+    path <- canonicalizePath file
+    let ctx = def { expressionFile = T.pack path
+                  , stateFile = replaceExtension path "store"
+                  }
+    nix <- T.pack <$> getDataFileName "nix"
+    machinesPath <- randomTempFileName "machines."
+    env <- getEnvDefault "UPCAST_NIX_FLAGS" ""
+    let ctx' = ctx { nixops = nix
+                   , nixArgs = T.concat [T.pack $ intercalate " " args, " ", T.pack env]
+                   , closuresPath = machinesPath
+                   }
+    print ctx'
+    return ctx'
+
 infoOnly ctx = do
     Right info <- deploymentInfo ctx
     pprint info
@@ -58,6 +69,7 @@ install DeployContext{..} machines = do
 
 deploy ctx@DeployContext{..} = do
     Right info <- deploymentInfo ctx
+    pprint info
     machinesA <- evalResources ctx info
     let machines = fmap snd machinesA
     let machineNames = fmap (T.unpack . fst) machinesA
@@ -69,7 +81,9 @@ deploy ctx@DeployContext{..} = do
     fgrun build
     install ctx' machines
 
-debug file args = let ctx@DeployContext{..} = context file in do
+
+debug file args = do
+    ctx@DeployContext{..} <- context file args
     Right info <- deploymentInfo ctx
     pprint info
     machinesA <- debugEvalResources ctx info
@@ -83,11 +97,9 @@ debug file args = let ctx@DeployContext{..} = context file in do
     -- deploy ctx
     return ()
 
-go file args =
-    let ctx@DeployContext{..} = context file in deploy ctx
-
-data CLI = Go FilePath [String]
-         | Debug FilePath [String]
+go file args = do
+    ctx'@DeployContext{..} <- context file args
+    deploy ctx'
 
 main = join $ customExecParser prefs opts
   where
@@ -101,9 +113,9 @@ main = join $ customExecParser prefs opts
     opts = parser `info` header "upcast - infrastructure orchestratrion"
 
     parser = subparser (command "go" (args go `info` progDesc "execute a deployment") <>
-                        command "debug" (args debug `info` progDesc "dry-run in debugging mode"))
+                        command "test" (args debug `info` progDesc "deployment dry-run"))
 
-    args comm = comm <$> argument str exp <*> some (argument str nixArgs)
+    args comm = comm <$> argument str exp <*> many (argument str nixArgs)
     exp = metavar "<expression>"
-    nixArgs = metavar "[nix arguments...]"
+    nixArgs = metavar "nix arguments..."
 

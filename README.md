@@ -32,13 +32,13 @@ Next generation cloud deployment tool, replacement for NixOps.
 
 
 
-### Running
+### Using
 
-```
+```console
 $ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys
-$ cabal configure -O2
 $ cabal install
-$ upcast ~/eris/sg-staging.nix
+$ export UPCAST_NIX_FLAGS="--option use-binary-cache true --option binary-caches http://hydra.nixos.org --option use-ssh-substituter true --option ssh-substituter-hosts me@node1.example.com"
+$ upcast go test.nix -- -I sources/nixpkgs
 ```
 
 NB: Initially developed with GHC 7.8.2 and Cabal 1.20 localhost-style. YMMV.

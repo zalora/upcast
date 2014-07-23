@@ -12,15 +12,7 @@ import Upcast.Types
 import Upcast.Command
 import Upcast.State
 
-nixBaseOptions DeployContext{..} = [n|
-                 -I #{nixPath}
-                 -I nixops=#{nixops}
-                 --option use-binary-cache true
-                 --option binary-caches http://hydra.nixos.org
-                 --option use-ssh-substituter true
-                 --option ssh-substituter-hosts me@node1.example.com
-                 --show-trace
-                 |]
+nixBaseOptions DeployContext{..} = [n| -I nixops=#{nixops} #{nixArgs} --show-trace |]
 
 sshBaseOptions = [n|-o StrictHostKeyChecking=no -x|]
 
