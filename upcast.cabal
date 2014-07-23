@@ -6,7 +6,7 @@ maintainer:          vlad.ki@zalora.com
 copyright:           2014 Zalora
 build-type:          Simple
 cabal-version:       >=1.10
-data-files:          nix/*
+data-files:          nix/*.nix
 
 executable upcast
   main-is:             upcast.hs
