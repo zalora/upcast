@@ -46,8 +46,8 @@ createVPC vpcs defTags = do
         vpcId <- aws1 cvpc "vpcId"
         return [(aname, vpcId)]
 
-    (wait . EC2.DescribeVpcs) $ fmap snd vpcA
-    aws_ (EC2.CreateTags (fmap snd vpcA) defTags)
+    unless (null vpcA) $ (wait . EC2.DescribeVpcs) $ fmap snd vpcA
+    unless (null vpcA) $ aws_ (EC2.CreateTags (fmap snd vpcA) defTags)
 
     return vpcA
 
@@ -77,8 +77,8 @@ createSubnets subnets vpcA defTags = do
 
         return [(aname, subnetId)]
 
-    (wait . EC2.DescribeSubnets) $ fmap snd subnetA
-    aws_ (EC2.CreateTags (fmap snd subnetA) defTags)
+    unless (null subnetA) $ (wait . EC2.DescribeSubnets) $ fmap snd subnetA
+    unless (null subnetA) $ aws_ (EC2.CreateTags (fmap snd subnetA) defTags)
 
     return subnetA
 
@@ -90,8 +90,10 @@ createSecurityGroups secGroups vpcA defTags = do
                   aname :: Text <- obj .: "_name"
                   desc :: Text <- obj .: "description"
                   vpc <- obj .: "vpc"
-                  let Just vpcId = lookup vpc vpcA
-                  return (aname, EC2.CreateSecurityGroup name desc $ Just vpcId)
+                  let vpcId = case vpc of
+                                Null -> Nothing
+                                String v -> lookup v vpcA
+                  return (aname, EC2.CreateSecurityGroup name desc vpcId)
         secGroupId <- aws1 g "groupId"
 
         let r = parse sg $ \(Object obj) -> do
@@ -101,8 +103,8 @@ createSecurityGroups secGroups vpcA defTags = do
 
         return [(aname, secGroupId)]
 
-    (wait . flip EC2.DescribeSecurityGroups []) $ fmap snd sgA
-    aws_ (EC2.CreateTags (fmap snd sgA) defTags)
+    unless (null sgA) $ (wait . flip EC2.DescribeSecurityGroups []) $ fmap snd sgA
+    unless (null sgA) $ aws_ (EC2.CreateTags (fmap snd sgA) defTags)
 
     return sgA
 
@@ -138,7 +140,6 @@ createInstances instances subnetA sgA defTags = do
               Object ec2 <- obj .: "ec2" :: A.Parser Value
               securityGroupNames <- ec2 .: "securityGroups"
               subnet <- ec2 .: "subnet"
-              let Just subnetId = lookup subnet subnetA
               let blockDevs = scast "blockDeviceMapping" (Object ec2) :: Maybe (Map Text Value)
 
               run_imageId <- ec2 .: "ami"
@@ -146,7 +147,9 @@ createInstances instances subnetA sgA defTags = do
               run_instanceType <- ec2 .: "instanceType"
               let run_securityGroupIds = catMaybes $ fmap (flip lookup sgA) securityGroupNames
 
-              let Just run_subnetId = lookup subnet subnetA
+              let run_subnetId = case subnet of
+                            Null -> Nothing
+                            String s -> lookup s subnetA
               let run_monitoringEnabled = True
               let run_disableApiTermination = False
               let run_instanceInitiatedShutdownBehavior = EC2.Stop

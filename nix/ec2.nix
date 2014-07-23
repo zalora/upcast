@@ -362,9 +362,9 @@ in
     };
 
     deployment.ec2.subnet = mkOption {
-      type = union types.str (resource "ec2-subnet");
-      default = "";
-      apply = x: if builtins.isString x then x else x._name;
+      type = types.nullOr (union types.str (resource "ec2-subnet"));
+      default = null;
+      apply = x: if x == null then null else if builtins.isString x then x else x._name;
     };
 
     fileSystems = mkOption {

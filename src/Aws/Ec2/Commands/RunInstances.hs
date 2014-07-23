@@ -25,7 +25,7 @@ data RunInstances = RunInstances
                   , run_instanceType :: Text
                   , run_securityGroupIds :: [Text]
                   , run_blockDeviceMappings :: [BlockDeviceMapping]
-                  , run_subnetId :: Text
+                  , run_subnetId :: Maybe Text
                   , run_monitoringEnabled :: Bool
                   , run_disableApiTermination :: Bool
                   , run_instanceInitiatedShutdownBehavior :: InstanceInitiatedShutdownBehavior
@@ -65,7 +65,6 @@ instance SignQuery RunInstances where
                                   +++ (optionalA "RamdiskId" run_ramdiskId)
                                   +++ (optionalA "ClientToken" run_clientToken)
                                   +++ (optionalA "Placement.AvailabilityZone" run_availabilityZone)
-                                  +++ enumerate "NetworkInterface.0.SecurityGroupId" run_securityGroupIds qArg
                                   +++ enumerateBlockDevices run_blockDeviceMappings
         where
           main :: HTTP.Query
@@ -79,11 +78,12 @@ instance SignQuery RunInstances where
                  , ("DisableApiTermination", qShow run_disableApiTermination)
                  , ("InstanceInitiatedShutdownBehavior", qShow run_instanceInitiatedShutdownBehavior)
                  , ("EbsOptimized", qShow run_ebsOptimized)
-                 -- cheating:
-                 , ("NetworkInterface.0.DeviceIndex", qShow 0)
-                 , ("NetworkInterface.0.SubnetId", qArg run_subnetId)
-                 , ("NetworkInterface.0.AssociatePublicIpAddress", qShow True) -- default is False if subnets are present
-                 ]
+                 ] +++ case run_subnetId of
+                         Nothing -> enumerate "SecurityGroupId" run_securityGroupIds qArg
+                         Just subnetId -> [ ("NetworkInterface.0.DeviceIndex", qShow 0)
+                                          , ("NetworkInterface.0.SubnetId", qArg subnetId)
+                                          , ("NetworkInterface.0.AssociatePublicIpAddress", qShow True)
+                                          ] +++ enumerate "NetworkInterface.0.SecurityGroupId" run_securityGroupIds qArg
 
 ec2ValueTransaction ''RunInstances "RunInstancesResponse"
 

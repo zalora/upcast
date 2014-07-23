@@ -32,8 +32,9 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource; in
     };
 
     vpc = mkOption {
-      type = union types.str (resource "ec2-vpc");
-      apply = x: if builtins.isString x then x else x._name;
+      default = null;
+      type = types.nullOr (union types.str (resource "ec2-vpc"));
+      apply = x: if x == null then null else if builtins.isString x then x else x._name;
       description = "If specified, the security group is created under this VPC.";
     };
 

@@ -19,7 +19,6 @@ import Data.Default
 
 import Upcast.Interpolate (nl)
 import Upcast.Nix
--- import Upcast.PhysicalSpec
 import Upcast.Aws
 import Upcast.Types
 import Upcast.Resource
