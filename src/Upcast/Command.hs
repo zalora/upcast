@@ -15,6 +15,8 @@ import Control.Monad.Trans.Resource (runResourceT, liftResourceT, MonadResource(
 import Data.List as L
 import Data.Maybe (maybe)
 import Data.Monoid
+import Data.Time.Clock
+import Data.IORef
 
 import Data.ByteString as BS
 
@@ -31,6 +33,7 @@ data Local = Local deriving (Show)
 data Remote = Remote Key String deriving (Show)
 
 data Command a = Cmd a String deriving (Show)
+data Mode = Consume | Run
 
 instance Monoid ExitCode where
     mempty = ExitSuccess
@@ -38,23 +41,32 @@ instance Monoid ExitCode where
     e@(ExitFailure _) `mappend` _ = e
     a `mappend` b = a
 
+measure :: IO a -> IO (NominalDiffTime, a)
+measure action = do
+    now <- getCurrentTime
+    result <- action
+    then' <- getCurrentTime
+    return (diffUTCTime then' now, result)
 
 fgrun :: Command Local -> IO ()
 fgrun c = do
-    printR c
-    runResourceT $ run c $$ awaitForever $ liftIO . output . chunk
+    print' Run c
+    ref <- newIORef mempty
+    (time, _) <- measure $ runResourceT $ run c $$ awaitForever $ liftIO . output ref . chunk
+    code <- readIORef ref
+    printExit Run code time
   where
-    output (maybeCode, s) = do
+    output ref (maybeCode, s) = do
       BS.putStr s
       case maybeCode of
-        Just c -> when (c /= ExitSuccess) $ printE c
+        Just c -> writeIORef ref c
         Nothing -> return ()
 
 fgconsume :: Command Local -> IO BS.ByteString
 fgconsume c@(Cmd Local s) = do
-    printC c
-    (Just code, output) <- (runResourceT $ proc $$ CL.consume) >>= return . concat
-    when (code /= ExitSuccess) $ printE code
+    print' Consume c
+    (time, (Just code, output)) <- measure $ (runResourceT $ proc $$ CL.consume) >>= return . concat
+    printExit Consume code time
     return output
     where
       proc = bracketP (openFile "/dev/stderr" WriteMode) (hClose) $ \wh -> roProcessSource (cmd s) Nothing (Just wh)
@@ -143,6 +155,11 @@ applyColor index s = "\ESC[1;" ++ color ++ "m" ++ s ++ "\ESC[0m"
   where
     color = show $ (31 + (index `mod` 7))
 
-printC c = IO.hPutStrLn stderr $ applyColor 5 $ show c
-printR c = IO.hPutStrLn stderr $ applyColor 3 $ show c
-printE c = IO.hPutStrLn stderr $ applyColor 0 $ show c
+color Consume = 5
+color Run = 3
+
+printExit mode code time = case code of
+                        ExitSuccess -> IO.hPutStrLn stderr $ applyColor (color mode) $ mconcat ["Completed in ", show time]
+                        _ -> IO.hPutStrLn stderr $ applyColor 0 $ mconcat [show code, ", time: ", show time]
+
+print' mode c = IO.hPutStrLn stderr $ applyColor (color mode) $ show c
