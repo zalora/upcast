@@ -1,10 +1,23 @@
-## upcast
+```console
+upcast - infrastructure orchestratrion
 
-Next generation cloud deployment tool, replacement for NixOps.
+Usage: upcast COMMAND
 
-### Motivation
+Available commands:
+  go                       execute a deployment
+  test                     deployment dry-run
+  info                     print deployment resource information in json format
+  ssh-config               print ssh config for deployment (evaluates resources)
+```
 
-![motivation](http://i.imgur.com/HY2Gtk5.png)
+### Quick start
+
+```console
+$ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys
+$ cabal install
+$ export UPCAST_NIX_FLAGS="--option use-binary-cache true --option binary-caches http://hydra.nixos.org --option use-ssh-substituter true --option ssh-substituter-hosts me@node1.example.com"
+$ upcast go test.nix -- -I sources/nixpkgs
+```
 
 ### Goals
 
@@ -32,14 +45,10 @@ Next generation cloud deployment tool, replacement for NixOps.
 
 
 
-### Using
+### Motivation
 
-```console
-$ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys
-$ cabal install
-$ export UPCAST_NIX_FLAGS="--option use-binary-cache true --option binary-caches http://hydra.nixos.org --option use-ssh-substituter true --option ssh-substituter-hosts me@node1.example.com"
-$ upcast go test.nix -- -I sources/nixpkgs
-```
+![motivation](http://i.imgur.com/HY2Gtk5.png)
 
-NB: Initially developed with GHC 7.8.2 and Cabal 1.20 localhost-style. YMMV.
+### Hacking
 
+Initially developed with GHC 7.8.2 and Cabal 1.20 localhost-style. YMMV.
