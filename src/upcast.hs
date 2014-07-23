@@ -17,7 +17,7 @@ import Data.Text (Text(..))
 import Data.ByteString.Char8 (split)
 import Data.Default
 
-import Upcast.Interpolate (n)
+import Upcast.Interpolate (nl)
 import Upcast.Nix
 import Upcast.PhysicalSpec
 import Upcast.Aws
@@ -43,12 +43,7 @@ context file args = do
                    , nixArgs = T.concat [T.pack $ intercalate " " args, " ", T.pack env]
                    , closuresPath = machinesPath
                    }
-    print ctx'
     return ctx'
-
-infoOnly ctx = do
-    Right info <- deploymentInfo ctx
-    pprint info
 
 install DeployContext{..} machines = do
     closures <- mapM (fmap (split '\n') . fgconsume . nixClosure . closurePath) machines
@@ -67,12 +62,14 @@ install DeployContext{..} machines = do
                                 , fmap (ssh' sshAuthSock . nixSwitchToConfiguration) $ fmap remote machines
                                 ]
 
-deploy ctx@DeployContext{..} = do
+resources ctx = do
     Right info <- deploymentInfo ctx
-    pprint info
-    machinesA <- evalResources ctx info
-    let machines = fmap snd machinesA
-    let machineNames = fmap (T.unpack . fst) machinesA
+    machines <- evalResources ctx info
+    return machines
+
+deploy ctx@DeployContext{..} = do
+    machines <- resources ctx
+    let machineNames = fmap (T.unpack . m_hostname) machines
     let keyFiles = fmap m_keyFile machines
     agentSocket <- setupAgentF sshAddKeyFile keyFiles
     let ctx' = ctx { sshAuthSock = T.pack agentSocket } 
@@ -81,25 +78,37 @@ deploy ctx@DeployContext{..} = do
     fgrun build
     install ctx' machines
 
+infoOnly file args = do
+    Right info <- context file args >>= deploymentInfo
+    pprint info
 
 debug file args = do
     ctx@DeployContext{..} <- context file args
     Right info <- deploymentInfo ctx
-    pprint info
-    machinesA <- debugEvalResources ctx info
-
-    let machineNames = fmap (T.unpack . fst) machinesA
-    spec <- physicalSpecFile $ fmap snd machinesA
+    machines <- debugEvalResources ctx info
+    let machineNames = fmap (T.unpack . m_hostname) machines
+    spec <- physicalSpecFile machines
     let build = nixBuildMachines ctx [spec, T.unpack expressionFile] uuid machineNames closuresPath
     fgrun build
-
-    -- infoOnly ctx
-    -- deploy ctx
     return ()
 
 go file args = do
-    ctx'@DeployContext{..} <- context file args
-    deploy ctx'
+    ctx@DeployContext{..} <- context file args
+    deploy ctx
+
+sshConfig file args = context file args >>= resources >>= putStrLn . intercalate "\n" . fmap config
+  where
+    config Machine{..} = [nl|
+Host #{m_hostname}
+    HostName #{m_publicIp}
+    User root
+    IdentityFile #{m_keyFile}
+    ControlMaster auto
+    ControlPath ~/.ssh/master-%r@%h:%p
+    ForwardAgent yes
+    ControlPersist 60s
+|]
+
 
 main = join $ customExecParser prefs opts
   where
@@ -113,7 +122,10 @@ main = join $ customExecParser prefs opts
     opts = parser `info` header "upcast - infrastructure orchestratrion"
 
     parser = subparser (command "go" (args go `info` progDesc "execute a deployment") <>
-                        command "test" (args debug `info` progDesc "deployment dry-run"))
+                        command "test" (args debug `info` progDesc "deployment dry-run") <>
+                        command "info" (args infoOnly `info` progDesc "print deployment resource information in json format") <>
+                        command "ssh-config" (args sshConfig `info` progDesc "print ssh config for deployment (evaluates resources)")
+                        )
 
     args comm = comm <$> argument str exp <*> many (argument str nixArgs)
     exp = metavar "<expression>"

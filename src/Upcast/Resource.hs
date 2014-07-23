@@ -168,7 +168,7 @@ findRegions acc (Object h) = mappend nacc $ join (findRegions [] <$> (fmap snd $
 findRegions acc (Array v) = mappend acc $ join (findRegions [] <$> V.toList v)
 findRegions acc _ = acc
 
-debugEvalResources :: DeployContext -> Value -> IO [(Text, Machine)]
+debugEvalResources :: DeployContext -> Value -> IO [Machine]
 debugEvalResources ctx@DeployContext{..} info = do
     let region = "us-east-1"
     let (keypair, keypairs) = ("", [])
@@ -183,16 +183,16 @@ debugEvalResources ctx@DeployContext{..} info = do
   where
     name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
 
-    toMachine k (h, info) = (h, Machine h
-                                        (cast "instancesSet.ipAddress" :: Text)
-                                        (cast "instancesSet.privateIpAddress" :: Text)
-                                        (cast "instancesSet.instanceId" :: Text)
-                                        k)
+    toMachine k (h, info) = Machine h
+                                    (cast "instancesSet.ipAddress" :: Text)
+                                    (cast "instancesSet.privateIpAddress" :: Text)
+                                    (cast "instancesSet.instanceId" :: Text)
+                                    k
       where
         cast :: FromJSON a => Text -> a
         cast = (`acast` info)
 
-evalResources :: DeployContext -> Value -> IO [(Text, Machine)]
+evalResources :: DeployContext -> Value -> IO [Machine]
 evalResources ctx@DeployContext{..} info = do
     region <- let regions = L.nub $ findRegions [] info
                   in case regions of
@@ -225,11 +225,11 @@ evalResources ctx@DeployContext{..} info = do
   where
     name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
 
-    toMachine k (h, info) = (h, Machine h
-                                        (cast "instancesSet.ipAddress" :: Text)
-                                        (cast "instancesSet.privateIpAddress" :: Text)
-                                        (cast "instancesSet.instanceId" :: Text)
-                                        k)
+    toMachine k (h, info) = Machine h
+                                    (cast "instancesSet.ipAddress" :: Text)
+                                    (cast "instancesSet.privateIpAddress" :: Text)
+                                    (cast "instancesSet.instanceId" :: Text)
+                                    k
       where
         cast :: FromJSON a => Text -> a
         cast = (`acast` info)
