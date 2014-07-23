@@ -144,5 +144,5 @@ applyColor index s = "\ESC[1;" ++ color ++ "m" ++ s ++ "\ESC[0m"
     color = show $ (31 + (index `mod` 7))
 
 printC c = IO.hPutStrLn stderr $ applyColor 5 $ show c
-printR c = IO.hPutStrLn stderr $ applyColor 4 $ show c
-printE c = IO.hPutStrLn stderr $ applyColor 1 $ show c
+printR c = IO.hPutStrLn stderr $ applyColor 3 $ show c
+printE c = IO.hPutStrLn stderr $ applyColor 0 $ show c
