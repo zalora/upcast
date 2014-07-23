@@ -71,8 +71,6 @@ in {
     resources.defaults = lib.mapAttrs (name: value:
       if name == "machines"
         then [ ({ name, ... }: {
-          networking.hostName = lib.mkOverride 900 name;
-
           deployment.targetHost = lib.mkOverride 900 name;
 
           __internal.check = lib.mkOverride 900 deployment.__internal.check;
@@ -126,7 +124,7 @@ in {
         ) (removeAttrs deployment.resources [ "machines" "defaults" ]);
       };
 
-      machines = { names }:
+      machines = { names ? (lib.attrNames deployment.resources.machines) }:
         let machines = lib.filterAttrs (n: v: lib.elem n names) deployment.resources.machines; in
         pkgs.runCommand "nixops-machines" { preferLocalBuild = true; } ''
           mkdir -p $out

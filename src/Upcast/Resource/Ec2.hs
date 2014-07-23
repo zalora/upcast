@@ -5,6 +5,7 @@
            , FlexibleContexts
            , LambdaCase
            , TupleSections
+           , QuasiQuotes
            #-}
 
 module Upcast.Resource.Ec2 where
@@ -30,6 +31,7 @@ import qualified Data.Vector as V
 import Aws.Query (QueryAPIConfiguration(..), castValue)
 import qualified Aws.Ec2 as EC2
 
+import Upcast.Interpolate (n)
 import Upcast.ATerm (alookupS)
 import Upcast.Resource.Types
 import Upcast.Resource.ELB
@@ -150,7 +152,7 @@ createInstances instances subnetA sgA defTags = do
               let run_instanceInitiatedShutdownBehavior = EC2.Stop
               run_ebsOptimized <- ec2 .: "ebsOptimized"
               run_keyName <- ec2 .:? "keyPair"
-              let run_userData = Just name -- at least need a unique string to prevent substituting one call for many
+              let run_userData = Just $ userData name -- at least need a unique string to prevent substituting one call for many
               let run_kernelId = Nothing
               let run_ramdiskId = Nothing
               let run_clientToken = Nothing
@@ -172,6 +174,8 @@ createInstances instances subnetA sgA defTags = do
       let bdm_device = EC2.Ephemeral diskName
 
       return EC2.BlockDeviceMapping{..}
+
+    userData hostname = T.pack [n|hostname #{hostname}|]
 
 attachEBS instanceA volumeA = do
     forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do

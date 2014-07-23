@@ -93,29 +93,6 @@ in
         to send email on performing certain actions.
       '';
     };
-
-    # Computed options useful for referring to other machines in
-    # network specifications.
-
-    networking.privateIPv4 = mkOption {
-      example = "10.1.2.3";
-      type = types.str;
-      description = ''
-        IPv4 address of this machine within in the logical network.
-        This address can be used by other machines in the logical
-        network to reach this machine.  However, it need not be
-        visible to the outside (i.e., publicly routable).
-      '';
-    };
-
-    networking.publicIPv4 = mkOption {
-      example = "198.51.100.123";
-      type = types.str;
-      description = ''
-        Publicly routable IPv4 address of this machine.
-      '';
-    };
-
   };
 
 

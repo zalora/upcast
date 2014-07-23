@@ -8,14 +8,14 @@ import Data.Text (Text(..))
 import Data.Default
 
 data DeployContext =
-    DeployContext { nixops, nixArgs, expressionFile, sshAuthSock :: Text
+    DeployContext { upcastNix, nixArgs, expressionFile, sshAuthSock :: Text
                   , closuresPath, uuid :: String
                   , stateFile :: FilePath
                   } deriving (Show)
 
 instance Default DeployContext where
     def = DeployContext
-          { nixops = ""
+          { upcastNix = ""
           , nixArgs = ""
           , stateFile = ""
           , expressionFile = ""

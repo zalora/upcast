@@ -12,7 +12,7 @@ import Upcast.Types
 import Upcast.Command
 import Upcast.State
 
-nixBaseOptions DeployContext{..} = [n| -I nixops=#{nixops} #{nixArgs} --show-trace |]
+nixBaseOptions DeployContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
 
 sshBaseOptions = [n|-o StrictHostKeyChecking=no -x|]
 
@@ -32,7 +32,7 @@ nixDeploymentInfo ctx exprs uuid = Cmd Local [n|
                      --arg networkExprs '#{listToNix exprs}'
                      --arg args {}
                      --argstr uuid #{uuid}
-                     '<nixops/eval-deployment.nix>'
+                     '<upcast/eval-deployment.nix>'
                      --eval-only --strict --read-write-mode
                      --arg checkConfigurationOptions false
                      -A info
@@ -48,8 +48,7 @@ nixBuildMachines ctx exprs uuid names outputPath = Cmd Local [n|
                    --arg networkExprs '#{listToNix exprs}'
                    --arg args {}
                    --argstr uuid #{uuid}
-                   --arg names '#{listToNix names}'
-                   '<nixops/eval-deployment.nix>'
+                   '<upcast/eval-deployment.nix>'
                    -A machines
                    -o #{outputPath}
                    |]

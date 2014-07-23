@@ -19,7 +19,7 @@ import Data.Default
 
 import Upcast.Interpolate (nl)
 import Upcast.Nix
-import Upcast.PhysicalSpec
+-- import Upcast.PhysicalSpec
 import Upcast.Aws
 import Upcast.Types
 import Upcast.Resource
@@ -39,7 +39,7 @@ context file args = do
     nix <- T.pack <$> getDataFileName "nix"
     machinesPath <- randomTempFileName "machines."
     env <- getEnvDefault "UPCAST_NIX_FLAGS" ""
-    let ctx' = ctx { nixops = nix
+    let ctx' = ctx { upcastNix = nix
                    , nixArgs = T.concat [T.pack $ intercalate " " args, " ", T.pack env]
                    , closuresPath = machinesPath
                    }
@@ -73,8 +73,7 @@ deploy ctx@DeployContext{..} = do
     let keyFiles = fmap m_keyFile machines
     agentSocket <- setupAgentF sshAddKeyFile keyFiles
     let ctx' = ctx { sshAuthSock = T.pack agentSocket } 
-    spec <- physicalSpecFile machines
-    let build = nixBuildMachines ctx' [spec, T.unpack expressionFile] uuid machineNames closuresPath
+    let build = nixBuildMachines ctx' [T.unpack expressionFile] uuid machineNames closuresPath
     fgrun build
     install ctx' machines
 
@@ -87,8 +86,7 @@ debug file args = do
     Right info <- deploymentInfo ctx
     machines <- debugEvalResources ctx info
     let machineNames = fmap (T.unpack . m_hostname) machines
-    spec <- physicalSpecFile machines
-    let build = nixBuildMachines ctx [spec, T.unpack expressionFile] uuid machineNames closuresPath
+    let build = nixBuildMachines ctx [T.unpack expressionFile] uuid machineNames closuresPath
     fgrun build
     return ()
 
@@ -121,8 +119,8 @@ main = join $ customExecParser prefs opts
 
     opts = parser `info` header "upcast - infrastructure orchestratrion"
 
-    parser = subparser (command "go" (args go `info` progDesc "execute a deployment") <>
-                        command "test" (args debug `info` progDesc "deployment dry-run") <>
+    parser = subparser (command "go" (args go `info` progDesc "execute deployment") <>
+                        command "build" (args debug `info` progDesc "dry-run resource stage and perform a build") <>
                         command "info" (args infoOnly `info` progDesc "print deployment resource information in json format") <>
                         command "ssh-config" (args sshConfig `info` progDesc "print ssh config for deployment (evaluates resources)")
                         )
