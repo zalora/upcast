@@ -125,7 +125,8 @@ let
    || builtins.substring 0 2 cfg.instanceType == "i2"
    || builtins.substring 0 2 cfg.instanceType == "c3"
    || builtins.substring 0 2 cfg.instanceType == "r3"
-   || builtins.substring 0 2 cfg.instanceType == "m3";
+   || builtins.substring 0 2 cfg.instanceType == "m3"
+   || builtins.substring 0 2 cfg.instanceType == "t2";
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
   dmToDevice = dev:
@@ -386,6 +387,7 @@ in
 
 
   ###### implementation
+
 
   config = mkIf (config.deployment.targetEnv == "ec2") {
 
