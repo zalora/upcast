@@ -2,6 +2,10 @@
 
 module Main where
 
+import Control.Monad (join)
+import Control.Applicative
+import Options.Applicative
+
 import System.FilePath.Posix
 import System.Posix.Files (readSymbolicLink)
 import System.Environment (getArgs)
@@ -65,8 +69,7 @@ deploy ctx@DeployContext{..} = do
     fgrun build
     install ctx' machines
 
-debug = do
-    ctx@DeployContext{..} <- fmap (context . head) getArgs
+debug file args = let ctx@DeployContext{..} = context file in do
     Right info <- deploymentInfo ctx
     pprint info
     machinesA <- debugEvalResources ctx info
@@ -80,6 +83,27 @@ debug = do
     -- deploy ctx
     return ()
 
-main = do
-    ctx@DeployContext{..} <- fmap (context . head) getArgs
-    deploy ctx
+go file args =
+    let ctx@DeployContext{..} = context file in deploy ctx
+
+data CLI = Go FilePath [String]
+         | Debug FilePath [String]
+
+main = join $ customExecParser prefs opts
+  where
+    prefs = ParserPrefs { prefMultiSuffix = ""
+                        , prefDisambiguate = True
+                        , prefShowHelpOnError = True
+                        , prefBacktrack = True
+                        , prefColumns = 80
+                        }
+
+    opts = parser `info` header "upcast - infrastructure orchestratrion"
+
+    parser = subparser (command "go" (args go `info` progDesc "execute a deployment") <>
+                        command "debug" (args debug `info` progDesc "dry-run in debugging mode"))
+
+    args comm = comm <$> argument str exp <*> some (argument str nixArgs)
+    exp = metavar "<expression>"
+    nixArgs = metavar "[nix arguments...]"
+

@@ -30,6 +30,7 @@ executable upcast
                      , data-default
                      , pretty-show
                      , aws, http-conduit, conduit-extra, cryptohash, byteable, base16-bytestring, http-types, xml-conduit
+                     , optparse-applicative
 
   hs-source-dirs:      src
   ghc-options:         -static -rtsopts -threaded
