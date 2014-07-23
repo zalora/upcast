@@ -34,6 +34,7 @@ import System.FilePath.Posix (splitFileName)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Base64 as Base64
 
+import System.IO (stderr)
 import qualified Network.HTTP.Conduit as HTTP
 import qualified Aws
 import Aws.Core
@@ -86,7 +87,7 @@ txBody tx EvalContext{..} = do
 substituteTX :: SubStore -> TX -> EvalContext -> ResourceT IO (Sub, SubStore, Value)
 substituteTX state (TX tx) ctx@EvalContext{..} = do
     key <- txBody tx ctx
-    liftIO $ BS.putStrLn key
+    -- liftIO $ BS.putStrLn key
     awsConf <- liftIO $ Aws.baseConfiguration
     liftIO $ substitute state (T.decodeUtf8 key) (runResourceT $ Aws.pureAws awsConf qapi mgr tx)
 
@@ -153,7 +154,7 @@ retryAws awsConf conf mgr tx = loop
         Right y -> return y
 
     warn val = liftIO $ do
-      BS.putStrLn (mconcat ["wait: retrying after 1: ", BS.pack $ show val])
+      BS.hPutStrLn stderr (mconcat ["wait: retrying after 1: ", BS.pack $ show val])
       threadDelay 1000000
 
     catchAll :: ResourceT IO Value -> ResourceT IO (Either E.SomeException Value)

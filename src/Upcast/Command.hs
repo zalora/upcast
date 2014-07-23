@@ -3,12 +3,13 @@
 module Upcast.Command where
 
 import Control.Monad.Trans (liftIO)
-import Control.Monad (ap, join, (<=<))
+import Control.Monad (ap, join, (<=<), when)
 import System.FilePath (FilePath)
 import System.Process (createProcess, waitForProcess, CreateProcess(..), CmdSpec(..), StdStream(..), shell, ProcessHandle)
 import System.Exit (ExitCode(..))
 import GHC.IO.Handle (hClose, Handle, hSetBinaryMode)
-import System.IO (hSetBuffering, BufferMode(..), stdout, IOMode(..), openFile)
+import System.IO (hSetBuffering, BufferMode(..), stdout, stderr, IOMode(..), openFile, hPutStrLn)
+import qualified System.IO as IO
 import System.Posix.IO (createPipe, fdToHandle)
 import Control.Monad.Trans.Resource (runResourceT, liftResourceT, MonadResource(..))
 import Data.List as L
@@ -40,20 +41,20 @@ instance Monoid ExitCode where
 
 fgrun :: Command Local -> IO ()
 fgrun c = do
-    printC c
+    printR c
     runResourceT $ run c $$ awaitForever $ liftIO . output . chunk
   where
     output (maybeCode, s) = do
       BS.putStr s
       case maybeCode of
-        Just c -> printC c
+        Just c -> when (c /= ExitSuccess) $ printE c
         Nothing -> return ()
 
 fgconsume :: Command Local -> IO BS.ByteString
 fgconsume c@(Cmd Local s) = do
     printC c
     (Just code, output) <- (runResourceT $ proc $$ CL.consume) >>= return . concat
-    printC code
+    when (code /= ExitSuccess) $ printE code
     return output
     where
       proc = bracketP (openFile "/dev/stderr" WriteMode) (hClose) $ \wh -> roProcessSource (cmd s) Nothing (Just wh)
@@ -142,7 +143,6 @@ applyColor index s = "\ESC[1;" ++ color ++ "m" ++ s ++ "\ESC[0m"
   where
     color = show $ (31 + (index `mod` 7))
 
-colorize :: String -> String
-colorize = applyColor 5
-
-printC c = Prelude.putStrLn $ colorize $ show c
+printC c = IO.hPutStrLn stderr $ applyColor 5 $ show c
+printR c = IO.hPutStrLn stderr $ applyColor 4 $ show c
+printE c = IO.hPutStrLn stderr $ applyColor 1 $ show c
