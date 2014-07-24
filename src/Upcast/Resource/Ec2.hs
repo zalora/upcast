@@ -22,6 +22,8 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import Data.ByteString.Lazy (toStrict)
 import Data.Aeson
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Encode.Pretty as A
@@ -44,10 +46,9 @@ createVPC vpcs defTags = do
                                               <*> pure EC2.Default
                         return (aname, cvpc)
         vpcId <- aws1 cvpc "vpcId"
+        wait $ EC2.DescribeVpcs [vpcId]
+        aws_ $ EC2.CreateTags [vpcId] (("Name", aname):defTags)
         return [(aname, vpcId)]
-
-    unless (null vpcA) $ (wait . EC2.DescribeVpcs) $ fmap snd vpcA
-    unless (null vpcA) $ aws_ (EC2.CreateTags (fmap snd vpcA) defTags)
 
     return vpcA
 
@@ -133,6 +134,10 @@ createEBS volumes defTags = do
         return [(assocName, volumeId)]
     return volumeA
 
+maybeString (String "") = Nothing
+maybeString (String s) = Just s
+maybeString _ = Nothing
+
 createInstances instances subnetA sgA defTags = do
     (instanceA :: InstanceA) <- fmap mconcat $ forM instances $ \inst -> do
         let (name, blockDevs, cinst) = parse inst $ \(Object obj) -> do
@@ -145,11 +150,9 @@ createInstances instances subnetA sgA defTags = do
               run_imageId <- ec2 .: "ami"
               let run_count = (1, 1)
               run_instanceType <- ec2 .: "instanceType"
-              let run_securityGroupIds = catMaybes $ fmap (flip lookup sgA) securityGroupNames
+              let run_securityGroupIds = catMaybes $ flip lookup sgA <$> securityGroupNames
 
-              let run_subnetId = case subnet of
-                            Null -> Nothing
-                            String s -> lookup s subnetA
+              let run_subnetId = maybeString subnet >>= flip lookup subnetA
               let run_monitoringEnabled = True
               let run_disableApiTermination = False
               let run_instanceInitiatedShutdownBehavior = EC2.Stop
@@ -160,6 +163,7 @@ createInstances instances subnetA sgA defTags = do
               let run_ramdiskId = Nothing
               let run_clientToken = Nothing
               run_availabilityZone <- ec2 .:? "zone"
+              run_iamInstanceProfileARN <- maybeString <$> ec2 .: "instanceProfileARN"
 
               let run_blockDeviceMappings = catMaybes $ fmap parseBlockDevice (Map.toList $ (\case Just bd -> bd) blockDevs)
 
@@ -178,7 +182,7 @@ createInstances instances subnetA sgA defTags = do
 
       return EC2.BlockDeviceMapping{..}
 
-    userData hostname = T.pack [n|hostname #{hostname}|]
+    userData hostname = T.decodeUtf8 $ toStrict $ A.encode $ object [ "hostname" .= hostname ]
 
 attachEBS instanceA volumeA = do
     forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
@@ -235,5 +239,4 @@ ec2plan expressionName keypairs info = do
     volumes = cast "resources.ebsVolumes" :: [Value]
     instances = cast "machines" :: [Value]
     elbs = cast "resources.elbs" :: [Value]
-
 

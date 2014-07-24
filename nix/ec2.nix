@@ -258,12 +258,12 @@ in
       '';
     };
 
-    deployment.ec2.instanceProfile = mkOption {
+    deployment.ec2.instanceProfileARN = mkOption {
       default = "";
-      example = "rolename";
+      example = "arn:aws:iam::123456789012:instance-profile/S3-Permissions";
       type = types.str;
       description = ''
-        The name of the IAM Instance Profile (IIP) to associate with
+        The ARN of the IAM Instance Profile (IIP) to associate with
         the instances.
       '';
     };
