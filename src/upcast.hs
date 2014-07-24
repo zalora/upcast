@@ -9,7 +9,7 @@ import Options.Applicative
 import System.Directory (canonicalizePath)
 import System.FilePath.Posix
 import System.Posix.Files (readSymbolicLink)
-import System.Posix.Env (getEnvDefault)
+import System.Posix.Env (getEnvDefault, getEnv)
 
 import Data.List (intercalate)
 import qualified Data.Text as T
@@ -69,12 +69,17 @@ resources ctx = do
 deploy ctx@DeployContext{..} = do
     machines <- resources ctx
     let machineNames = fmap (T.unpack . m_hostname) machines
-    let keyFiles = fmap m_keyFile machines
-    agentSocket <- setupAgentF sshAddKeyFile keyFiles
-    let ctx' = ctx { sshAuthSock = T.pack agentSocket } 
-    let build = nixBuildMachines ctx' [T.unpack expressionFile] uuid machineNames closuresPath
+    ctx' <- ctxAuth $ fmap m_keyFile machines
+    let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid machineNames closuresPath
     fgrun build
     install ctx' machines
+  where
+    ctxAuth keyFiles = do
+      userAuthSock <- getEnv "UPCAST_SSH_AUTH_SOCK"
+      agentSocket <- case userAuthSock of
+                       Just sock -> return sock
+                       Nothing -> setupAgentF sshAddKeyFile keyFiles
+      return ctx { sshAuthSock = T.pack agentSocket }
 
 infoOnly file args = do
     Right info <- context file args >>= deploymentInfo

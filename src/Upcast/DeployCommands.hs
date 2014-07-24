@@ -14,7 +14,7 @@ import Upcast.State
 
 nixBaseOptions DeployContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
 
-sshBaseOptions = [n|-o StrictHostKeyChecking=no -x|]
+sshBaseOptions = [n|-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -x|]
 
 sshAgent socket = Cmd Local [n|ssh-agent -a #{socket}|]
 sshAddKey socket key = Cmd Local [n|echo '#{key}' | env SSH_AUTH_SOCK=#{socket} SSH_ASKPASS=/usr/bin/true ssh-add -|]
