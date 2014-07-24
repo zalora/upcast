@@ -25,6 +25,6 @@ let
           nixpkgs.system = lib.mkDefault system;
         } ];
       };
-    } ] ++ networkExprs;
+    } ] ++ (if lib.isList networkExprs then networkExprs else [ networkExprs ]);
   };
 in eval.config.toplevel // { inherit eval; }

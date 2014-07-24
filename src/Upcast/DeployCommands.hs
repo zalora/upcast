@@ -27,9 +27,9 @@ nixCopyClosureTo sshAuthSock (Remote _ host) path =
 nixCopyClosureToFast controlPath (Remote key host) path =
     Cmd Local [n|env NIX_SSHOPTS="-i #{key} -S #{controlPath} #{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|]
 
-nixDeploymentInfo ctx exprs uuid = Cmd Local [n|
+nixDeploymentInfo ctx expr uuid = Cmd Local [n|
                      nix-instantiate #{nixBaseOptions ctx}
-                     --arg networkExprs '#{listToNix exprs}'
+                     --arg networkExprs '#{expr}'
                      --arg args {}
                      --argstr uuid #{uuid}
                      '<upcast/eval-deployment.nix>'
@@ -38,14 +38,14 @@ nixDeploymentInfo ctx exprs uuid = Cmd Local [n|
                      -A info
                      |]
 
-nixBuildMachines :: DeployContext -> [String] -> String -> [String] -> String -> Command Local
-nixBuildMachines ctx exprs uuid names outputPath = Cmd Local [n|
+nixBuildMachines :: DeployContext -> String -> String -> [String] -> String -> Command Local
+nixBuildMachines ctx expr uuid names outputPath = Cmd Local [n|
                    env NIX_BUILD_HOOK="$HOME/.nix-profile/libexec/nix/build-remote.pl"
                    NIX_REMOTE_SYSTEMS="$HOME/remote-systems.conf"
                    NIX_CURRENT_LOAD="/tmp/load2"
                    TEST=1
                    nix-build #{nixBaseOptions ctx}
-                   --arg networkExprs '#{listToNix exprs}'
+                   --arg networkExprs '#{expr}'
                    --arg args {}
                    --argstr uuid #{uuid}
                    '<upcast/eval-deployment.nix>'

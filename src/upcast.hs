@@ -85,7 +85,7 @@ debug file args = do
     Right info <- deploymentInfo ctx
     machines <- debugEvalResources ctx info
     let machineNames = fmap (T.unpack . m_hostname) machines
-    let build = nixBuildMachines ctx [T.unpack expressionFile] uuid machineNames closuresPath
+    let build = nixBuildMachines ctx (T.unpack expressionFile) uuid machineNames closuresPath
     fgrun build
     return ()
 
