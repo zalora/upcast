@@ -4,8 +4,8 @@ upcast - infrastructure orchestratrion
 Usage: upcast COMMAND
 
 Available commands:
-  go                       execute a deployment
-  test                     deployment dry-run
+  go                       execute deployment
+  build                    dry-run resource stage and perform a build
   info                     print deployment resource information in json format
   ssh-config               print ssh config for deployment (evaluates resources)
 ```
