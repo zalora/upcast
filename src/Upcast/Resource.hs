@@ -202,7 +202,7 @@ evalResources ctx@DeployContext{..} info = do
                                           kName <- obj .: "name" :: A.Parser Text
                                           kPK <- obj .: "privateKeyFile" :: A.Parser Text
                                           return $ (kName, kPK)
-                    pubkey <- fgconsume $ Cmd Local $ mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]
+                    pubkey <- fgconsume $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]) "ssh-keygen"
                     return [(kPK, EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey)]
 
     let keypair = fst <$> listToMaybe keypairs
