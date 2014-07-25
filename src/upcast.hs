@@ -51,7 +51,7 @@ install DeployContext{..} machines = do
     mapM_ fgrun $ commands margs closures
   where
     closurePath Machine{..} = closuresPath </> (T.unpack m_hostname)
-    remote Machine{..} = Remote (T.unpack m_keyFile) (T.unpack m_publicIp)
+    remote Machine{..} = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
 
     clargs (cls, m) = (remote m, cls)
 
@@ -103,8 +103,7 @@ sshConfig file args = context file args >>= resources >>= putStrLn . intercalate
     config Machine{..} = [nl|
 Host #{m_hostname}
     HostName #{m_publicIp}
-    User root
-    IdentityFile #{m_keyFile}
+    User root#{case m_keyFile of Just file -> T.concat ["\n    IdentityFile ", file, "\n"]; Nothing -> ""}
     ControlMaster auto
     ControlPath ~/.ssh/master-%r@%h:%p
     ForwardAgent yes

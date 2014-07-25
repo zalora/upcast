@@ -30,7 +30,7 @@ type ProcessSource i m = ConduitM i ((Maybe ExitCode, Flush Builder)) m ()
 type Key = FilePath
 
 data Local = Local deriving (Show)
-data Remote = Remote Key String deriving (Show)
+data Remote = Remote (Maybe Key) String deriving (Show)
 
 data Command a = Cmd a String deriving (Show)
 data Mode = Consume | Run
@@ -83,9 +83,13 @@ spawn (Cmd Local s) = do
     (_, _, _, handle) <- createProcess $ cmd s
     return handle
 
+sshBaseOptions = [n|-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -x|]
+
 ssh :: Command Remote -> Command Local
-ssh (Cmd (Remote key host) cmd) =
-    Cmd Local [n|ssh -i '#{key}' -x root@'#{host}' -- '#{cmd}'|]
+ssh (Cmd (Remote (Just key) host) cmd) =
+    Cmd Local [n|ssh ${sshBaseOptions} -i '#{key}' root@'#{host}' -- '#{cmd}'|]
+ssh (Cmd (Remote Nothing host) cmd) =
+    Cmd Local [n|ssh ${sshBaseOptions} root@'#{host}' -- '#{cmd}'|]
 
 sshMaster controlPath (Remote key host) =
     Cmd Local [n|ssh -x root@'#{host}' -S '#{controlPath}' -M -N -f -oNumberOfPasswordPrompts=0 -oServerAliveInterval=60 -i '#{key}'|]

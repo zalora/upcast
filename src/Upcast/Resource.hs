@@ -17,6 +17,7 @@ import Control.Monad.Free
 import qualified Control.Exception.Lifted as E
 import Control.Concurrent (threadDelay)
 
+import Data.Maybe (listToMaybe)
 import Data.Monoid
 import qualified Data.List as L
 import qualified Data.HashMap.Strict as H
@@ -54,7 +55,7 @@ data Machine = Machine
              , m_publicIp :: Text
              , m_privateIp :: Text
              , m_instanceId :: Text
-             , m_keyFile :: Text
+             , m_keyFile :: Maybe Text
              } deriving (Show)
 
 -- | ReaderT context ResourcePlan evaluates in.
@@ -171,7 +172,7 @@ findRegions acc _ = acc
 debugEvalResources :: DeployContext -> Value -> IO [Machine]
 debugEvalResources ctx@DeployContext{..} info = do
     let region = "us-east-1"
-    let (keypair, keypairs) = ("", [])
+    let (keypair, keypairs) = (Nothing, [])
     instances <- do
       let context = EvalContext undefined (QueryAPIConfiguration $ T.encodeUtf8 region)
           action = debugPlan emptyStore (ec2plan name (snd <$> keypairs) info)
@@ -212,7 +213,7 @@ evalResources ctx@DeployContext{..} info = do
                     pubkey <- fgconsume $ Cmd Local $ mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]
                     return [(kPK, EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey)]
 
-    let keypair = fst $ head keypairs
+    let keypair = fst <$> listToMaybe keypairs
 
     instances <- HTTP.withManager $ \mgr -> do
       let context = EvalContext mgr (QueryAPIConfiguration $ T.encodeUtf8 region)

@@ -95,7 +95,7 @@ buildMachines ctx@DeployContext{..}  (State deployment _ exprs machines) = do
 
 install DeployContext{..} (State _ _ _ machines) =
     let args m@Resource{..} = (remote m, closuresPath </> (T.unpack resourceName))
-        remote m = Remote "/dev/null" (T.unpack $ attr m "publicIpv4")
+        remote m = Remote Nothing (T.unpack $ attr m "publicIpv4")
     in concat [ fmap (uncurry (nixCopyClosureTo sshAuthSock) . args) machines
               , fmap (ssh' sshAuthSock . uncurry nixSetProfile . args) machines
               , fmap (ssh' sshAuthSock . nixSwitchToConfiguration . fst . args) machines
