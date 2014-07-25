@@ -9,7 +9,6 @@ import Data.Default
 
 import Upcast.Interpolate (n)
 
-import Upcast.State
 import Upcast.Nix
 import Upcast.Command
 import Upcast.DeployCommands

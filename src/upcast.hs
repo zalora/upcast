@@ -26,7 +26,6 @@ import Upcast.Deploy
 import Upcast.DeployCommands
 import Upcast.Command
 import Upcast.Temp
-import qualified Upcast.Nixops as Legacy
 import Paths_upcast
 
 context :: String -> [String] -> IO DeployContext

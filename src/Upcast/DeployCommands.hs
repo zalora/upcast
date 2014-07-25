@@ -10,7 +10,6 @@ import Upcast.Interpolate (n)
 import Upcast.Nix
 import Upcast.Types
 import Upcast.Command
-import Upcast.State
 
 nixBaseOptions DeployContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
 

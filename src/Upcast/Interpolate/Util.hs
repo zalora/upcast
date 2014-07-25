@@ -8,11 +8,6 @@ import           Text.Read
 
 toString :: Show a => a -> String
 toString a = let s = show a in fromMaybe s (readMaybe s)
-{-# RULES "toString/String" toString = id #-}
-{-# RULES "toString/Int" toString = show :: Int -> String #-}
-{-# RULES "toString/Integer" toString = show :: Integer -> String #-}
-{-# RULES "toString/Float" toString = show :: Float -> String #-}
-{-# RULES "toString/Double" toString = show :: Double -> String #-}
 
 -- Haskell 2010 character unescaping, see:
 -- http://www.haskell.org/onlinereport/haskell2010/haskellch2.html#x7-200002.6
