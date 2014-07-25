@@ -12,6 +12,7 @@ import System.Directory (canonicalizePath)
 import System.FilePath.Posix
 import System.Posix.Files (readSymbolicLink)
 import System.Posix.Env (getEnvDefault, getEnv)
+import System.IO
 
 import Data.List (intercalate)
 import qualified Data.Text as T
@@ -117,7 +118,9 @@ Host #{m_hostname}
 |]
 
 
-main = join $ customExecParser prefs opts
+main = do
+    hSetBuffering stderr LineBuffering
+    join $ customExecParser prefs opts
   where
     prefs = ParserPrefs { prefMultiSuffix = ""
                         , prefDisambiguate = True
