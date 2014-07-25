@@ -1,11 +1,7 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards #-}
-
 module Upcast.Deploy where
 
 import qualified Data.Text as T
 import Data.Text (Text(..))
-import Data.Maybe
-import Data.Default
 
 import Upcast.Interpolate (n)
 

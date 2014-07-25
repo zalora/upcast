@@ -24,39 +24,35 @@ nixCopyClosureTo sshAuthSock (Remote _ host) path =
 nixCopyClosureToFast controlPath (Remote key host) path =
     Cmd Local [n|env NIX_SSHOPTS="-i #{key} -S #{controlPath} #{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|]
 
-nixDeploymentInfo ctx expr uuid = Cmd Local [n|
-                     nix-instantiate #{nixBaseOptions ctx}
-                     --arg networkExprs '#{expr}'
-                     --arg args {}
-                     --argstr uuid #{uuid}
-                     '<upcast/eval-deployment.nix>'
-                     --eval-only --strict --read-write-mode
-                     --arg checkConfigurationOptions false
-                     -A info
-                     |]
+nixDeploymentInfo ctx expr uuid =
+    Cmd Local [n|
+      nix-instantiate #{nixBaseOptions ctx}
+      --arg networkExprs '#{expr}'
+      --arg args {}
+      --argstr uuid #{uuid}
+      '<upcast/eval-deployment.nix>'
+      --eval-only --strict --read-write-mode
+      --arg checkConfigurationOptions false
+      -A info
+    |]
 
 nixBuildMachines :: DeployContext -> String -> String -> [String] -> String -> Command Local
-nixBuildMachines ctx expr uuid names outputPath = Cmd Local [n|
-                   env NIX_BUILD_HOOK="$HOME/.nix-profile/libexec/nix/build-remote.pl"
-                   NIX_REMOTE_SYSTEMS="$HOME/remote-systems.conf"
-                   NIX_CURRENT_LOAD="/tmp/load2"
-                   TEST=1
-                   nix-build #{nixBaseOptions ctx}
-                   --arg networkExprs '#{expr}'
-                   --arg args {}
-                   --argstr uuid #{uuid}
-                   '<upcast/eval-deployment.nix>'
-                   -A machines
-                   -o #{outputPath}
-                   |]
+nixBuildMachines ctx expr uuid names outputPath =
+    Cmd Local [n|
+      nix-build #{nixBaseOptions ctx}
+      --arg networkExprs '#{expr}'
+      --arg args {}
+      --argstr uuid #{uuid}
+      '<upcast/eval-deployment.nix>'
+      -A machines
+      -o #{outputPath}
+    |]
 
-nixSetProfile remote closure = Cmd remote [n|
-                                  nix-env -p /nix/var/nix/profiles/system --set "#{closure}"
-                                  |]
+nixSetProfile remote closure =
+    Cmd remote [n|nix-env -p /nix/var/nix/profiles/system --set "#{closure}"|]
 
-nixSwitchToConfiguration remote = Cmd remote [n|
-                                  env NIXOS_NO_SYNC=1 /nix/var/nix/profiles/system/bin/switch-to-configuration switch
-                                  |]
+nixSwitchToConfiguration remote =
+    Cmd remote [n|env NIXOS_NO_SYNC=1 /nix/var/nix/profiles/system/bin/switch-to-configuration switch|]
 
 nixClosure path = Cmd Local [n|nix-store -qR #{path}|]
 nixTrySubstitutes remote closure = Cmd remote [n|nix-store -j 4 -r --ignore-unknown #{intercalate " " closure}|]
