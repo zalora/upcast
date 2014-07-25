@@ -1,6 +1,20 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings #-}
 
-module Upcast.Command where
+module Upcast.Command (
+  Local(..)
+, Remote(..)
+, Command(..)
+, ExitCode(..)
+, measure
+, fgrun
+, fgconsume
+, spawn
+, ssh
+, sshBaseOptions
+, sshMaster
+, sshMasterExit
+, sshFast
+) where
 
 import Control.Monad.Trans (liftIO)
 import Control.Monad (ap, join, (<=<), when)
@@ -48,13 +62,14 @@ measure action = do
     then' <- getCurrentTime
     return (diffUTCTime then' now, result)
 
-fgrun :: Command Local -> IO ()
+fgrun :: Command Local -> IO ExitCode
 fgrun c = do
     print' Run c
     ref <- newIORef mempty
     (time, _) <- measure $ runResourceT $ run c $$ awaitForever $ liftIO . output ref . chunk
     code <- readIORef ref
     printExit Run code time
+    return code
   where
     output ref (maybeCode, s) = do
       BS.putStr s
@@ -166,4 +181,4 @@ printExit mode code time = case code of
                         ExitSuccess -> IO.hPutStrLn stderr $ applyColor (color mode) $ mconcat ["Completed in ", show time]
                         _ -> IO.hPutStrLn stderr $ applyColor 0 $ mconcat [show code, ", time: ", show time]
 
-print' mode c = IO.hPutStrLn stderr $ applyColor (color mode) $ show c
+print' mode c = IO.hPutStrLn stderr $ applyColor (color mode) $ L.take 1000 $ show c

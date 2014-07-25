@@ -3,6 +3,7 @@
 module Main where
 
 import Control.Monad (join)
+import Control.Arrow ((>>>))
 import Control.Applicative
 import Options.Applicative
 
@@ -16,6 +17,7 @@ import qualified Data.Text as T
 import Data.Text (Text(..))
 import Data.ByteString.Char8 (split)
 import Data.Default
+import Data.Maybe (catMaybes)
 
 import Upcast.Interpolate (nl)
 import Upcast.Nix
@@ -44,21 +46,27 @@ context file args = do
     return ctx'
 
 install DeployContext{..} machines = do
-    closures <- mapM (fmap (split '\n') . fgconsume . nixClosure . closurePath) machines
-    sysEnv <- mapM (readSymbolicLink . closurePath) machines
-    let margs = zip (fmap remote machines) sysEnv
-    mapM_ fgrun $ commands margs closures
+    installs <- mapM installP machines
+    mapM_ go installs
   where
-    closurePath Machine{..} = closuresPath </> (T.unpack m_hostname)
-    remote Machine{..} = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
+    fgrun' arg = do ExitSuccess <- fgrun arg; return ()
 
-    clargs (cls, m) = (remote m, cls)
+    installP :: Machine -> IO Install
+    installP i_machine@Machine{..} = do
+      i_closure <- readSymbolicLink $ closuresPath </> (T.unpack m_hostname)
+      i_paths <- (fmap (split '\n') . fgconsume . nixClosure) $ i_closure
+      return Install{..}
+      where
+        i_remote = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
 
-    commands margs cls = concat [ fmap (ssh' sshAuthSock . uncurry nixTrySubstitutes . clargs) $ zip cls machines
-                                , fmap (uncurry (nixCopyClosureTo sshAuthSock)) margs
-                                , fmap (ssh' sshAuthSock . uncurry nixSetProfile) margs
-                                , fmap (ssh' sshAuthSock . nixSwitchToConfiguration) $ fmap remote machines
-                                ]
+    go :: Install -> IO ()
+    go install = mapM_ fgrun' commands
+      where
+        commands = [ ssh' sshAuthSock . nixTrySubstitutes
+                   , nixCopyClosureTo sshAuthSock
+                   , ssh' sshAuthSock . nixSetProfile
+                   , ssh' sshAuthSock . nixSwitchToConfiguration
+                   ] <*> pure install
 
 resources ctx = do
     Right info <- deploymentInfo ctx
@@ -68,9 +76,9 @@ resources ctx = do
 deploy ctx@DeployContext{..} = do
     machines <- resources ctx
     let machineNames = fmap (T.unpack . m_hostname) machines
-    ctx' <- ctxAuth $ fmap m_keyFile machines
+    ctx' <- ctxAuth $ catMaybes $ fmap m_keyFile machines
     let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid machineNames closuresPath
-    fgrun build
+    ExitSuccess <- fgrun build
     install ctx' machines
   where
     ctxAuth keyFiles = do

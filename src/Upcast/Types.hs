@@ -24,3 +24,11 @@ instance Default DeployContext where
           , uuid = "new-upcast-deployment"
           }
 
+data Machine = Machine
+             { m_hostname :: Text
+             , m_publicIp :: Text
+             , m_privateIp :: Text
+             , m_instanceId :: Text
+             , m_keyFile :: Maybe Text
+             } deriving (Show)
+

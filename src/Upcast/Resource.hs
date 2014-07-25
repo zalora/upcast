@@ -50,14 +50,6 @@ import Upcast.TermSubstitution
 import Upcast.Resource.Types
 import Upcast.Resource.Ec2
 
-data Machine = Machine
-             { m_hostname :: Text
-             , m_publicIp :: Text
-             , m_privateIp :: Text
-             , m_instanceId :: Text
-             , m_keyFile :: Maybe Text
-             } deriving (Show)
-
 -- | ReaderT context ResourcePlan evaluates in.
 data EvalContext = EvalContext
                { mgr :: HTTP.Manager
