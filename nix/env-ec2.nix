@@ -17,7 +17,7 @@ let
   '';
 
   register-hostname = { zoneId, zone, iamCredentialName }: pkgs.writeScript "ec2-register-hostname" ''
-    ${ip} route delete blackhole 169.254.169.254 || true
+    ${ip} route delete blackhole 169.254.169.254 2>/dev/null || true
 
     date=$(${curl} -s -I https://route53.amazonaws.com/date | ${awk} '/^Date: / {sub("Date: ", "", $0); sub("\\r", "", $0); print $0}')
 
@@ -55,10 +55,19 @@ let
     </ChangeResourceRecordSetsRequest>
     __EOF
 
+    echo
     exit 0
   '';
 
   cfg = config.ec2;
+
+  run-register-hostnames = concatStringsSep "\n" (map (script: ''
+        ${bash} ${script}
+        '')
+      (mapAttrsToList (zone: args: register-hostname {
+                       inherit zone;
+                       inherit (args) zoneId iamCredentialName;
+                       }) cfg.route53RegisterHostname));
 
 in
 {
@@ -68,11 +77,12 @@ in
 
   options = {
     ec2.route53RegisterHostname = mkOption {
-      default = {};
-      example = { zoneId = "ZOZONEZONEZONE"; zone = "doge-enterprise-networks.com"; iamCredentialName = "doge-iam-dns-profile"; };
-      description = ''
-        Attribute set containing Route53 hosted zone attributes (zoneId and zone) and IAM credential name assigned at boot time.
-      '';
+      type = types.attrsOf (types.submodule ({ lib, name, ... }: with lib; {
+        options = {
+          zoneId = mkOption { type = types.string; example = "ZOZONEZONEZONE"; };
+          iamCredentialName = mkOption { type = types.string; example = "doge-iam-dns-profile"; };
+        };
+      }));
     };
   };
 
@@ -82,11 +92,7 @@ in
     networking.firewall.enable = false;
     services.nixosManual.enable = false;
 
-    system.activationScripts.ec2-apply-hostname =
-      hostname-script +
-      optionalString (cfg.route53RegisterHostname != {}) ''
-        ${bash} ${register-hostname cfg.route53RegisterHostname}
-      '';
+    system.activationScripts.ec2-apply-hostname = hostname-script + run-register-hostnames;
 
     systemd.services.ec2-apply-hostname = {
       description = "EC2: apply dynamic hostname";
@@ -95,11 +101,7 @@ in
       before = [ "sshd.service" ];
       after = [ "fetch-ec2-data.service" ];
 
-      script =
-        hostname-script +
-        optionalString (cfg.route53RegisterHostname != {}) ''
-          ${bash} ${register-hostname cfg.route53RegisterHostname}
-        '';
+      script = hostname-script + run-register-hostnames;
 
       serviceConfig.Type = "oneshot";
       serviceConfig.RemainAfterExit = true;
