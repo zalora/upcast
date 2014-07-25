@@ -6,6 +6,7 @@ import Control.Monad (join)
 import Control.Arrow ((>>>))
 import Control.Applicative
 import Options.Applicative
+import Control.Concurrent.Async
 
 import System.Directory (canonicalizePath)
 import System.FilePath.Posix
@@ -47,7 +48,7 @@ context file args = do
 
 install DeployContext{..} machines = do
     installs <- mapM installP machines
-    mapM_ go installs
+    mapConcurrently go installs >> return ()
   where
     fgrun' arg = do ExitSuccess <- fgrun arg; return ()
 
