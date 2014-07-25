@@ -75,9 +75,8 @@ resources ctx = do
 
 deploy ctx@DeployContext{..} = do
     machines <- resources ctx
-    let machineNames = fmap (T.unpack . m_hostname) machines
     ctx' <- ctxAuth $ catMaybes $ fmap m_keyFile machines
-    let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid machineNames closuresPath
+    let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid closuresPath
     ExitSuccess <- fgrun build
     install ctx' machines
   where
@@ -96,8 +95,7 @@ debug file args = do
     ctx@DeployContext{..} <- context file args
     Right info <- deploymentInfo ctx
     machines <- debugEvalResources ctx info
-    let machineNames = fmap (T.unpack . m_hostname) machines
-    let build = nixBuildMachines ctx (T.unpack expressionFile) uuid machineNames closuresPath
+    let build = nixBuildMachines ctx (T.unpack expressionFile) uuid closuresPath
     fgrun build
     return ()
 

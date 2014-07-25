@@ -39,8 +39,8 @@ nixDeploymentInfo ctx expr uuid =
       -A info
     |]
 
-nixBuildMachines :: DeployContext -> String -> String -> [String] -> String -> Command Local
-nixBuildMachines ctx expr uuid names outputPath =
+nixBuildMachines :: DeployContext -> String -> String -> String -> Command Local
+nixBuildMachines ctx expr uuid outputPath =
     Cmd Local [n|
       nix-build #{nixBaseOptions ctx}
       --arg networkExprs '#{expr}'
