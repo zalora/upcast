@@ -367,6 +367,15 @@ in
       apply = x: if x == null then null else if builtins.isString x then x else x._name;
     };
 
+    deployment.ec2.userData = mkOption {
+      default = {};
+      type = types.attrsOf types.path;
+      example = { host-aes-key = ./secrets/aes-key; };
+      description = ''
+        Attribute set containing mappings to files that will be passed in as user data.
+      '';
+    };
+
     fileSystems = mkOption {
       options = {
         ec2 = mkOption {

@@ -29,6 +29,8 @@ import qualified Data.Aeson as A
 import qualified Data.Aeson.Encode.Pretty as A
 import qualified Data.Aeson.Types as A
 import qualified Data.Vector as V
+import qualified Data.HashMap.Strict as H
+import Data.HashMap.Strict (HashMap)
 
 import Aws.Query (QueryAPIConfiguration(..), castValue)
 import qualified Aws.Ec2 as EC2
@@ -138,7 +140,7 @@ maybeString (String "") = Nothing
 maybeString (String s) = Just s
 maybeString _ = Nothing
 
-createInstances instances subnetA sgA defTags = do
+createInstances instances subnetA sgA defTags userDataA = do
     (instanceA :: InstanceA) <- fmap mconcat $ forM instances $ \inst -> do
         let (name, blockDevs, cinst) = parse inst $ \(Object obj) -> do
               String name <- obj .: "targetHost"
@@ -158,7 +160,7 @@ createInstances instances subnetA sgA defTags = do
               let run_instanceInitiatedShutdownBehavior = EC2.Stop
               run_ebsOptimized <- ec2 .: "ebsOptimized"
               run_keyName <- ec2 .:? "keyPair"
-              let run_userData = Just $ userData name -- at least need a unique string to prevent substituting one call for many
+              let run_userData = Just $ userData name
               let run_kernelId = Nothing
               let run_ramdiskId = Nothing
               let run_clientToken = Nothing
@@ -182,7 +184,9 @@ createInstances instances subnetA sgA defTags = do
 
       return EC2.BlockDeviceMapping{..}
 
-    userData hostname = T.decodeUtf8 $ toStrict $ A.encode $ object [ "hostname" .= hostname ]
+    userData hostname = T.decodeUtf8 $ toStrict $ A.encode $ object $ mconcat [ [ "hostname" .= hostname ]
+                                                                              , maybe [] (H.toList . fmap String) $ lookup hostname userDataA
+                                                                              ]
 
 attachEBS instanceA volumeA = do
     forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
@@ -201,8 +205,8 @@ attachEBS instanceA volumeA = do
                       False -> error $ mconcat ["can't handle disk: ", T.unpack t]
 
 
-ec2plan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> m [(Text, Value)]
-ec2plan expressionName keypairs info = do
+ec2plan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> [(Text, HashMap Text Text)] -> m [(Text, Value)]
+ec2plan expressionName keypairs info userDataA = do
     mapM_ (\k -> aws1 k "keyFingerprint") keypairs
 
     vpcA <- createVPC vpcs defTags
@@ -211,7 +215,7 @@ ec2plan expressionName keypairs info = do
     sgA <- createSecurityGroups secGroups vpcA defTags
 
     volumeA <- createEBS volumes defTags
-    instanceA <- createInstances instances subnetA sgA defTags
+    instanceA <- createInstances instances subnetA sgA defTags userDataA
 
     attachEBS instanceA volumeA
 

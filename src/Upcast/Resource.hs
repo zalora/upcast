@@ -10,8 +10,10 @@
 
 module Upcast.Resource where
 
+import Prelude hiding (sequence)
+
 import Control.Applicative
-import Control.Monad.Reader
+import Control.Monad.Reader hiding (sequence, forM)
 import Control.Monad.Trans.Resource (ResourceT, liftResourceT, runResourceT)
 import Control.Monad.Free
 import qualified Control.Exception.Lifted as E
@@ -19,11 +21,14 @@ import Control.Concurrent (threadDelay)
 
 import Data.Maybe (listToMaybe)
 import Data.Monoid
+import Data.Traversable
 import qualified Data.List as L
 import qualified Data.HashMap.Strict as H
+import Data.HashMap.Strict (HashMap)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Text.IO as T
 import Data.Aeson
 import qualified Data.Aeson.Encode.Pretty as A
 import qualified Data.Aeson.Types as A
@@ -167,7 +172,7 @@ debugEvalResources ctx@DeployContext{..} info = do
     let (keypair, keypairs) = (Nothing, [])
     instances <- do
       let context = EvalContext undefined (QueryAPIConfiguration $ T.encodeUtf8 region)
-          action = debugPlan emptyStore (ec2plan name (snd <$> keypairs) info)
+          action = debugPlan emptyStore (ec2plan name (snd <$> keypairs) info [])
           in runReaderT action context
 
     -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
@@ -207,9 +212,19 @@ evalResources ctx@DeployContext{..} info = do
 
     let keypair = fst <$> listToMaybe keypairs
 
+    -- read files mentioned in userData for each instances
+    userDataA <- fmap mconcat $ forM (mcast "machines" info :: [Value]) $ \inst -> do
+        let (name, dataA) = parse inst $ \(Object obj) -> do
+              String name <- obj .: "targetHost"
+              Object ec2 <- obj .: "ec2"
+              dataA :: HashMap Text Text <- ec2 .: "userData"
+              return (name, dataA)
+        readA <- sequence $ fmap (T.readFile . T.unpack) dataA
+        return [(name, readA)]
+
     instances <- HTTP.withManager $ \mgr -> do
       let context = EvalContext mgr (QueryAPIConfiguration $ T.encodeUtf8 region)
-          action = evalPlan store (ec2plan name (snd <$> keypairs) info)
+          action = evalPlan store (ec2plan name (snd <$> keypairs) info userDataA)
           in runReaderT action context
 
     -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
