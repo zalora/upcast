@@ -83,6 +83,7 @@ in
           iamCredentialName = mkOption { type = types.string; example = "doge-iam-dns-profile"; };
         };
       }));
+      default = {};
     };
   };
 
