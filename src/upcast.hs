@@ -109,6 +109,7 @@ sshConfig file args = context file args >>= resources >>= putStrLn . intercalate
   where
     config Machine{..} = [nl|
 Host #{m_hostname}
+    # #{m_instanceId}
     HostName #{m_publicIp}
     User root#{case m_keyFile of Just file -> T.concat ["\n    IdentityFile ", file, "\n"]; Nothing -> ""}
     ControlMaster auto
