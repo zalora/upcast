@@ -4,6 +4,7 @@ let
   base64 = "${pkgs.coreutils}/bin/base64";
   jq = "/usr/bin/env LD_LIBRARY_PATH=${pkgs.jq}/lib ${pkgs.jq}/bin/jq";
   curl = "${pkgs.curl}/bin/curl -s --retry 3 --retry-delay 0 --fail";
+  wget = "${pkgs.wget}/bin/wget --retry-connrefused -O -";
   awk = "${pkgs.gawk}/bin/awk";
   openssl = "${pkgs.openssl}/bin/openssl";
   hostname = "${pkgs.nettools}/bin/hostname";
@@ -19,15 +20,15 @@ let
   register-hostname = { zoneId, zone, iamCredentialName }: pkgs.writeScript "ec2-register-hostname" ''
     ${ip} route delete blackhole 169.254.169.254 2>/dev/null || true
 
-    date=$(${curl} -s -I https://route53.amazonaws.com/date | ${awk} '/^Date: / {sub("Date: ", "", $0); sub("\\r", "", $0); print $0}')
+    date=$(${curl} -I https://route53.amazonaws.com/date | ${awk} '/^Date: / {sub("Date: ", "", $0); sub("\\r", "", $0); print $0}')
 
-    set -- $(${curl} -s http://169.254.169.254/latest/meta-data/iam/security-credentials/${iamCredentialName} \
+    set -- $(${wget} http://169.254.169.254/latest/meta-data/iam/security-credentials/${iamCredentialName} \
               | ${jq} -r '.SecretAccessKey, .AccessKeyId, .Token')
 
     signature=$(echo -n $date | ${openssl} dgst -binary -sha1 -hmac $1 | ${base64})
     auth_header="X-Amzn-Authorization: AWS3-HTTPS AWSAccessKeyId=$2,Algorithm=HmacSHA1,Signature=$signature"
     hostname=$(${hostname}).${zone}
-    local_hostname=$(${curl} -s http://169.254.169.254/latest/meta-data/local-hostname)
+    local_hostname=$(${wget} http://169.254.169.254/latest/meta-data/local-hostname)
 
     ${curl} -d @/dev/stdin \
           -H "Content-Type: text/xml" \
@@ -98,7 +99,7 @@ in
     systemd.services.ec2-apply-hostname = {
       description = "EC2: apply dynamic hostname";
 
-      wantedBy = [ "multi-user.target" ];
+      wantedBy = [ "multi-user.target" "sshd.service" ];
       before = [ "sshd.service" ];
       after = [ "fetch-ec2-data.service" ];
 
