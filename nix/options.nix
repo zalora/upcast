@@ -10,17 +10,10 @@ in
 
 {
 
-  imports =
-    [ ./ec2.nix
-      ./route53.nix
-      ./virtualbox.nix
-      ./ssh-tunnel.nix
-      ./auto-raid0.nix
-      ./auto-luks.nix
-      ./keys.nix
-      ./hetzner.nix
-    ];
-
+  imports = [
+    ./ec2.nix
+    ./keys.nix
+  ];
 
   options = {
 
@@ -56,43 +49,6 @@ in
       '';
     };
 
-    deployment.alwaysActivate = mkOption {
-      type = types.bool;
-      default = true;
-      description = ''
-        Always run the activation script, no matter whether the configuration
-        has changed (the default). This behaviour can be enforced even if it's
-        set to <literal>false</literal> using the command line option
-        <literal>--always-activate</literal> on deployment.
-
-        If this is set to <literal>false</literal>, activation is done only if
-        the new system profile doesn't match the previous one.
-      '';
-    };
-
-    deployment.encryptedLinksTo = mkOption {
-      default = [];
-      type = types.listOf types.str;
-      description = ''
-        NixOps will set up an encrypted tunnel (via SSH) to the
-        machines listed here.  Since this is a two-way (peer to peer)
-        connection, it is not necessary to set this option on both
-        endpoints.  NixOps will set up <filename>/etc/hosts</filename>
-        so that the host names of the machines listed here resolve to
-        the IP addresses of the tunnels.  It will also add the alias
-        <literal><replaceable>machine</replaceable>-encrypted</literal>
-        for each machine.
-      '';
-    };
-
-    deployment.owners = mkOption {
-      default = [];
-      type = types.listOf types.str;
-      description = ''
-        List of email addresses of the owners of the machines. Used
-        to send email on performing certain actions.
-      '';
-    };
   };
 
 

@@ -18,34 +18,10 @@
     baseModules = [ ./ec2-subnet.nix ./resource.nix ];
   };
 
-  sqsQueues = {
-    pluralDisplayName = "SQS queues";
-
-    baseModules = [ ./sqs-queue.nix ./resource.nix ];
-  };
-
   ec2KeyPairs = {
     pluralDisplayName = "EC2 keypairs";
 
     baseModules = [ ./ec2-keypair.nix ./resource.nix ];
-  };
-
-  sshKeyPairs = {
-    pluralDisplayName = "SSH keypairs";
-
-    baseModules = [ ./ssh-keypair.nix ./resource.nix ];
-  };
-
-  s3Buckets = {
-    pluralDisplayName = "S3 buckets";
-
-    baseModules = [ ./s3-bucket.nix ./resource.nix ];
-  };
-
-  iamRoles = {
-    pluralDisplayName = "IAM roles";
-
-    baseModules = [ ./iam-role.nix ./resource.nix ];
   };
 
   ec2SecurityGroups = {
@@ -58,12 +34,6 @@
     pluralDisplayName = "EBS volumes";
 
     baseModules = [ ./ebs-volume.nix ./resource.nix ];
-  };
-
-  elasticIPs = {
-    pluralDisplayName = "EC2 elastic IP addresses";
-
-    baseModules = [ ./elastic-ip.nix ./resource.nix ];
   };
 
   elbs = {

@@ -430,15 +430,6 @@ in
         })
        (filter (fs: fs.ec2 != null) (attrValues config.fileSystems))));
 
-    deployment.autoLuks =
-      let
-        f = name: dev: nameValuePair (baseNameOf name)
-          { device = "/dev/${baseNameOf name}";
-            autoFormat = true;
-            inherit (dev) cipher keySize passphrase;
-          };
-      in mapAttrs' f (filterAttrs (name: dev: dev.encrypt) cfg.blockDeviceMapping);
-
     deployment.ec2.physicalProperties =
       let
         type = config.deployment.ec2.instanceType or "unknown";

@@ -47,22 +47,6 @@ in {
 
       internal = true;
     };
-
-    description = lib.mkOption {
-      description = "A human-readable description of the network.";
-
-      default = "Unnamed NixOps network";
-
-      type = lib.types.str;
-    };
-
-    enableRollback = lib.mkOption {
-      description = "Whether or not to enable network-level rollback.";
-
-      default = false;
-
-      type = lib.types.bool;
-    };
   };
 
   config = {
@@ -100,24 +84,9 @@ in {
     toplevel = {
       info = {
         machines = lib.mapAttrs (n: v': let v = lib.scrubOptionValue v'; in {
-          inherit (v.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys;
-
+          inherit (v.deployment) targetEnv targetHost storeKeysOnMachine keys;
           ec2 = lib.optionalAttrs (v.deployment.targetEnv == "ec2") v.deployment.ec2;
-
-          hetzner = lib.optionalAttrs (v.deployment.targetEnv == "hetzner") v.deployment.hetzner;
-
-          route53 = v.deployment.route53;
-
-          virtualbox =
-            let cfg = v.deployment.virtualbox; in
-            lib.optionalAttrs (v.deployment.targetEnv == "virtualbox") (cfg // {
-              disks = lib.mapAttrs (n: v: v //
-                { baseImage = if lib.isDerivation v.baseImage then "drv" else toString v.baseImage; }
-              ) cfg.disks;
-            });
         }) deployment.resources.machines;
-
-        network = { inherit (deployment) description enableRollback; };
 
         resources = lib.mapAttrs (n:
           lib.mapAttrs (n: v: removeAttrs v [ "__internal" ])
