@@ -17,7 +17,10 @@ let
     ${hostname} $1
   '';
 
-  register-hostname = { zoneId, zone, iamCredentialName }: pkgs.writeScript "ec2-register-hostname" ''
+  register-hostname = {
+    zoneId, zone, iamCredentialName,
+    useLocalHostname, prefix ? if useLocalHostname then "local" else "public"
+  }: pkgs.writeScript "ec2-register-hostname" ''
     ${ip} route delete blackhole 169.254.169.254 2>/dev/null || true
 
     date=$(${curl} -I https://route53.amazonaws.com/date | ${awk} '/^Date: / {sub("Date: ", "", $0); sub("\\r", "", $0); print $0}')
@@ -28,7 +31,7 @@ let
     signature=$(echo -n $date | ${openssl} dgst -binary -sha1 -hmac $1 | ${base64})
     auth_header="X-Amzn-Authorization: AWS3-HTTPS AWSAccessKeyId=$2,Algorithm=HmacSHA1,Signature=$signature"
     hostname=$(${hostname}).${zone}
-    local_hostname=$(${wget} http://169.254.169.254/latest/meta-data/local-hostname)
+    local_hostname=$(${wget} http://169.254.169.254/latest/meta-data/${prefix}-hostname)
 
     ${curl} -d @/dev/stdin \
           -H "Content-Type: text/xml" \
@@ -67,7 +70,7 @@ let
         '')
       (mapAttrsToList (zone: args: register-hostname {
                        inherit zone;
-                       inherit (args) zoneId iamCredentialName;
+                       inherit (args) zoneId iamCredentialName useLocalHostname;
                        }) cfg.route53RegisterHostname));
 
 in
@@ -82,6 +85,7 @@ in
         options = {
           zoneId = mkOption { type = types.string; example = "ZOZONEZONEZONE"; };
           iamCredentialName = mkOption { type = types.string; example = "doge-iam-dns-profile"; };
+          useLocalHostname = mkOption { type = types.bool; default = true; }; 
         };
       }));
       default = {};
