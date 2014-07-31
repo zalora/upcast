@@ -4,7 +4,7 @@ let
   base64 = "${pkgs.coreutils}/bin/base64";
   jq = "/usr/bin/env LD_LIBRARY_PATH=${pkgs.jq}/lib ${pkgs.jq}/bin/jq";
   curl = "${pkgs.curl}/bin/curl -s --retry 3 --retry-delay 0 --fail";
-  wget = "${pkgs.wget}/bin/wget --retry-connrefused -O -";
+  wget = "${pkgs.wget}/bin/wget -q --retry-connrefused -O -";
   awk = "${pkgs.gawk}/bin/awk";
   openssl = "${pkgs.openssl}/bin/openssl";
   hostname = "${pkgs.nettools}/bin/hostname";
