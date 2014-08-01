@@ -31,11 +31,9 @@ nixDeploymentInfo ctx expr uuid =
     Cmd Local [n|
       nix-instantiate #{nixBaseOptions ctx}
       --arg networkExprs '#{expr}'
-      --arg args {}
       --argstr uuid #{uuid}
       '<upcast/eval-deployment.nix>'
       --eval-only --strict --read-write-mode
-      --arg checkConfigurationOptions false
       -A info
     |] "info"
 
@@ -44,7 +42,6 @@ nixBuildMachines ctx expr uuid outputPath =
     Cmd Local [n|
       nix-build #{nixBaseOptions ctx}
       --arg networkExprs '#{expr}'
-      --arg args {}
       --argstr uuid #{uuid}
       '<upcast/eval-deployment.nix>'
       -A machines
