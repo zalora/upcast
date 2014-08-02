@@ -19,7 +19,8 @@ module Upcast.Command (
 import Control.Monad.Trans (liftIO)
 import Control.Monad (ap, join, (<=<), when)
 import System.FilePath (FilePath)
-import System.Process (createProcess, waitForProcess, CreateProcess(..), CmdSpec(..), StdStream(..), shell, ProcessHandle)
+import System.Process (createProcess, waitForProcess, interruptProcessGroupOf,
+                       CreateProcess(..), CmdSpec(..), StdStream(..), shell, ProcessHandle)
 import System.Exit (ExitCode(..))
 import GHC.IO.Handle (hClose, Handle, hSetBinaryMode)
 import System.IO (hSetBuffering, BufferMode(..), stdout, stderr, IOMode(..), openFile, hPutStrLn)
@@ -139,7 +140,9 @@ roProcessSource proc stdout stderr =
     (Just stdin, _, _, prochn) <- liftIO $ createProcess proc { std_out = UseHandle $ stdout' wh
                                                               , std_err = UseHandle $ stderr' wh }
     liftIO $ hClose stdin
-    bracketP (return handles) (mapMBoth_ hClose) (\(rh, _) -> sourceHandle (Just prochn) rh)
+    bracketP (return handles)
+             (\hs -> mapMBoth_ hClose hs >> interruptProcessGroupOf prochn)
+             (\(rh, _) -> sourceHandle (Just prochn) rh)
 
 mapMBoth :: Monad m => (t -> m a) -> (t, t) -> m (a, a)
 mapMBoth f (a, b) = return (,) `ap` f a `ap` f b
