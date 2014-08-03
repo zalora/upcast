@@ -19,6 +19,15 @@ $ export UPCAST_NIX_FLAGS="--option use-binary-cache true --option binary-caches
 $ upcast go test.nix -- -I sources/nixpkgs
 ```
 
+#### Configuring remote builds
+
+Add the following to your shell profile:
+```bash
+export NIX_BUILD_HOOK="$HOME/.nix-profile/libexec/nix/build-remote.pl"
+export NIX_REMOTE_SYSTEMS="$HOME/remote-systems.conf"
+export NIX_CURRENT_LOAD="/tmp/load2"
+```
+
 ### Goals
 
 - simplicity, extensibility;
