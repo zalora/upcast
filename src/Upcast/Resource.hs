@@ -119,7 +119,6 @@ evalPlan state (Free (Wait (TX tx) next)) = do
 evalPlan state (Free (AWS53CRR crr next)) = do
     EvalContext{..} <- ask
     txb <- liftIO $ rqBody crr route53
-    liftIO $ print (crr, txb)
     (_, state', val) <- liftResourceT $ substitute_ state txb (runResourceT $ Aws.pureAws awsConf route53 mgr crr)
     evalPlan state' $ next "ok"
 evalPlan state (Pure r) = return r
