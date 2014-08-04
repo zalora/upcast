@@ -97,6 +97,12 @@ elbPlan instanceA sgA subnetA elbs = do
         let name = ELB.clb_name clb
         wait $ ELB.DescribeLoadBalancers [name]
 
+        aws_ $ ELB.ModifyLoadBalancerAttributes name attrs
+
+        let instances = fmap fst $ catMaybes $ fmap (flip lookup instanceA) machines
+        aws_ $ ELB.RegisterInstancesWithLoadBalancer name instances
+
+
         Array elbInfos <- aws (ELB.DescribeLoadBalancers [name])
         let [elbInfo] = V.toList elbInfos
 
@@ -105,10 +111,6 @@ elbPlan instanceA sgA subnetA elbs = do
 
         mapM_ aws53crr $ (\x -> x elbName elbZoneId) <$> r53
 
-        aws_ $ ELB.ModifyLoadBalancerAttributes name attrs
-
-        let instances = fmap fst $ catMaybes $ fmap (flip lookup instanceA) machines
-        aws_ $ ELB.RegisterInstancesWithLoadBalancer name instances
 
         return [(clb, attrs)]
 
