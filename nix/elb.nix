@@ -55,7 +55,7 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource ec2-m
     securityGroups = mkOption {
       example = [ "my-group" "my-other-group" ];
       type = types.listOf (union types.str (resource "ec2-security-group"));
-      apply = map (x: if builtins.isString x then x else x.name);
+      apply = map (x: if builtins.isString x then x else x._name);
       description = "Security groups for the ELB withing its VPC";
       default = [];
     };
