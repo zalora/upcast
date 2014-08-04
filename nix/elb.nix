@@ -98,6 +98,14 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource ec2-m
       default = true;
     };
 
+    route53Aliases = mkOption {
+      type = types.attrsOf (types.submodule ({ lib, name, ... }: with lib; {
+        options = {
+          zoneId = mkOption { type = types.string; example = "ZOZONEZONEZONE"; };
+        };
+      }));
+      default = {};
+    };
   };
 
   config._type = "elb";

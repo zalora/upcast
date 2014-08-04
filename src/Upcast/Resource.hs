@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings
            , RecordWildCards
+           , NamedFieldPuns
            , ScopedTypeVariables
            , DeriveFunctor
            , ExistentialQuantification
@@ -39,6 +40,8 @@ import System.FilePath.Posix (splitFileName)
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Base64 as Base64
+import qualified Data.ByteString.Lazy.Char8 as LBS
+import Data.ByteString.Lazy (toStrict)
 
 import System.IO (stderr)
 import qualified Network.HTTP.Conduit as HTTP
@@ -46,6 +49,7 @@ import qualified Aws
 import Aws.Core
 import Aws.Query (QueryAPIConfiguration(..), castValue)
 import qualified Aws.Ec2 as EC2
+import qualified Aws.Route53 as R53
 
 import Upcast.Types
 import Upcast.Command (fgconsume, Command(..), Local(..))
@@ -58,19 +62,22 @@ import Upcast.Resource.Ec2
 -- | ReaderT context ResourcePlan evaluates in.
 data EvalContext = EvalContext
                { mgr :: HTTP.Manager
+               , awsConf :: Aws.Configuration
                , qapi :: QueryAPIConfiguration NormalQuery
+               , route53 :: R53.Route53Configuration NormalQuery
                }
 
-txBody :: (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) =>
-          r
-          -> EvalContext
-          -> ResourceT IO BS.ByteString
-txBody tx EvalContext{..} = do
+rqBody :: (MonadIO io, SignQuery r) => r -> ServiceConfiguration r q -> io Text
+rqBody tx conf = do
     sig <- liftIO $ canonicalSigData
-    let s = signQuery tx qapi sig
-    let Just (HTTP.RequestBodyBS key) = sqBody s
-    return key
+    let s = signQuery tx conf sig
+    let Just body = sqBody s
+    return $ bodyText body
   where
+    bodyText :: HTTP.RequestBody -> Text
+    bodyText (HTTP.RequestBodyBS bs) = T.decodeUtf8 bs
+    bodyText (HTTP.RequestBodyLBS lbs) = T.decodeUtf8 $ toStrict lbs
+
     canonicalSigData :: IO SignatureData
     canonicalSigData = do
         emptyRef <- newIORef []
@@ -81,14 +88,14 @@ txBody tx EvalContext{..} = do
 
     baseTime = UTCTime (toEnum 0) $ secondsToDiffTime 0
 
-
 substituteTX :: SubStore -> TX -> EvalContext -> ResourceT IO (Sub, SubStore, Value)
-substituteTX state (TX tx) ctx@EvalContext{..} = do
-    key <- txBody tx ctx
+substituteTX state (TX tx) EvalContext{..} = do
+    key <- rqBody tx qapi
     -- liftIO $ BS.putStrLn key
-    awsConf <- liftIO $ Aws.baseConfiguration
-    liftIO $ substitute state (T.decodeUtf8 key) (runResourceT $ Aws.pureAws awsConf qapi mgr tx)
+    liftIO $ substitute state key (runResourceT $ Aws.pureAws awsConf qapi mgr tx)
 
+substitute_ :: SubStore -> Text -> IO any -> ResourceT IO (Sub, SubStore, Value)
+substitute_ state key action = liftIO $ substitute state key (action >> return Null)
 
 evalPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext (ResourceT IO) a
 evalPlan state (Free (AWSR (TXR tx keyPath) next)) = do
@@ -102,23 +109,27 @@ evalPlan state (Free (AWS tx next)) = do
     evalPlan state' next
 evalPlan state (Free (AWSV (TX tx) next)) = do
     EvalContext{..} <- ask
-    awsConf <- liftIO $ Aws.baseConfiguration
     result <- liftResourceT $ Aws.pureAws awsConf qapi mgr tx
     evalPlan state $ next result
 evalPlan state (Free (Wait (TX tx) next)) = do
     EvalContext{..} <- ask
-    awsConf <- liftIO $ Aws.baseConfiguration
     r <- liftIO $ runResourceT $ retryAws awsConf qapi mgr tx
     -- liftIO $ print r
     evalPlan state next
+evalPlan state (Free (AWS53CRR crr next)) = do
+    EvalContext{..} <- ask
+    txb <- liftIO $ rqBody crr route53
+    (_, state', val) <- liftResourceT $ substitute_ state txb (runResourceT $ Aws.pureAws awsConf route53 mgr crr)
+    evalPlan state $ next "ok"
 evalPlan state (Pure r) = return r
 
 
 txprint :: (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) =>
            r
            -> ReaderT EvalContext IO ()
-txprint tx =
-    ask >>= liftIO . runResourceT . txBody tx >>= liftIO . BS.putStrLn
+txprint tx = do
+    EvalContext{qapi} <- ask
+    liftIO (rqBody tx qapi >>= T.putStrLn)
 
 debugPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext IO a
 debugPlan state (Free (AWSR (TXR (TX tx) keyPath) next)) = do
@@ -133,6 +144,11 @@ debugPlan state (Free (AWSV (TX tx) next)) = do
 debugPlan state (Free (Wait (TX tx) next)) = do
     liftIO (putStrLn "-- wait")
     debugPlan state next
+debugPlan state (Free (AWS53CRR crr next)) = do
+    EvalContext{..} <- ask
+    txb <- liftIO $ rqBody crr route53
+    liftIO $ print (crr, txb)
+    debugPlan state $ next "dbg-ok"
 debugPlan state (Pure r) = return r
 
 
@@ -171,7 +187,8 @@ debugEvalResources ctx@DeployContext{..} info = do
     let region = "us-east-1"
     let (keypair, keypairs) = (Nothing, [])
     instances <- do
-      let context = EvalContext undefined (QueryAPIConfiguration $ T.encodeUtf8 region)
+      awsConf <- liftIO $ Aws.dbgConfiguration
+      let context = EvalContext undefined awsConf (QueryAPIConfiguration $ T.encodeUtf8 region) R53.route53
           action = debugPlan emptyStore (ec2plan name (snd <$> keypairs) info [])
           in runReaderT action context
 
@@ -223,7 +240,8 @@ evalResources ctx@DeployContext{..} info = do
         return [(name, readA)]
 
     instances <- HTTP.withManager $ \mgr -> do
-      let context = EvalContext mgr (QueryAPIConfiguration $ T.encodeUtf8 region)
+      awsConf <- liftIO $ Aws.baseConfiguration
+      let context = EvalContext mgr awsConf (QueryAPIConfiguration $ T.encodeUtf8 region) R53.route53
           action = evalPlan store (ec2plan name (snd <$> keypairs) info userDataA)
           in runReaderT action context
 

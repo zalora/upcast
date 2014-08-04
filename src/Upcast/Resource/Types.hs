@@ -27,6 +27,7 @@ import qualified Data.HashMap.Strict as H
 
 import Aws.Core
 import Aws.Query
+import qualified Aws.Route53 as R53
 import qualified Aws.Ec2 as EC2
 import qualified Aws.Elb as ELB
 
@@ -64,6 +65,7 @@ data ResourceF next = AWS TX next
                     | AWSR TXR (Text -> next)
                     | AWSV TX (Value -> next)
                     | Wait TX next
+                    | AWS53CRR R53.ChangeResourceRecordSets (Text -> next)
                     deriving (Functor)
 type ResourcePlan = Free ResourceF
 
@@ -78,6 +80,9 @@ aws tx = liftF (AWSV (TX tx) id)
 
 wait :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
 wait tx = liftF (Wait (TX tx) ())
+
+aws53crr :: MonadFree ResourceF m => R53.ChangeResourceRecordSets -> m Text
+aws53crr crr = liftF (AWS53CRR crr id)
 
 type InstanceA = [(Text, (Text, [(Text, Value)]))] -- (name (id, blockdevices))
 
