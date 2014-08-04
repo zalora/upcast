@@ -102,7 +102,7 @@ path = do
 
 identifier :: Parser Text
 identifier = do
-    h <- satisfy (inClass "a-zA-Z_")
-    t <- takeWhile (inClass "a-zA-Z0-9-_")
+    h <- satisfy (inClass "a-zA-Z_.")
+    t <- takeWhile (inClass "a-zA-Z0-9-_.")
     return $ decodeUtf8 $ cons h t
 
