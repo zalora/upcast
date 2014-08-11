@@ -55,7 +55,7 @@ instance FromJSON ELB.Listener where
 data R53Alias = R53Alias Text R53.HostedZoneId
 
 elbPlan instanceA sgA subnetA elbs = do
-    fmap mconcat $ forM elbs $ \elb -> do
+    elb1 <- fmap mconcat $ forM elbs $ \elb -> do
         let (clb, attrs, machines, r53) = parse elb $ \(Object obj) -> do
               clb_name :: Text <- obj .: "name"
               internal :: Bool <- obj .: "internal"
@@ -109,16 +109,18 @@ elbPlan instanceA sgA subnetA elbs = do
         let (elbZoneId :: Text, elbName :: Text) = parse elbInfo $ \(Object obj) -> do
               (,) <$> obj .: "CanonicalHostedZoneNameID" <*> obj .: "CanonicalHostedZoneName"
 
-        mapM_ aws53crr $ (\x -> x elbName elbZoneId) <$> r53
+        let crr = (\x -> x elbName elbZoneId) <$> r53
+        return [(clb, attrs, crr)]
 
-
-        return [(clb, attrs)]
+    fmap mconcat $ forM elb1 $ \(clb, attrs, crr) -> do
+      mapM_ aws53crr crr
+      return [(clb, attrs)]
 
 toAliasCRR domain zoneId = \elbName elbZoneId ->
     R53.ChangeResourceRecordSets
       (R53.HostedZoneId zoneId)
       Nothing
-      [(R53.CREATE, R53.ResourceRecordSet { R53.rrsName = R53.Domain domain
+      [(R53.UPSERT, R53.ResourceRecordSet { R53.rrsName = R53.Domain domain
                                           , R53.rrsType = R53.A
                                           , R53.rrsAliasTarget = Just R53.AliasTarget { R53.atHostedZoneId = R53.HostedZoneId elbZoneId
                                                                                       , R53.atDNSName = R53.Domain elbName
