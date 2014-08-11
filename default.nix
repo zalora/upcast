@@ -7,7 +7,14 @@ let
 in
 { system ? builtins.currentSystem
 , pkgs ? import nixpkgs { inherit system; }
+, name ? "upcast"
 , src ? builtins.filterSource (path: type: type != "unknown" && baseNameOf path != ".git" && baseNameOf path != "result") ./.
 , haskellPackages ? pkgs.haskellPackages_ghc782
 }:
-haskellPackages.buildLocalCabal src "upcast"
+
+haskellPackages.buildLocalCabalWithArgs {
+  inherit src name;
+  args = {
+    vkAwsRoute53 = haskellPackages.callPackage ./vk-aws-route53.nix {};
+  };
+}
