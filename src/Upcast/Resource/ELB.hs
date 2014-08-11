@@ -45,7 +45,7 @@ instance FromJSON ELB.Listener where
       l_instancePort <- obj .: "instancePort"
       l_instanceProtocol <- obj .: "instanceProtocol"
       l_lbProtocol <- obj .: "lbProtocol"
-      sslCertificateId <- obj .:? "sslCertiticateId"
+      sslCertificateId <- obj .:? "sslCertificateId"
       let l_sslCertificateId = case sslCertificateId of
                                   Just "" -> Nothing
                                   Nothing -> Nothing

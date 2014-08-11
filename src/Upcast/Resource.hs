@@ -93,7 +93,7 @@ rqBody tx conf = do
 substituteTX :: SubStore -> TX -> EvalContext -> ResourceT IO (Sub, SubStore, Value)
 substituteTX state (TX tx) EvalContext{..} = do
     key <- rqBody tx qapi
-    -- liftIO $ BS.putStrLn key
+    -- liftIO $ T.putStrLn key
     liftIO $ substitute state key (runResourceT $ Aws.pureAws awsConf qapi mgr tx)
 
 substitute_ :: SubStore -> Text -> IO any -> ResourceT IO (Sub, SubStore, Value)
