@@ -31,7 +31,7 @@ executable upcast
                      , pretty-show
                      , aws, http-conduit, conduit-extra, cryptohash, byteable, base16-bytestring, http-types, xml-conduit
                      , optparse-applicative
-                     , aws-route53 > 0.1.0
+                     , aws-route53 > 0.1.1
 
   hs-source-dirs:      src
   ghc-options:         -static -rtsopts -threaded
