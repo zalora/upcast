@@ -16,9 +16,11 @@ import Prelude hiding (sequence)
 import Control.Applicative
 import Control.Monad.Reader hiding (sequence, forM)
 import Control.Monad.Trans.Resource (ResourceT, liftResourceT, runResourceT)
+import Control.Monad.Trans.Resource (MonadBaseControl)
 import Control.Monad.Free
 import qualified Control.Exception.Lifted as E
 import Control.Concurrent (threadDelay)
+import System.IO
 
 import Data.Maybe (listToMaybe)
 import Data.Monoid
@@ -95,7 +97,9 @@ substituteTX state (TX tx) EvalContext{..} = do
     liftIO $ substitute state key (runResourceT $ Aws.pureAws awsConf qapi mgr tx)
 
 substitute_ :: SubStore -> Text -> IO any -> ResourceT IO (Sub, SubStore, Value)
-substitute_ state key action = liftIO $ substitute state key (action >> return Null)
+substitute_ state key action = liftIO $ do
+    T.putStrLn key
+    substitute state key (action >> return Null)
 
 evalPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext (ResourceT IO) a
 evalPlan state (Free (AWSR (TXR tx keyPath) next)) = do
@@ -113,13 +117,13 @@ evalPlan state (Free (AWSV (TX tx) next)) = do
     evalPlan state $ next result
 evalPlan state (Free (Wait (TX tx) next)) = do
     EvalContext{..} <- ask
-    r <- liftIO $ runResourceT $ retryAws awsConf qapi mgr tx
+    r <- liftIO $ runResourceT $ retry (Aws.pureAws awsConf qapi mgr tx) awsTest
     -- liftIO $ print r
     evalPlan state next
 evalPlan state (Free (AWS53CRR crr next)) = do
     EvalContext{..} <- ask
     txb <- liftIO $ rqBody crr route53
-    (_, state', val) <- liftResourceT $ substitute_ state txb (runResourceT $ Aws.pureAws awsConf route53 mgr crr)
+    (_, state', val) <- liftResourceT $ substitute_ state txb (runResourceT $ retry (Aws.pureAws awsConf route53 mgr crr) r53Test)
     evalPlan state' $ next "ok"
 evalPlan state (Pure r) = return r
 
@@ -152,27 +156,33 @@ debugPlan state (Free (AWS53CRR crr next)) = do
 debugPlan state (Pure r) = return r
 
 
-retryAws :: (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) =>
-            Aws.Configuration
-            -> QueryAPIConfiguration NormalQuery
-            -> HTTP.Manager
-            -> r
-            -> ResourceT IO Value
-retryAws awsConf conf mgr tx = loop
+retry :: forall exc ret m. (E.Exception exc, MonadIO m, MonadBaseControl IO m) =>
+         m ret
+         -> (Either exc ret -> Either String ret)
+         -> m ret
+retry action test = loop
   where
     loop = do
-      result <- catchAll $ Aws.pureAws awsConf conf mgr tx
-      case result of
-        Left x -> warn x >> loop
-        Right Null -> warn Null >> loop
-        Right y -> return y
+      result <- catchAll action
+      case (test result) of
+        Left reason -> warn reason >> loop
+        Right v -> return v
 
     warn val = liftIO $ do
-      BS.hPutStrLn stderr (mconcat ["wait: retrying after 1: ", BS.pack $ show val])
+      hPutStrLn stderr (mconcat ["retry: retrying after 1: ", val])
       threadDelay 1000000
 
-    catchAll :: ResourceT IO Value -> ResourceT IO (Either E.SomeException Value)
+    catchAll :: m ret -> m (Either exc ret)
     catchAll = E.handle (return . Left) . fmap Right
+
+awsTest :: Either E.SomeException Value -> Either String Value
+awsTest (Left x) = Left $ show x
+awsTest (Right Null) = Left $ show Null
+awsTest (Right r) = Right r
+
+r53Test :: Either R53.Route53Error a -> Either String a
+r53Test (Left x) = Left $ show x
+r53Test (Right r) = Right r
 
 
 findRegions :: [Text] -> Value -> [Text]
