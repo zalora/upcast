@@ -97,6 +97,10 @@ debug file args = do
     ctx@DeployContext{..} <- context file args
     Right info <- deploymentInfo ctx
     machines <- debugEvalResources ctx info
+    return ()
+
+buildOnly file args = do
+    ctx@DeployContext{..} <- context file args
     let build = nixBuildMachines ctx (T.unpack expressionFile) uuid closuresPath
     fgrun build
     return ()
@@ -133,7 +137,8 @@ main = do
     opts = parser `info` header "upcast - infrastructure orchestratrion"
 
     parser = subparser (command "go" (args go `info` progDesc "execute deployment") <>
-                        command "build" (args debug `info` progDesc "dry-run resource stage and perform a build") <>
+                        command "build" (args buildOnly `info` progDesc "perform a build of all machines") <>
+                        command "dry-run" (args debug `info` progDesc "dry-run a resource stage") <>
                         command "info" (args infoOnly `info` progDesc "print deployment resource information in json format") <>
                         command "ssh-config" (args sshConfig `info` progDesc "print ssh config for deployment (evaluates resources)")
                         )
