@@ -62,9 +62,9 @@ elbPlan instanceA sgA subnetA elbs = do
               let clb_scheme = if internal then ELB.Internal else ELB.Public
               clb_listeners :: [ELB.Listener] <- obj .: "listeners"
               securityGroups :: [Text] <- obj .: "securityGroups"
-              let clb_securityGroupIds = catMaybes $ fmap (flip lookup sgA) securityGroups
+              let clb_securityGroupIds = catMaybes $ lookupOrId "sg-" sgA <$> securityGroups
               subnets :: [Text] <- obj .: "subnets"
-              let clb_subnetIds = catMaybes $ fmap (flip lookup subnetA) subnets
+              let clb_subnetIds = catMaybes $ lookupOrId "subnet-" subnetA <$> subnets
 
               let clb = ELB.CreateLoadBalancer{..}
 

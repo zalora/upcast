@@ -40,6 +40,7 @@ import Upcast.ATerm (alookupS)
 import Upcast.Resource.Types
 import Upcast.Resource.ELB
 
+
 createVPC vpcs defTags = do
     vpcA <- fmap mconcat $ forM vpcs $ \vpc -> do
         let (aname, cvpc) = parse vpc $ \(Object obj) -> do
@@ -74,7 +75,7 @@ createSubnets subnets vpcA defTags = do
                         cidr <- obj .: "cidrBlock"
                         vpc <- obj .: "vpc"
                         zone <- obj .: "zone"
-                        let Just vpcId = lookup vpc vpcA
+                        let Just vpcId = lookupOrId "vpc-" vpcA vpc
                         return (aname, EC2.CreateSubnet vpcId cidr $ Just zone)
         subnetId <- aws1 csubnet "subnetId"
 
@@ -93,9 +94,7 @@ createSecurityGroups secGroups vpcA defTags = do
                   aname :: Text <- obj .: "_name"
                   desc :: Text <- obj .: "description"
                   vpc <- obj .: "vpc"
-                  let vpcId = case vpc of
-                                Null -> Nothing
-                                String v -> lookup v vpcA
+                  let vpcId = castText vpc >>= lookupOrId "vpc-" vpcA
                   return (aname, EC2.CreateSecurityGroup name desc vpcId)
         secGroupId <- aws1 g "groupId"
 
@@ -136,10 +135,6 @@ createEBS volumes defTags = do
         return [(assocName, volumeId)]
     return volumeA
 
-maybeString (String "") = Nothing
-maybeString (String s) = Just s
-maybeString _ = Nothing
-
 createInstances instances subnetA sgA defTags userDataA = do
     (instanceA :: InstanceA) <- fmap mconcat $ forM instances $ \inst -> do
         let (name, blockDevs, cinst) = parse inst $ \(Object obj) -> do
@@ -152,9 +147,9 @@ createInstances instances subnetA sgA defTags userDataA = do
               run_imageId <- ec2 .: "ami"
               let run_count = (1, 1)
               run_instanceType <- ec2 .: "instanceType"
-              let run_securityGroupIds = catMaybes $ flip lookup sgA <$> securityGroupNames
+              let run_securityGroupIds = catMaybes $ lookupOrId "sg-" sgA <$> securityGroupNames
 
-              let run_subnetId = maybeString subnet >>= flip lookup subnetA
+              let run_subnetId = castText subnet >>= lookupOrId "subnet-" subnetA
               let run_monitoringEnabled = True
               let run_disableApiTermination = False
               let run_instanceInitiatedShutdownBehavior = EC2.Stop
@@ -165,7 +160,7 @@ createInstances instances subnetA sgA defTags userDataA = do
               let run_ramdiskId = Nothing
               let run_clientToken = Nothing
               run_availabilityZone <- ec2 .:? "zone"
-              run_iamInstanceProfileARN <- maybeString <$> ec2 .: "instanceProfileARN"
+              run_iamInstanceProfileARN <- castText <$> ec2 .: "instanceProfileARN"
 
               let run_blockDeviceMappings = catMaybes $ fmap parseBlockDevice (Map.toList $ (\case Just bd -> bd) blockDevs)
 

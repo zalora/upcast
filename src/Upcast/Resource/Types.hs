@@ -55,6 +55,16 @@ acast key value = (justCast :: Value -> a) $ forceLookup key value
 scast :: forall a. FromJSON a => Text -> Value -> Maybe a
 scast k v = alookupS k v >>= castValue
 
+castText :: Value -> Maybe Text
+castText (String "") = Nothing
+castText (String s) = Just s
+castText _ = Nothing
+
+lookupOrId :: Text -> [(Text, Text)] -> Text -> Maybe Text
+lookupOrId prefix alist s = case prefix `T.isPrefixOf` s of
+                              True -> Just s
+                              False -> lookup s alist
+
 -- | Existential type to contain possible QueryAPI-related transactions for `resourceAWS'
 data TX = forall r. (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => TX r
 
