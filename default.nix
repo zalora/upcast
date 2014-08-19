@@ -12,9 +12,15 @@ in
 , haskellPackages ? pkgs.haskellPackages_ghc782
 }:
 
+let
+  aws = haskellPackages.callPackage ./nixpkgs/aws.nix {};
+in
+
 haskellPackages.buildLocalCabalWithArgs {
   inherit src name;
   args = {
-    vkAwsRoute53 = haskellPackages.callPackage ./vk-aws-route53.nix {};
+    inherit aws;
+    vkAwsRoute53 = haskellPackages.callPackage ./nixpkgs/vk-aws-route53.nix { inherit aws; };
+    awsEc2 = haskellPackages.callPackage ./nixpkgs/aws-ec2.nix { inherit aws; };
   };
 }

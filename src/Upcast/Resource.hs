@@ -36,8 +36,6 @@ import Data.Aeson
 import qualified Data.Aeson.Encode.Pretty as A
 import qualified Data.Aeson.Types as A
 import qualified Data.Vector as V
-import Data.Time.Clock
-import Data.IORef (newIORef)
 import System.FilePath.Posix (splitFileName)
 
 import qualified Data.ByteString.Char8 as BS
@@ -50,6 +48,7 @@ import qualified Network.HTTP.Conduit as HTTP
 import qualified Aws
 import Aws.Core
 import Aws.Query (QueryAPIConfiguration(..), castValue)
+import Aws.Canonical (canonicalSigData)
 import qualified Aws.Ec2 as EC2
 import qualified Aws.Route53 as R53
 
@@ -79,16 +78,6 @@ rqBody tx conf = do
     bodyText :: HTTP.RequestBody -> Text
     bodyText (HTTP.RequestBodyBS bs) = T.decodeUtf8 bs
     bodyText (HTTP.RequestBodyLBS lbs) = T.decodeUtf8 $ toStrict lbs
-
-    canonicalSigData :: IO SignatureData
-    canonicalSigData = do
-        emptyRef <- newIORef []
-        return SignatureData { signatureTimeInfo = AbsoluteTimestamp baseTime
-                             , signatureTime = baseTime
-                             , signatureCredentials = Credentials "" "" emptyRef
-                             }
-
-    baseTime = UTCTime (toEnum 0) $ secondsToDiffTime 0
 
 substituteTX :: SubStore -> TX -> EvalContext -> ResourceT IO (Sub, SubStore, Value)
 substituteTX state (TX tx) EvalContext{..} = do

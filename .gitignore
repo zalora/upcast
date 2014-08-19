@@ -1,4 +1,6 @@
 /result
 /dist
-/.cabal-sandbox
+/.cabal-sandbox*
 *.aterm
+*.hp
+*.prof
