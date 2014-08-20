@@ -185,12 +185,15 @@ createInstances instances subnetA sgA defTags userDataA = do
 
 attachEBS instanceA volumeA = do
     forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
-      let blockA = catMaybes $ (\(mapping, v) -> (mapping, ) <$> test v) <$> blockDevs
+      let blockA = catMaybes $ (\(mapping, v) -> (mapping, ) <$> testVol v) <$> blockDevs
       forM_ blockA $ \(avol_device, avol_volumeId) -> do
         aws_ EC2.AttachVolume{..}
   where
-    test v = let t = acast "disk" v :: Text
-                 td = T.drop 4 t
+    testVol v = let t = acast "disk" v :: Text
+                    in case "vol-" `T.isPrefixOf` (acast "disk" v) of
+                         True -> return t
+                         False -> test t
+    test t = let td = T.drop 4 t
                  in do
                     when ("ephemeral" `T.isPrefixOf` t) $ fail "ignore (handled)"
                     case "res-" `T.isPrefixOf` t of
@@ -212,10 +215,10 @@ ec2plan expressionName keypairs info userDataA = do
     volumeA <- createEBS volumes defTags
     instanceA <- createInstances instances subnetA sgA defTags userDataA
 
-    attachEBS instanceA volumeA
-
     let instanceIds = fmap (fst . snd) instanceA
     (wait . EC2.DescribeInstanceStatus) instanceIds
+
+    attachEBS instanceA volumeA
 
     elbPlan instanceA sgA subnetA elbs
 
