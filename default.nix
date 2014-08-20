@@ -1,15 +1,15 @@
 let
    nixpkgs = (import <nixpkgs> {}).fetchgit {
-    url = "git://github.com/zalora/nixpkgs.git";
-    rev = "e6ac094dc5c3470571292744c4b007d7da40256f";
-    sha256 = "1dcd4cc2c769f285cbd278ff35222ff49d0e764d7043f843a4e90e870b82af40";
+    url = "git://github.com/NixOS/nixpkgs.git";
+    rev = "5cac6895da590a6c9bf55d50d01247a1a14a5d8d";
+    sha256 = "22414544b7706db2344fbb21b2bd6d9e021e1a14307cbd4c1a6e7f73cfb4937d";
   };
 in
 { system ? builtins.currentSystem
 , pkgs ? import nixpkgs { inherit system; }
 , name ? "upcast"
 , src ? builtins.filterSource (path: type: type != "unknown" && baseNameOf path != ".git" && baseNameOf path != "result") ./.
-, haskellPackages ? pkgs.haskellPackages_ghc782
+, haskellPackages ? pkgs.haskellPackages_ghc783
 }:
 
 let

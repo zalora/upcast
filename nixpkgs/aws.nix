@@ -13,6 +13,7 @@ cabal.mkDerivation (self: {
   sha256 = "15yr06z54wxnl37a94515ajlxrb7z9kii5dd0ssan32izh4nfrl2";
   isLibrary = true;
   isExecutable = true;
+  doCheck = false;
   buildDepends = [
     aeson attoparsec base16Bytestring base64Bytestring blazeBuilder
     byteable caseInsensitive cereal conduit conduitExtra cryptohash
