@@ -22,7 +22,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 
 import Data.Aeson
-import Data.Aeson.Types (parseEither)
+import Data.Aeson.Types (parseEither, Parser)
 import qualified Data.HashMap.Strict as H
 
 import Aws.Core
@@ -96,6 +96,7 @@ aws53crr crr = liftF (AWS53CRR crr id)
 
 type InstanceA = [(Text, (Text, [(Text, Value)]))] -- (name (id, blockdevices))
 
+parse :: a -> (a -> Parser b) -> b
 parse obj action = either error id (flip parseEither obj action)
 
 --
