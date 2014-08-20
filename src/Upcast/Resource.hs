@@ -158,7 +158,7 @@ retry action test = loop
         Right v -> return v
 
     warn val = liftIO $ do
-      hPutStrLn stderr (mconcat ["retry: retrying after 1: ", val])
+      hPutStrLn stderr (mconcat ["retrying after 1: ", val])
       threadDelay 1000000
 
     catchAll :: m ret -> m (Either exc ret)
