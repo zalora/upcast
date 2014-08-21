@@ -45,6 +45,7 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource ec2-m
           instancePort = mkOption { type = types.int; default = 80; };
           instanceProtocol = mkOption { type = types.string; default = "http"; };
           sslCertificateId = mkOption { type = types.string; default = ""; };
+          lbStickinessCookieExpiration = mkOption { type = types.int; default = -1; };
         };
       }));
       default = [

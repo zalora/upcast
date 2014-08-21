@@ -39,32 +39,44 @@ instance FromJSON ELB.LbProtocol where
     parseJSON (String "ssl")   = pure ELB.SSL
     parseJSON _ = mzero
 
-instance FromJSON ELB.Listener where
-    parseJSON (Object obj) = do
-      l_lbPort <- obj .: "lbPort"
-      l_instancePort <- obj .: "instancePort"
-      l_instanceProtocol <- obj .: "instanceProtocol"
-      l_lbProtocol <- obj .: "lbProtocol"
-      sslCertificateId <- obj .:? "sslCertificateId"
-      let l_sslCertificateId = case sslCertificateId of
-                                  Just "" -> Nothing
-                                  Nothing -> Nothing
-                                  Just x -> Just x
-      return ELB.Listener{..}
-
 data R53Alias = R53Alias Text R53.HostedZoneId
 
+catTuples = foldr (\(ls, sp) (lss, sps) -> (ls:lss, sp:sps)) ([], [])
+
+elbPlan :: (MonadFree ResourceF m, Functor m)
+        => InstanceA
+        -> [(Text, Text)]
+        -> [(Text, Text)]
+        -> [Value]
+        -> m ()
 elbPlan instanceA sgA subnetA elbs = do
     elb1 <- fmap mconcat $ forM elbs $ \elb -> do
-        let (clb, attrs, machines, r53) = parse elb $ \(Object obj) -> do
+        let (clb, attrs, machines, r53, lbStickiness) = parse elb $ \(Object obj) -> do
               clb_name :: Text <- obj .: "name"
               internal :: Bool <- obj .: "internal"
               let clb_scheme = if internal then ELB.Internal else ELB.Public
-              clb_listeners :: [ELB.Listener] <- obj .: "listeners"
               securityGroups :: [Text] <- obj .: "securityGroups"
               let clb_securityGroupIds = catMaybes $ lookupOrId "sg-" sgA <$> securityGroups
               subnets :: [Text] <- obj .: "subnets"
               let clb_subnetIds = catMaybes $ lookupOrId "subnet-" subnetA <$> subnets
+
+              listeners :: [Value] <- obj .: "listeners"
+
+              (clb_listeners, lbStickiness) <- fmap catTuples $ forM listeners $ \(Object listener) -> do
+                    l_lbPort <- listener .: "lbPort"
+                    l_instancePort <- listener .: "instancePort"
+                    l_instanceProtocol <- listener .: "instanceProtocol"
+                    l_lbProtocol <- listener .: "lbProtocol"
+                    sslCertificateId <- listener .:? "sslCertificateId"
+
+                    let l_sslCertificateId = case sslCertificateId of
+                                                Just "" -> Nothing
+                                                Nothing -> Nothing
+                                                Just x -> Just x
+
+                    lbStickinessExp :: Maybe Integer <- listener .:? "lbStickinessCookieExpiration"
+
+                    return (ELB.Listener{..}, (maybe (-1) id lbStickinessExp, l_lbPort))
 
               let clb = ELB.CreateLoadBalancer{..}
 
@@ -90,7 +102,7 @@ elbPlan instanceA sgA subnetA elbs = do
               Object aliases <- obj .: "route53Aliases"
               r53 <- H.elems <$> H.traverseWithKey (\k (Object v) -> toAliasCRR k <$> v .: "zoneId") aliases
 
-              return (clb, [crossAttr, accessAttr, drainingAttr], machines, r53)
+              return (clb, [crossAttr, accessAttr, drainingAttr], machines, r53, lbStickiness)
 
         aws_ clb
 
@@ -98,6 +110,11 @@ elbPlan instanceA sgA subnetA elbs = do
         wait $ ELB.DescribeLoadBalancers [name]
 
         aws_ $ ELB.ModifyLoadBalancerAttributes name attrs
+
+        forM lbStickiness $ \(cookieExp, lbPort) -> when (cookieExp /= -1) $ do
+          let policyName = mconcat [name, "-", T.pack $ show lbPort, "-cookie-exp-", T.pack $ show cookieExp]
+          aws_ $ ELB.CreateLBCookieStickinessPolicy name (if cookieExp == 0 then Nothing else Just cookieExp) policyName
+          aws_ $ ELB.SetLoadBalancerPoliciesOfListener name (fromIntegral lbPort) [policyName]
 
         let instances = fmap fst $ catMaybes $ fmap (flip lookup instanceA) machines
         aws_ $ ELB.RegisterInstancesWithLoadBalancer name instances
@@ -115,6 +132,8 @@ elbPlan instanceA sgA subnetA elbs = do
     fmap mconcat $ forM elb1 $ \(clb, attrs, crr) -> do
       mapM_ aws53crr crr
       return [(clb, attrs)]
+
+    return ()
 
 toAliasCRR domain zoneId = \elbName elbZoneId ->
     R53.ChangeResourceRecordSets
