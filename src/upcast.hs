@@ -32,13 +32,17 @@ import Upcast.Command
 import Upcast.Temp
 import Paths_upcast
 
+sequenceMaybe :: Monad m => [m (Maybe a)] -> m (Maybe a)
+sequenceMaybe [] = return Nothing
+sequenceMaybe (act:actions) = act >>= maybe (sequenceMaybe actions) (return . Just)
+
 context :: String -> [String] -> IO DeployContext
 context file args = do
     path <- canonicalizePath file
     let ctx = def { expressionFile = T.pack path
                   , stateFile = replaceExtension path "store"
                   }
-    nix <- T.pack <$> getDataFileName "nix"
+    Just nix <- fmap T.pack <$> sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
     machinesPath <- randomTempFileName "machines."
     env <- getEnvDefault "UPCAST_NIX_FLAGS" ""
     let ctx' = ctx { upcastNix = nix
