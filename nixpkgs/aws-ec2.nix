@@ -6,8 +6,8 @@
 
 cabal.mkDerivation (self: {
   pname = "aws-ec2";
-  version = "0.2";
-  sha256 = "0cixql62n0gn49bv0k9q9sdj3qxan1xgzcvzl6754z8qq3q0jg0k";
+  version = "0.2.1";
+  sha256 = "18qgwm7hx5p89bj1if9n3gq0p6r3xbv5pxqjrwgcnkgmbizacrpn";
   isLibrary = true;
   isExecutable = true;
   buildDepends = [
@@ -23,3 +23,4 @@ cabal.mkDerivation (self: {
     platforms = self.ghc.meta.platforms;
   };
 })
+
