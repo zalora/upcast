@@ -33,7 +33,7 @@ executable upcast
                      , aws, http-conduit, conduit-extra, cryptohash, byteable, base16-bytestring, http-types, xml-conduit
                      , optparse-applicative
                      , vk-aws-route53 > 0.1.1
-                     , aws-ec2 > 0.1
+                     , aws-ec2 > 0.2
 
   hs-source-dirs:      src
   ghc-options:         -static -rtsopts -threaded
