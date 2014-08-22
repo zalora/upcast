@@ -99,6 +99,20 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource ec2-m
       default = true;
     };
 
+    healthCheck = mkOption {
+      default = {
+        timeout = 5;
+        interval = 30;
+        healthyThreshold = 2;
+        unhealthyThreshold = 10;
+        target = {
+          protocol = "TCP";
+          port = 80;
+          path = "";
+        };
+      };
+    };
+
     route53Aliases = mkOption {
       type = types.attrsOf (types.submodule ({ lib, name, ... }: with lib; {
         options = {

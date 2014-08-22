@@ -51,7 +51,7 @@ elbPlan :: (MonadFree ResourceF m, Functor m)
         -> m ()
 elbPlan instanceA sgA subnetA elbs = do
     elb1 <- fmap mconcat $ forM elbs $ \elb -> do
-        let (clb, attrs, machines, r53, lbStickiness) = parse elb $ \(Object obj) -> do
+        let (clb, attrs, machines, r53, lbStickiness, healthCheck) = parse elb $ \(Object obj) -> do
               clb_name :: Text <- obj .: "name"
               internal :: Bool <- obj .: "internal"
               let clb_scheme = if internal then ELB.Internal else ELB.Public
@@ -97,12 +97,29 @@ elbPlan instanceA sgA subnetA elbs = do
                     ELB.ConnectionDraining <$> (drain .: "enable")
                                            <*> (drain .: "timeout")
 
+              Object hc <- obj .: "healthCheck"
+              Object hcTarget <- hc .: "target"
+              target <- do
+                proto :: Text <- hcTarget .: "protocol"
+                return $ case proto of
+                           "TCP" -> ELB.TargetTCP <$> (hcTarget .: "port")
+                           "SSL" -> ELB.TargetSSL <$> (hcTarget .: "port")
+                           "HTTP" -> ELB.TargetHTTP <$> (hcTarget .: "port") <*> (hcTarget .: "path")
+                           "HTTPS" -> ELB.TargetHTTPS <$> (hcTarget .: "port") <*> (hcTarget .: "path")
+
+              healthCheck <-
+                    ELB.HealthCheck <$> target
+                                    <*> (hc .: "healthyThreshold")
+                                    <*> (hc .: "unhealthyThreshold")
+                                    <*> (hc .: "interval")
+                                    <*> (hc .: "timeout")
+
               machines :: [Text] <- obj .: "machines"
 
               Object aliases <- obj .: "route53Aliases"
               r53 <- H.elems <$> H.traverseWithKey (\k (Object v) -> toAliasCRR k <$> v .: "zoneId") aliases
 
-              return (clb, [crossAttr, accessAttr, drainingAttr], machines, r53, lbStickiness)
+              return (clb, [crossAttr, accessAttr, drainingAttr], machines, r53, lbStickiness, healthCheck)
 
         aws_ clb
 
@@ -116,9 +133,10 @@ elbPlan instanceA sgA subnetA elbs = do
           aws_ $ ELB.CreateLBCookieStickinessPolicy name (if cookieExp == 0 then Nothing else Just cookieExp) policyName
           aws_ $ ELB.SetLoadBalancerPoliciesOfListener name (fromIntegral lbPort) [policyName]
 
+        aws_ $ ELB.ConfigureHealthCheck name healthCheck
+
         let instances = fmap fst $ catMaybes $ fmap (flip lookup instanceA) machines
         aws_ $ ELB.RegisterInstancesWithLoadBalancer name instances
-
 
         Array elbInfos <- aws (ELB.DescribeLoadBalancers [name])
         let [elbInfo] = V.toList elbInfos
