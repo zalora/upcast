@@ -216,6 +216,7 @@ ec2plan expressionName keypairs info userDataA = do
     instanceA <- createInstances instances subnetA sgA defTags userDataA
 
     let instanceIds = fmap (fst . snd) instanceA
+    when (null instanceIds) $ fail "no instances, plan complete."
     (wait . EC2.DescribeInstanceStatus) instanceIds
 
     attachEBS instanceA volumeA
