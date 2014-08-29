@@ -106,33 +106,35 @@ evalPlan state (Free (AWSV (TX tx) next)) = do
     evalPlan state $ next result
 evalPlan state (Free (Wait (TX tx) next)) = do
     EvalContext{..} <- ask
-    r <- liftIO $ runResourceT $ retry (Aws.pureAws awsConf qapi mgr tx) awsTest
+    desc <- txshow tx
+    r <- liftIO $ runResourceT $ retry desc (Aws.pureAws awsConf qapi mgr tx) awsTest
     -- liftIO $ print r
     evalPlan state next
 evalPlan state (Free (AWS53CRR crr next)) = do
     EvalContext{..} <- ask
     txb <- liftIO $ rqBody crr route53
-    (_, state', val) <- liftResourceT $ substitute_ state txb (runResourceT $ retry (Aws.pureAws awsConf route53 mgr crr) r53Test)
+    (_, state', val) <- liftResourceT $ substitute_ state txb (runResourceT $
+                      retry "ChangeResourceRecordSets" (Aws.pureAws awsConf route53 mgr crr) r53Test)
     evalPlan state' $ next "ok"
 evalPlan state (Pure r) = return r
 
 
-txprint :: (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) =>
-           r
-           -> ReaderT EvalContext IO ()
-txprint tx = do
+txshow :: (MonadIO io, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value)
+          => r
+          -> ReaderT EvalContext io Text
+txshow tx = do
     EvalContext{qapi} <- ask
-    liftIO (rqBody tx qapi >>= T.putStrLn)
+    rqBody tx qapi
 
 debugPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext IO a
 debugPlan state (Free (AWSR (TXR (TX tx) keyPath) next)) = do
-    txprint tx
+    txshow tx >>= liftIO . T.putStrLn
     debugPlan state $ next "dbg-00000"
 debugPlan state (Free (AWS (TX tx) next)) = do
-    txprint tx
+    txshow tx >>= liftIO . T.putStrLn
     debugPlan state next
 debugPlan state (Free (AWSV (TX tx) next)) = do
-    txprint tx
+    txshow tx >>= liftIO . T.putStrLn
     debugPlan state $ next $ Array V.empty
 debugPlan state (Free (Wait (TX tx) next)) = do
     liftIO (putStrLn "-- wait")
@@ -145,11 +147,12 @@ debugPlan state (Free (AWS53CRR crr next)) = do
 debugPlan state (Pure r) = return r
 
 
-retry :: forall exc ret m. (E.Exception exc, MonadIO m, MonadBaseControl IO m) =>
-         m ret
+retry :: forall exc ret m. (E.Exception exc, MonadIO m, MonadBaseControl IO m)
+         => Text
+         -> m ret
          -> (Either exc ret -> Either String ret)
          -> m ret
-retry action test = loop
+retry desc action test = loop
   where
     loop = do
       result <- catchAll action
@@ -158,7 +161,7 @@ retry action test = loop
         Right v -> return v
 
     warn val = liftIO $ do
-      hPutStrLn stderr (mconcat ["retrying after 1: ", val])
+      T.hPutStrLn stderr (T.concat ["retrying <", desc, "> after 1: ", T.pack val])
       threadDelay 1000000
 
     catchAll :: m ret -> m (Either exc ret)
