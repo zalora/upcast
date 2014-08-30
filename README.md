@@ -29,6 +29,7 @@ See example deployments in `examples/`.
 #### Configuring remote builds
 
 Add the following to your shell profile:
+
 ```bash
 export NIX_BUILD_HOOK="$HOME/.nix-profile/libexec/nix/build-remote.pl"
 export NIX_REMOTE_SYSTEMS="$HOME/remote-systems.conf"
