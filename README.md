@@ -52,7 +52,7 @@ export NIX_CURRENT_LOAD="/tmp/remote-load"
 
 #### Operation modes
 
-- The only supported command is `run` (so far). No `create`, `modify`, `clone`, `set-args`, `send-keys` non-sense;
+- The only supported command is `run` (so far). No `create`, `modify`, `clone`, `set-args`, `send-keys`.
 - NixOps SQLite state files are abandoned, separate text files ([json dict for state](https://github.com/zalora/upcast/blob/master/src/Upcast/TermSubstitution.hs) and a private key file) are used instead;
 - Physical specs are removed
   - Identical machines get identical machine closures, they are no longer parametric by things like hostnames (these are configured at runtime).
