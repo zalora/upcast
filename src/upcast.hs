@@ -109,7 +109,7 @@ buildOnly file args = do
     fgrun build
     return ()
 
-go file args = do
+run file args = do
     ctx@DeployContext{..} <- context file args
     deploy ctx
 
@@ -140,11 +140,11 @@ main = do
 
     opts = parser `info` header "upcast - infrastructure orchestratrion"
 
-    parser = subparser (command "go" (args go `info` progDesc "execute deployment") <>
-                        command "build" (args buildOnly `info` progDesc "perform a build of all machines") <>
-                        command "dry-run" (args debug `info` progDesc "dry-run a resource stage") <>
-                        command "info" (args infoOnly `info` progDesc "print deployment resource information in json format") <>
-                        command "ssh-config" (args sshConfig `info` progDesc "print ssh config for deployment (evaluates resources)")
+    parser = subparser (command "run" (args run `info` progDesc "evaluate resources, run builds and deploy") <>
+                        command "build" (args buildOnly `info` progDesc "perform a build of all machine closures") <>
+                        command "ssh-config" (args sshConfig `info` progDesc "dump ssh config for deployment (evaluates resources)") <>
+                        command "resource-info" (args infoOnly `info` progDesc "dump resource information in json format") <>
+                        command "resource-debug" (args debug `info` progDesc "evaluate resources in debugging mode")
                         )
 
     args comm = comm <$> argument str exp <*> many (argument str nixArgs)

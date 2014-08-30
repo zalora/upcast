@@ -4,3 +4,4 @@
 *.aterm
 *.hp
 *.prof
+cabal.sandbox.config

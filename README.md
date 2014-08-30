@@ -4,10 +4,11 @@ upcast - infrastructure orchestratrion
 Usage: upcast COMMAND
 
 Available commands:
-  go                       execute deployment
-  build                    dry-run resource stage and perform a build
-  info                     print deployment resource information in json format
-  ssh-config               print ssh config for deployment (evaluates resources)
+  run                      evaluate resources, run builds and deploy
+  build                    perform a build of all machine closures
+  ssh-config               dump ssh config for deployment (evaluates resources)
+  resource-info            dump resource information in json format
+  resource-debug           evaluate resources in debugging mode
 ```
 
 ### Quick start
@@ -15,8 +16,8 @@ Available commands:
 ```console
 $ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys
 $ cabal install
-$ export UPCAST_NIX_FLAGS="--option use-binary-cache true --option binary-caches http://hydra.nixos.org --option use-ssh-substituter true --option ssh-substituter-hosts me@node1.example.com"
-$ upcast go test.nix -- -I sources/nixpkgs
+$ export UPCAST_NIX_FLAGS="--option use-binary-cache true --option binary-caches http://hydra.nixos.org"
+$ upcast run my-network.nix -- -j4
 ```
 
 #### Configuring remote builds
@@ -25,15 +26,15 @@ Add the following to your shell profile:
 ```bash
 export NIX_BUILD_HOOK="$HOME/.nix-profile/libexec/nix/build-remote.pl"
 export NIX_REMOTE_SYSTEMS="$HOME/remote-systems.conf"
-export NIX_CURRENT_LOAD="/tmp/load2"
+export NIX_CURRENT_LOAD="/tmp/remote-load"
 ```
 
 ### Goals
 
 - simplicity, extensibility;
-- minimum dependency of network latency of the client;
 - shared state stored as nix expressions next to machines expressions;
-- first-class AWS support (including AWS features nixops doesn't have), as a side-effect, deliver a command-line ec2 toolchain;
+- first-class AWS support (including AWS features nixops doesn't have);
+- minimum dependency of network latency of the client;
 - support for running day-to-day operations on deployed resources, services and machines.
 
 ### Notable differences from NixOps
@@ -45,10 +46,10 @@ export NIX_CURRENT_LOAD="/tmp/load2"
 
 #### Operation modes
 
-- The only supported command is `deploy` (so far). No `create`, `modify`, `clone`, `set-args`, `send-keys` non-sense;
+- The only supported command is `run` (so far). No `create`, `modify`, `clone`, `set-args`, `send-keys` non-sense;
 - NixOps SQLite state files are abandoned, separate text files ([json dict for state](https://github.com/zalora/upcast/blob/master/src/Upcast/TermSubstitution.hs) and a private key file) are used instead;
-- Physical specs are removed;
-- Identical machines get identical machine closures, they are no longer parametric by things like hostnames (these are configured at runtime).
+- Physical specs are removed
+  - Identical machines get identical machine closures, they are no longer parametric by things like hostnames (these are configured at runtime).
 
 #### Resources
 
@@ -59,12 +60,6 @@ export NIX_CURRENT_LOAD="/tmp/load2"
                  deployments to expressions that span multiple AWS regions;
 - Most likely will not be supported: virtualbox, hetzner, auto-luks, auto-raid0, `/run/keys` support, static route53 support (like nixops);
 
-
-
 ### Motivation
 
 ![motivation](http://i.imgur.com/HY2Gtk5.png)
-
-### Hacking
-
-Initially developed with GHC 7.8.2 and Cabal 1.20 localhost-style. YMMV.
