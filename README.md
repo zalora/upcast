@@ -20,7 +20,6 @@ Available commands:
 ```console
 $ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys
 $ cabal install
-$ export UPCAST_NIX_FLAGS="--option use-binary-cache true --option binary-caches http://hydra.nixos.org"
 $ upcast run my-network.nix -- -j4
 ```
 
