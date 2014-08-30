@@ -71,3 +71,6 @@ export NIX_CURRENT_LOAD="/tmp/remote-load"
 - state files are not garbage collected, have to be often cleaned up manually;
 - altering of most resources is not supported properly (you need to remove using aws cli, cleanup the state file and try again);
 - word "aterm" is naming a completely different thing;
+
+Note: the app is currently in HEAVY development (and is already being used to power production cloud instances)
+so interfaces may break without notice.
