@@ -20,6 +20,8 @@ $ export UPCAST_NIX_FLAGS="--option use-binary-cache true --option binary-caches
 $ upcast run my-network.nix -- -j4
 ```
 
+See example deployments in `examples/`.
+
 #### Configuring remote builds
 
 Add the following to your shell profile:
