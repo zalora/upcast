@@ -63,3 +63,9 @@ export NIX_CURRENT_LOAD="/tmp/remote-load"
 ### Motivation
 
 ![motivation](http://i.imgur.com/HY2Gtk5.png)
+
+### Known issues
+
+- state files are not garbage collected, have to be often cleaned up manually;
+- altering of most resources is not supported properly (you need to remove using aws cli, cleanup the state file and try again);
+- word "aterm" is naming a completely different thing;
