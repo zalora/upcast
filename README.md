@@ -1,6 +1,8 @@
 Upcast is a declarative cloud infrastructure orchestration tool that leverages [Nix](http://nixos.org/nix/).
 Its nix codebase (and, by extension, its interface) was started off by copying files from [nixops](https://github.com/nixos/nixops).
 
+[![Build Status](https://travis-ci.org/zalora/upcast.svg?branch=master)](https://travis-ci.org/zalora/upcast)
+
 ### Quick start
 
 ```console
