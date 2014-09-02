@@ -152,7 +152,7 @@ createInstances instances subnetA sgA defTags userDataA = do
               let run_subnetId = castText subnet >>= lookupOrId "subnet-" subnetA
               let run_monitoringEnabled = True
               let run_disableApiTermination = False
-              let run_instanceInitiatedShutdownBehavior = EC2.Stop
+              let run_instanceInitiatedShutdownBehavior = Nothing
               run_ebsOptimized <- ec2 .: "ebsOptimized"
               run_keyName <- ec2 .:? "keyPair"
               let run_userData = Just $ userData name
