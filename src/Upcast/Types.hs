@@ -18,6 +18,7 @@ data DeployContext =
                   , expressionFile :: Text
                   , stateFile :: FilePath -- ^ *.store file
                   , uuid :: String -- ^ Used by nix files, NixOps legacy.
+                  , nixSSHClosureCache :: Maybe String
                   } deriving (Show)
 
 -- | Structure used to pass arguments between evaluation and installation phases.
@@ -38,4 +39,5 @@ data Install = Install
              , i_remote :: Remote
              , i_closure :: StorePath
              , i_paths :: [StorePathBS]
+             , i_sshClosureCache :: Maybe Remote
              } deriving (Show)

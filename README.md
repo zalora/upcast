@@ -20,29 +20,19 @@ Available commands:
 
 
 ```console
-$ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys
+$ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys # assuming you used nixops
 $ cabal install
 $ upcast run my-network.nix -- -j4
 ```
 
 See example deployments in `examples/`.
 
-#### Configuring remote builds
-
-Add the following to your shell profile:
-
-```bash
-export NIX_BUILD_HOOK="$HOME/.nix-profile/libexec/nix/build-remote.pl"
-export NIX_REMOTE_SYSTEMS="$HOME/remote-systems.conf"
-export NIX_CURRENT_LOAD="/tmp/remote-load"
-```
-
 ### Goals
 
 - simplicity, extensibility;
 - shared state stored as nix expressions next to machines expressions;
 - first-class AWS support (including AWS features nixops doesn't have);
-- minimum dependency of network latency of the client;
+- minimum dependency of network latency of the client (see section "Network performance");
 - support for running day-to-day operations on deployed resources, services and machines.
 
 ### Notable differences from NixOps
@@ -71,6 +61,39 @@ export NIX_CURRENT_LOAD="/tmp/remote-load"
 ### Motivation
 
 ![motivation](http://i.imgur.com/HY2Gtk5.png)
+
+### Network performance
+
+> tl;dr: do all of these steps if you're using a Mac and/or like visting Starbucks
+
+#### Configuring remote builds
+
+Add the following to your shell profile (this is a must if you are using Darwin, otherwise package builds will fail):
+
+```bash
+export NIX_BUILD_HOOK="$HOME/.nix-profile/libexec/nix/build-remote.pl"
+export NIX_REMOTE_SYSTEMS="$HOME/remote-systems.conf"
+export NIX_CURRENT_LOAD="/tmp/remote-load"
+```
+
+`remote-systems.conf` must follow a special format described
+in [this Nix wiki page](https://nixos.org/wiki/Distributed_build)
+and [chapter 6 of Nix manual](http://nixos.org/nix/manual/#chap-distributed-builds).
+`NIX_CURRENT_LOAD` should point to a directory.
+
+#### Making instances download packages from a different host over ssh (a closure cache)
+
+This is useful if one of your remote systems is accessible over ssh and has
+better latency to the instance than the machine you run Upcast on.
+
+The key to that host must be already available in your ssh-agent.
+Inherently, you also should propagate ssh keys of your instances to that ssh-agent in this case.
+
+```bash
+export UPCAST_SSH_AUTH_SOCK=$SSH_AUTH_SOCK
+export UPCAST_SSH_CLOSURE_CACHE=nix-ssh@example.com
+```
+
 
 ### Known issues
 

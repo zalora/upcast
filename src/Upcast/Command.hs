@@ -98,7 +98,7 @@ spawn (Cmd Local s _) = do
     (_, _, _, handle) <- createProcess $ cmd s
     return handle
 
-sshBaseOptions = [n|-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
+sshBaseOptions = [n|-A -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
 
 ssh :: Command Remote -> Command Local
 ssh (Cmd (Remote (Just key) host) cmd desc) =

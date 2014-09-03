@@ -38,10 +38,11 @@ sequenceMaybe (act:actions) = act >>= maybe (sequenceMaybe actions) (return . Ju
 context :: String -> [String] -> IO DeployContext
 context file args = do
     path <- canonicalizePath file
-    closuresPath <- randomTempFileName "machines."
-
-    Just upcastNix <- fmap T.pack <$> sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
     env <- getEnvDefault "UPCAST_NIX_FLAGS" ""
+
+    closuresPath <- randomTempFileName "machines."
+    Just upcastNix <- fmap T.pack <$> sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
+    nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
 
     let uuid = "new-upcast-deployment"
         sshAuthSock = "/dev/null"
@@ -61,18 +62,23 @@ install DeployContext{..} machines = do
     installP i_machine@Machine{..} = do
       i_closure <- readSymbolicLink $ closuresPath </> (T.unpack m_hostname)
       i_paths <- (fmap (split '\n') . fgconsume . nixClosure) $ i_closure
+      let i_sshClosureCache = fmap (Remote Nothing) nixSSHClosureCache
       return Install{..}
       where
         i_remote = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
 
-    go :: Install -> IO ()
-    go install = mapM_ fgrun' commands
-      where
-        commands = [ ssh' sshAuthSock . nixTrySubstitutes
+    baseCommands = [ ssh' sshAuthSock . nixTrySubstitutes
                    , nixCopyClosureTo sshAuthSock
                    , ssh' sshAuthSock . nixSetProfile
                    , ssh' sshAuthSock . nixSwitchToConfiguration
-                   ] <*> pure install
+                   ]
+
+    go :: Install -> IO ()
+    go install@Install{i_sshClosureCache = Just (Remote _ cacheHost)} =
+      mapM_ fgrun' $ (ssh' sshAuthSock . sshPrepCacheKnownHost):baseCommands <*> pure install
+
+    go install =
+      mapM_ fgrun' $ baseCommands <*> pure install
 
 resources ctx = do
     Right info <- deploymentInfo ctx

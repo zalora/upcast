@@ -3,7 +3,9 @@
 module Upcast.DeployCommands where
 
 import Data.Text (Text)
-import Data.ByteString.Char8 (intercalate)
+
+import qualified Data.ByteString.Char8 as C8
+import Data.ByteString.Char8 (intercalate, split)
 
 import Upcast.Interpolate (n)
 
@@ -55,8 +57,17 @@ nixSwitchToConfiguration Install{i_remote = r@(Remote _ host)} =
 nixClosure path =
     Cmd Local [n|nix-store -qR #{path}|] "closure"
 
+nixTrySubstitutes Install{i_remote = r@(Remote _ host), i_sshClosureCache = Just (Remote _ cache), i_closure} =
+    Cmd r [n|nix-store -j4 -r --ignore-unknown
+             --option use-ssh-substituter true
+             --option ssh-substituter-hosts #{cache} #{i_closure}|] host
 nixTrySubstitutes Install{i_remote = r@(Remote _ host), i_paths} =
-    Cmd r [n|nix-store -j 4 -r --ignore-unknown #{intercalate " " i_paths}|] host
+    Cmd r [n|nix-store -j4 -r --ignore-unknown #{intercalate " " i_paths}|] host
+
+sshPrepCacheKnownHost Install{i_remote = r@(Remote _ host), i_sshClosureCache = Just (Remote _ known)} =
+    Cmd r [n|ssh-keygen -R #{knownHost}; ssh-keyscan -t rsa,dsa #{knownHost} > ~/.ssh/known_hosts|] host
+  where
+    [_, knownHost] = split '@' $ C8.pack known
 
 ssh' :: Text -> Command Remote -> Command Local
 ssh' sshAuthSock (Cmd (Remote _ host) cmd desc) =
