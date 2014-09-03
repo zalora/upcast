@@ -18,7 +18,6 @@ import Data.List (intercalate)
 import qualified Data.Text as T
 import Data.Text (Text(..))
 import Data.ByteString.Char8 (split)
-import Data.Default
 import Data.Maybe (catMaybes)
 
 import Upcast.Interpolate (nl)
@@ -39,17 +38,18 @@ sequenceMaybe (act:actions) = act >>= maybe (sequenceMaybe actions) (return . Ju
 context :: String -> [String] -> IO DeployContext
 context file args = do
     path <- canonicalizePath file
-    let ctx = def { expressionFile = T.pack path
-                  , stateFile = replaceExtension path "store"
-                  }
-    Just nix <- fmap T.pack <$> sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
-    machinesPath <- randomTempFileName "machines."
+    closuresPath <- randomTempFileName "machines."
+
+    Just upcastNix <- fmap T.pack <$> sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
     env <- getEnvDefault "UPCAST_NIX_FLAGS" ""
-    let ctx' = ctx { upcastNix = nix
-                   , nixArgs = T.concat [T.pack $ intercalate " " args, " ", T.pack env]
-                   , closuresPath = machinesPath
-                   }
-    return ctx'
+
+    let uuid = "new-upcast-deployment"
+        sshAuthSock = "/dev/null"
+        nixArgs = T.concat [T.pack $ intercalate " " args, " ", T.pack env]
+        expressionFile = T.pack path
+        stateFile = replaceExtension path "store"
+
+    return DeployContext{..}
 
 install DeployContext{..} machines = do
     installs <- mapM installP machines

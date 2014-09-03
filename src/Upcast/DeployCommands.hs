@@ -3,22 +3,13 @@
 module Upcast.DeployCommands where
 
 import Data.Text (Text)
-import Data.ByteString.Char8 (intercalate, ByteString)
+import Data.ByteString.Char8 (intercalate)
 
 import Upcast.Interpolate (n)
 
 import Upcast.Nix
 import Upcast.Types
 import Upcast.Command
-
-type StorePath = String
-type StorePathBS = ByteString
-data Install = Install
-             { i_machine :: Machine
-             , i_remote :: Remote
-             , i_closure :: StorePath
-             , i_paths :: [StorePathBS]
-             } deriving (Show)
 
 nixBaseOptions DeployContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
 

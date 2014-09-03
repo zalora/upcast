@@ -28,7 +28,6 @@ executable upcast
                      , blaze-builder
                      , conduit, resourcet
                      , random
-                     , data-default
                      , pretty-show
                      , aws, http-conduit, conduit-extra, cryptohash, byteable, base16-bytestring, http-types, xml-conduit
                      , optparse-applicative

@@ -5,25 +5,22 @@ module Upcast.Types where
 import System.FilePath (FilePath)
 import qualified Data.Text as T
 import Data.Text (Text(..))
-import Data.Default
+import Data.ByteString.Char8 (ByteString)
 
+import Upcast.Command (Remote)
+
+-- | Structure used to carry user (commandline & enviroment) and runtime (currently ssh agent) globals.
 data DeployContext =
-    DeployContext { upcastNix, nixArgs, expressionFile, sshAuthSock :: Text
-                  , closuresPath, uuid :: String
-                  , stateFile :: FilePath
+    DeployContext { upcastNix :: Text
+                  , nixArgs :: Text
+                  , sshAuthSock :: Text
+                  , closuresPath :: String -- ^ Path to store links to machine closures.
+                  , expressionFile :: Text
+                  , stateFile :: FilePath -- ^ *.store file
+                  , uuid :: String -- ^ Used by nix files, NixOps legacy.
                   } deriving (Show)
 
-instance Default DeployContext where
-    def = DeployContext
-          { upcastNix = ""
-          , nixArgs = ""
-          , stateFile = ""
-          , expressionFile = ""
-          , sshAuthSock = "/dev/null"
-          , closuresPath = "/tmp/machines/1"
-          , uuid = "new-upcast-deployment"
-          }
-
+-- | Structure used to pass arguments between evaluation and installation phases.
 data Machine = Machine
              { m_hostname :: Text
              , m_publicIp :: Text
@@ -32,3 +29,13 @@ data Machine = Machine
              , m_keyFile :: Maybe Text
              } deriving (Show)
 
+type StorePath = String
+type StorePathBS = ByteString
+
+-- | Per-machine Nix closure install context used in some of 'DeployCommands'.
+data Install = Install
+             { i_machine :: Machine
+             , i_remote :: Remote
+             , i_closure :: StorePath
+             , i_paths :: [StorePathBS]
+             } deriving (Show)
