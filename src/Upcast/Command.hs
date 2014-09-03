@@ -175,7 +175,7 @@ sourceHandle ph h = loop
 applyColor :: Int -> String -> String
 applyColor index s = case needsColor of
                          True -> "\ESC[1;" ++ color ++ "m" ++ s ++ "\ESC[0m"
-                         False -> ""
+                         False -> s
   where
     color = show $ (31 + (index `mod` 7))
 
