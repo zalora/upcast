@@ -25,6 +25,7 @@ import System.Exit (ExitCode(..))
 import GHC.IO.Handle (hClose, Handle, hSetBinaryMode)
 import System.IO (hSetBuffering, BufferMode(..), stdout, stderr, IOMode(..), openFile, hPutStrLn)
 import qualified System.IO as IO
+import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.IO (createPipe, fdToHandle)
 import Control.Monad.Trans.Resource (runResourceT, liftResourceT, MonadResource(..))
 import qualified Data.List as L
@@ -172,18 +173,19 @@ sourceHandle ph h = loop
               else yield (Chunk x) >> loop
 
 applyColor :: Int -> String -> String
-applyColor index s = "\ESC[1;" ++ color ++ "m" ++ s ++ "\ESC[0m"
+applyColor index s = case needsColor of
+                         True -> "\ESC[1;" ++ color ++ "m" ++ s ++ "\ESC[0m"
+                         False -> ""
   where
     color = show $ (31 + (index `mod` 7))
 
 color Consume = 5
 color Run = 3
 
-
+needsColor = unsafePerformIO $ IO.hIsTerminalDevice stderr
 output = IO.hPutStrLn stderr
 
-printExit mode code time = case code of
-                        ExitSuccess -> output $ applyColor (color mode) $ mconcat ["completed in ", show time]
-                        ExitFailure code -> output $ applyColor 0 $ mconcat ["failed with ", show code, ", time: ", show time]
+printExit mode ExitSuccess time = output $ applyColor (color mode) $ mconcat ["completed in ", show time]
+printExit mode (ExitFailure code) time = output $ applyColor 0 $ mconcat ["failed with ", show code, ", time: ", show time]
 
 print' mode (Cmd Local comm desc) = output $ mconcat [applyColor 4 desc, "% ", applyColor (color mode) $ L.take 1000 comm]
