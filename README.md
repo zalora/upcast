@@ -94,6 +94,17 @@ export UPCAST_SSH_AUTH_SOCK=$SSH_AUTH_SOCK
 export UPCAST_SSH_CLOSURE_CACHE=nix-ssh@example.com
 ```
 
+#### SSH shared connections
+
+`ControlMaster` helps speed up subsequent ssh sessions by reusing a single TCP connection. See [ssh_config(5)](http://www.openbsd.org/cgi-bin/man.cgi/OpenBSD-current/man5/ssh_config.5?query=ssh_config).
+
+```console
+% cat ~/.ssh/config
+Host *
+    ControlPath ~/.ssh/master-%r@%h:%p
+    ControlMaster auto
+    ControlPersist yes
+```
 
 ### Known issues
 
