@@ -2,7 +2,7 @@
 
 module Main where
 
-import Control.Monad (join)
+import Control.Monad (join, when)
 import Control.Arrow ((>>>))
 import Control.Applicative
 import Options.Applicative
@@ -95,9 +95,19 @@ deploy ctx@DeployContext{..} = do
     ctxAuth keyFiles = do
       userAuthSock <- getEnv "UPCAST_SSH_AUTH_SOCK"
       agentSocket <- case userAuthSock of
-                       Just sock -> return sock
-                       Nothing -> setupAgentF sshAddKeyFile keyFiles
+                       Just sock -> do
+                          warn ["Using UPCAST_SSH_AUTH_SOCK: ", sock]
+                          return sock
+                       Nothing | null keyFiles ->  fallback
+                               | otherwise -> setupAgentF sshAddKeyFile keyFiles
+
       return ctx { sshAuthSock = T.pack agentSocket }
+
+    fallback = do
+      sock <- getEnvDefault "SSH_AUTH_SOCK" ""
+      warn ["None of instances reference ssh key files, using SSH_AUTH_SOCK (", show sock, ")."]
+      when (null sock) $ fail "SSH_AUTH_SOCK is not set, please setup your ssh agent with necessary keys."
+      return sock
 
 infoOnly file args = do
     Right info <- context file args >>= deploymentInfo
@@ -132,6 +142,7 @@ Host #{m_hostname}
     ControlPersist 60s
 |]
 
+warn = hPutStrLn stderr . concat
 
 main = do
     hSetBuffering stderr LineBuffering
