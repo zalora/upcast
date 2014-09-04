@@ -95,12 +95,18 @@ in {
 
       machines = { names ? (lib.attrNames deployment.resources.machines) }:
         let machines = lib.filterAttrs (n: v: lib.elem n names) deployment.resources.machines; in
-        pkgs.runCommand "nixops-machines" { preferLocalBuild = true; } ''
+        pkgs.runCommand "upcast-machines" { preferLocalBuild = true; } ''
           mkdir -p $out
           ${toString (lib.attrValues (lib.mapAttrs (n: v: ''
             ln -s ${v.system.build.toplevel} $out/${n}
           '') machines))}
         '';
+
+      remoteMachines = { names ? (lib.attrNames deployment.resources.machines) }:
+        let machines = lib.filterAttrs (n: v: lib.elem n names) deployment.resources.machines;
+            nativePkgs = import pkgs.path { system = "x86_64-linux"; }; in
+        nativePkgs.writeText "upcast-machines-remote"
+        (builtins.toJSON (lib.mapAttrs (n: v: ''${v.system.build.toplevel}'') machines));
     };
   };
 }
