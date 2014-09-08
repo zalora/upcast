@@ -5,7 +5,7 @@ install:
   - sudo apt-get update -qq
   - sudo apt-get install upx libdbd-sqlite3-perl libwww-curl-perl
   - wget --no-check-certificate $nix_deb
-  - sudo dpkg -i $nix_deb
+  - sudo dpkg -i $(basename $nix_deb)
   - (mkdir nix-path; cd nix-path; git clone https://github.com/NixOS/nixpkgs.git)
   - export NIX_PATH=$PWD/nix-path
 
