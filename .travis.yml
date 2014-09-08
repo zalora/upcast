@@ -8,6 +8,7 @@ install:
   - sudo dpkg -i $(basename $nix_deb)
   - (mkdir nix-path; cd nix-path; git clone https://github.com/NixOS/nixpkgs.git)
   - export NIX_PATH=$PWD/nix-path
+  - sudo install -u $USER /nix
 
 script:
   - nix-build default.nix
