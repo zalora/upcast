@@ -11,7 +11,7 @@ install:
   - sudo install -o $USER -d /nix
 
 script:
-  - nix-build --option use-binary-cache true --option binary-caches http://hydra.nixos.org -j4 default.nix
+  - nix-build --option use-binary-cache true --option binary-caches http://cache.nixos.org -j4 default.nix
 
 deploy:
   secret_access_key:
