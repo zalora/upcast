@@ -36,6 +36,25 @@ executable upcast
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings, TemplateHaskell
 
+executable fgrun
+  main-is:             fgrun.hs
+  build-depends:       base, unix
+                     , bytestring, text
+                     , aeson-pretty
+                     , aeson, unordered-containers, vector
+                     , mtl
+                     , conduit
+                     , filepath
+                     , haskell-src-meta
+                     , process
+                     , resourcet
+                     , template-haskell
+                     , time
+  hs-source-dirs:      src
+  ghc-options:         -static -rtsopts -threaded
+  default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
+
 
 executable atermjs
   main-is:            atermjs.hs
