@@ -18,9 +18,7 @@ executable upcast
                      , unix, process, time
                      , lifted-base
                      , mtl, free
-                     , stm
                      , async
-                     , direct-sqlite
                      , haskell-src-meta, template-haskell
                      , attoparsec
                      , aeson, unordered-containers, vector, scientific
@@ -28,7 +26,7 @@ executable upcast
                      , conduit, resourcet
                      , random
                      , pretty-show
-                     , aws, http-conduit, conduit-extra, cryptohash, byteable, base16-bytestring, http-types, xml-conduit
+                     , aws, http-conduit, conduit-extra, http-types
                      , optparse-applicative
                      , vk-aws-route53 > 0.1.1
                      , aws-ec2 >= 0.2.2
