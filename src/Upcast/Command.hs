@@ -8,6 +8,7 @@ module Upcast.Command (
 , measure
 , fgrun
 , fgconsume
+, fgconsume_
 , spawn
 , ssh
 , sshBaseOptions
@@ -18,6 +19,7 @@ module Upcast.Command (
 
 import Control.Monad.Trans (liftIO)
 import Control.Monad (ap, join, (<=<), when)
+import Control.Applicative ((<$>))
 import System.FilePath (FilePath)
 import System.Process (createProcess, waitForProcess, interruptProcessGroupOf,
                        CreateProcess(..), CmdSpec(..), StdStream(..), shell, ProcessHandle)
@@ -78,17 +80,22 @@ fgrun c@(Cmd _ _ desc) = do
     output ref (Flush code) = writeIORef ref code
     output ref (Chunk s) = B8.putStrLn $ mconcat [B8.pack $ applyColor 4 desc, "> ", s]
 
-fgconsume :: Command Local -> IO BS.ByteString
+fgconsume :: Command Local -> IO (Either BS.ByteString BS.ByteString)
 fgconsume c@(Cmd Local s _) = do
     print' Consume c
     (time, (Just code, output)) <- measure $ (runResourceT $ proc $$ CL.consume) >>= return . concat
     printExit Consume code time
-    return output
+    case code of
+        ExitSuccess -> return $ Right output
+        _ -> return $ Left output
     where
       proc = bracketP (openFile "/dev/stderr" WriteMode) (hClose) $ \wh -> roProcessSource (cmd s) Nothing (Just wh)
       concat = L.foldl' mappend (Just ExitSuccess, BS.empty) . fmap chunk
       chunk (Chunk a) = (Just ExitSuccess, a)
       chunk (Flush code) = (Just code, BS.empty)
+
+fgconsume_ :: Command Local -> IO BS.ByteString
+fgconsume_ c = either id id <$> fgconsume c
 
 run :: MonadResource m => Command Local -> ProcessSource i m
 run (Cmd Local s _) = roProcessSource (cmd s) Nothing Nothing

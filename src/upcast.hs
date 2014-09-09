@@ -61,7 +61,7 @@ install DeployContext{..} machines = do
     installP :: Machine -> IO Install
     installP i_machine@Machine{..} = do
       i_closure <- readSymbolicLink $ closuresPath </> (T.unpack m_hostname)
-      i_paths <- (fmap (split '\n') . fgconsume . nixClosure) $ i_closure
+      i_paths <- (fmap (split '\n') . fgconsume_ . nixClosure) $ i_closure
       let i_sshClosureCache = fmap (Remote Nothing) nixSSHClosureCache
       return Install{..}
       where

@@ -24,6 +24,6 @@ deploymentInfo :: DeployContext -> IO (Either String Value)
 deploymentInfo ctx =
     let info = nixDeploymentInfo ctx (T.unpack $ expressionFile ctx) (uuid ctx)
         in do
-          i <- fgconsume info
+          i <- fgconsume_ info
           return $ nixValue i
 

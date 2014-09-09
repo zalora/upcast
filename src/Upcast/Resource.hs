@@ -53,7 +53,7 @@ import qualified Aws.Ec2 as EC2
 import qualified Aws.Route53 as R53
 
 import Upcast.Types
-import Upcast.Command (fgconsume, Command(..), Local(..))
+import Upcast.Command (fgconsume_, Command(..), Local(..))
 
 import Upcast.TermSubstitution
 
@@ -226,7 +226,7 @@ evalResources ctx@DeployContext{..} info = do
                                           kName <- obj .: "name" :: A.Parser Text
                                           kPK <- obj .: "privateKeyFile" :: A.Parser Text
                                           return $ (kName, kPK)
-                    pubkey <- fgconsume $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]) "ssh-keygen"
+                    pubkey <- fgconsume_ $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]) "ssh-keygen"
                     return [(kPK, EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey)]
 
     let keypair = fst <$> listToMaybe keypairs
