@@ -25,7 +25,6 @@ executable upcast
                      , attoparsec
                      , aeson, unordered-containers, vector, scientific
                      , aeson-pretty
-                     , blaze-builder
                      , conduit, resourcet
                      , random
                      , pretty-show
