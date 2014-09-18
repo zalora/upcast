@@ -137,8 +137,7 @@ createEBS volumes defTags = do
 
 createInstances instances subnetA sgA defTags userDataA = do
     (instanceA :: InstanceA) <- fmap mconcat $ forM instances $ \inst -> do
-        let (name, blockDevs, cinst) = parse inst $ \(Object obj) -> do
-              String name <- obj .: "targetHost"
+        let (name, blockDevs, cinst) = parse inst $ \(name, Object obj) -> do
               Object ec2 <- obj .: "ec2" :: A.Parser Value
               securityGroupNames <- ec2 .: "securityGroups"
               subnet <- ec2 .: "subnet"
@@ -240,6 +239,6 @@ ec2plan expressionName keypairs info userDataA = do
     subnets = cast "resources.subnets" :: [Value]
     secGroups = cast "resources.ec2SecurityGroups" :: [Value]
     volumes = cast "resources.ebsVolumes" :: [Value]
-    instances = cast "machines" :: [Value]
+    instances = alistFromObject "machines" info
     elbs = cast "resources.elbs" :: [Value]
 

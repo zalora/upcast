@@ -184,14 +184,39 @@ findRegions acc (Object h) = mappend nacc $ join (findRegions [] <$> (fmap snd $
 findRegions acc (Array v) = mappend acc $ join (findRegions [] <$> V.toList v)
 findRegions acc _ = acc
 
+-- | read files mentioned in userData for each instance
+preReadUserData :: Value -> IO [(Text, HashMap Text Text)]
+preReadUserData info =
+    fmap mconcat $ forM (alistFromObject "machines" info) $ \inst -> do
+        let (name, dataA) = parse inst $ \(name, Object obj) -> do
+              Object ec2 <- obj .: "ec2"
+              dataA :: HashMap Text Text <- ec2 .: "userData"
+              return (name, dataA)
+        readA <- sequence $ fmap (T.readFile . T.unpack) dataA
+        return [(name, readA)]
+
+-- | pre-calculate EC2.ImportKeyPair values while we can do IO
+prepareKeyPairs :: Value -> IO [(Text, EC2.ImportKeyPair)]
+prepareKeyPairs info =
+    fmap mconcat $ forM (mcast "resources.ec2KeyPairs" info :: [Value]) $ \keypair -> do
+        let (kName, kPK) = parse keypair $ \(Object obj) -> do
+                              kName <- obj .: "name" :: A.Parser Text
+                              kPK <- obj .: "privateKeyFile" :: A.Parser Text
+                              return $ (kName, kPK)
+        pubkey <- fgconsume_ $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]) "ssh-keygen"
+        return [(kPK, EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey)]
+
 debugEvalResources :: DeployContext -> Value -> IO [Machine]
 debugEvalResources ctx@DeployContext{..} info = do
     let region = "us-east-1"
     let (keypair, keypairs) = (Nothing, [])
+
+    userDataA <- preReadUserData info
+
     instances <- do
       awsConf <- liftIO $ Aws.dbgConfiguration
       let context = EvalContext undefined awsConf (QueryAPIConfiguration $ T.encodeUtf8 region) R53.route53
-          action = debugPlan emptyStore (ec2plan name (snd <$> keypairs) info [])
+          action = debugPlan emptyStore (ec2plan name (snd <$> keypairs) info userDataA)
           in runReaderT action context
 
     -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
@@ -220,26 +245,10 @@ evalResources ctx@DeployContext{..} info = do
                                             ]
     store <- loadSubStore stateFile
 
-    -- pre-calculate EC2.ImportKeyPair values here because we need to do IO
-    keypairs <- fmap mconcat $ forM (mcast "resources.ec2KeyPairs" info :: [Value]) $ \keypair -> do
-                    let (kName, kPK) = parse keypair $ \(Object obj) -> do
-                                          kName <- obj .: "name" :: A.Parser Text
-                                          kPK <- obj .: "privateKeyFile" :: A.Parser Text
-                                          return $ (kName, kPK)
-                    pubkey <- fgconsume_ $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]) "ssh-keygen"
-                    return [(kPK, EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey)]
-
+    keypairs <- prepareKeyPairs info
     let keypair = fst <$> listToMaybe keypairs
 
-    -- read files mentioned in userData for each instances
-    userDataA <- fmap mconcat $ forM (mcast "machines" info :: [Value]) $ \inst -> do
-        let (name, dataA) = parse inst $ \(Object obj) -> do
-              String name <- obj .: "targetHost"
-              Object ec2 <- obj .: "ec2"
-              dataA :: HashMap Text Text <- ec2 .: "userData"
-              return (name, dataA)
-        readA <- sequence $ fmap (T.readFile . T.unpack) dataA
-        return [(name, readA)]
+    userDataA <- preReadUserData info
 
     instances <- HTTP.withManager $ \mgr -> do
       awsConf <- liftIO $ Aws.baseConfiguration

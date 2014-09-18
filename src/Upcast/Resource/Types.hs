@@ -19,7 +19,6 @@ import qualified Data.Text.Encoding as T
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromJust)
 
 import Data.Aeson
 import Data.Aeson.Types (parseEither, Parser)
@@ -36,8 +35,8 @@ import Upcast.ATerm (alookupS, alookupSE)
 
 type MapCast a = Value -> Map Text a
 
-justCast :: FromJSON a => Value -> a
-justCast = fromJust . castValue
+justCast :: forall a. FromJSON a => Value -> a
+justCast v = maybe (error (concat ["justCast failed for: ", show v])) id (castValue v :: Maybe a)
 
 mvalues = fmap snd . Map.toList
 values = fmap snd . H.toList
@@ -54,6 +53,9 @@ acast key value = (justCast :: Value -> a) $ forceLookup key value
 
 scast :: forall a. FromJSON a => Text -> Value -> Maybe a
 scast k v = alookupS k v >>= castValue
+
+alistFromObject :: Text -> Value -> [(Text, Value)]
+alistFromObject key value = Map.toList $ (justCast :: MapCast Value) $ forceLookup key value
 
 castText :: Value -> Maybe Text
 castText (String "") = Nothing
