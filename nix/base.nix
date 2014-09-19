@@ -84,7 +84,7 @@ in {
     toplevel = {
       info = {
         machines = lib.mapAttrs (n: v': let v = lib.scrubOptionValue v'; in {
-          inherit (v.deployment) targetEnv targetHost storeKeysOnMachine keys;
+          inherit (v.deployment) targetEnv targetHost;
           ec2 = lib.optionalAttrs (v.deployment.targetEnv == "ec2") v.deployment.ec2;
         }) deployment.resources.machines;
 
