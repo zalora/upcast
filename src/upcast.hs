@@ -12,7 +12,6 @@ import System.Directory (canonicalizePath)
 import System.FilePath.Posix
 import System.Posix.Files (readSymbolicLink)
 import System.Posix.Env (getEnvDefault, getEnv)
-import System.IO
 
 import Data.List (intercalate)
 import qualified Data.Text as T
@@ -20,6 +19,7 @@ import Data.Text (Text(..))
 import Data.ByteString.Char8 (split)
 import Data.Maybe (catMaybes)
 
+import Upcast.IO
 import Upcast.Interpolate (nl)
 import Upcast.Nix
 import Upcast.Aws
@@ -56,7 +56,7 @@ install DeployContext{..} machines = do
     installs <- mapM installP machines
     mapConcurrently go installs >> return ()
   where
-    fgrun' arg = do ExitSuccess <- fgrun arg; return ()
+    fgrun' = expect ExitSuccess "install step failed" . fgrun
 
     installP :: Machine -> IO Install
     installP i_machine@Machine{..} = do
@@ -81,7 +81,7 @@ install DeployContext{..} machines = do
       mapM_ fgrun' $ baseCommands <*> pure install
 
 resources ctx = do
-    Right info <- deploymentInfo ctx
+    info <- expectRight $ deploymentInfo ctx
     machines <- evalResources ctx info
     return machines
 
@@ -89,7 +89,7 @@ deploy ctx@DeployContext{..} = do
     machines <- resources ctx
     ctx' <- ctxAuth $ catMaybes $ fmap m_keyFile machines
     let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid closuresPath
-    ExitSuccess <- fgrun build
+    expect ExitSuccess "nix build of machine closures failed" $ fgrun build
     install ctx' machines
   where
     ctxAuth keyFiles = do
@@ -110,12 +110,12 @@ deploy ctx@DeployContext{..} = do
       return sock
 
 infoOnly file args = do
-    Right info <- context file args >>= deploymentInfo
+    info <- expectRight $ context file args >>= deploymentInfo
     pprint info
 
 debug file args = do
     ctx@DeployContext{..} <- context file args
-    Right info <- deploymentInfo ctx
+    info <- expectRight $ deploymentInfo ctx
     machines <- debugEvalResources ctx info
     return ()
 
@@ -141,8 +141,6 @@ Host #{m_hostname}
     ForwardAgent yes
     ControlPersist 60s
 |]
-
-warn = hPutStrLn stderr . concat
 
 main = do
     hSetBuffering stderr LineBuffering
