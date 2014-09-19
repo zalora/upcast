@@ -28,9 +28,9 @@ in
     deployment.targetHost = mkOption {
       type = types.str;
       description = ''
-        This option specifies the hostname or IP address to be used by
-        NixOps to execute remote deployment operations.
+        This option is only used internally by Upcast. Please do not set it.
       '';
+
     };
 
   };
