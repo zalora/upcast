@@ -22,6 +22,7 @@ import qualified Data.Map.Strict as Map
 
 import Data.Aeson
 import Data.Aeson.Types (parseEither, Parser)
+import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as H
 
 import Aws.Core
@@ -96,7 +97,8 @@ wait tx = liftF (Wait (TX tx) ())
 aws53crr :: MonadFree ResourceF m => R53.ChangeResourceRecordSets -> m Text
 aws53crr crr = liftF (AWS53CRR crr id)
 
-type InstanceA = [(Text, (Text, [(Text, Value)]))] -- (name (id, blockdevices))
+type InstanceA = [(Text, (Text, [(Text, Value)]))] -- | (name (id, blockdevices))
+type UserDataA = [(Text, HashMap Text Text)] -- | (machineName, key -> value)
 
 parse :: a -> (a -> Parser b) -> b
 parse obj action = either error id (flip parseEither obj action)

@@ -2,7 +2,7 @@
 
 module Main where
 
-import Control.Monad (join, when)
+import Control.Monad (join, when, unless)
 import Control.Arrow ((>>>))
 import Control.Applicative
 import Options.Applicative
@@ -87,10 +87,12 @@ resources ctx = do
 
 deploy ctx@DeployContext{..} = do
     machines <- resources ctx
-    ctx' <- ctxAuth $ catMaybes $ fmap m_keyFile machines
-    let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid closuresPath
-    expect ExitSuccess "nix build of machine closures failed" $ fgrun build
-    install ctx' machines
+    let nixMachines = filter (\Machine{..} -> m_nix == True) machines
+    unless (null nixMachines) $ do
+      ctx' <- ctxAuth $ catMaybes $ fmap m_keyFile nixMachines
+      let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid closuresPath
+      expect ExitSuccess "nix build of machine closures failed" $ fgrun build
+      install ctx' nixMachines
   where
     ctxAuth keyFiles = do
       userAuthSock <- getEnv "UPCAST_SSH_AUTH_SOCK"

@@ -93,7 +93,6 @@ in
   };
 
   config = {
-    deployment.targetEnv = "ec2";
     ec2.metadata = true;
     networking.firewall.enable = false;
     services.nixosManual.enable = false;

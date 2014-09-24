@@ -41,6 +41,7 @@ See example deployments in `examples/`.
 
 - You can no longer specify the machine environment using `deployment.targetEnv`, now you need to explicitly include the resource module instead.
   Currently available modules are: `<upcast/env-ec2.nix>`.
+- You can deploy an EC2 instance that does not use nix in its base AMI by using `deployment.nix = false;` (you won't be able to deploy a nix closure to such machine)>
 
 #### Operation modes
 

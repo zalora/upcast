@@ -22,6 +22,8 @@ let
   resourceTypes = import ./resource-types.nix;
 
   pkgs = import <nixpkgs> {};
+
+  nixMachines = lib.filterAttrs (n: machine: machine.deployment.nix == true) deployment.resources.machines;
 in {
   options = {
     resources = (lib.mapAttrs (name: value:
@@ -84,8 +86,7 @@ in {
     toplevel = {
       info = {
         machines = lib.mapAttrs (n: v': let v = lib.scrubOptionValue v'; in {
-          inherit (v.deployment) targetEnv targetHost;
-          ec2 = lib.optionalAttrs (v.deployment.targetEnv == "ec2") v.deployment.ec2;
+          inherit (v.deployment) targetHost nix ec2;
         }) deployment.resources.machines;
 
         resources = lib.mapAttrs (n:
@@ -93,8 +94,8 @@ in {
         ) (removeAttrs deployment.resources [ "machines" "defaults" ]);
       };
 
-      machines = { names ? (lib.attrNames deployment.resources.machines) }:
-        let machines = lib.filterAttrs (n: v: lib.elem n names) deployment.resources.machines; in
+      machines = { names ? (lib.attrNames nixMachines) }:
+        let machines = lib.filterAttrs (n: v: lib.elem n names) nixMachines; in
         pkgs.runCommand "upcast-machines" { preferLocalBuild = true; } ''
           mkdir -p $out
           ${toString (lib.attrValues (lib.mapAttrs (n: v: ''
@@ -102,8 +103,8 @@ in {
           '') machines))}
         '';
 
-      remoteMachines = { names ? (lib.attrNames deployment.resources.machines) }:
-        let machines = lib.filterAttrs (n: v: lib.elem n names) deployment.resources.machines;
+      remoteMachines = { names ? (lib.attrNames nixMachines) }:
+        let machines = lib.filterAttrs (n: v: lib.elem n names) nixMachines;
             nativePkgs = import pkgs.path { system = "x86_64-linux"; }; in
         nativePkgs.writeText "upcast-machines-remote"
         (builtins.toJSON (lib.mapAttrs (n: v: ''${v.system.build.toplevel}'') machines));

@@ -6,7 +6,6 @@ with utils;
 with lib;
 
 let
-
   cfg = config.deployment.ec2;
 
   inherit (import ./lib.nix { inherit config pkgs utils lib; }) union resource;
@@ -16,9 +15,7 @@ let
     in if props == null then false else (props.allowsEbsOptimized or false);
 
     ec2DiskOptions = { config, ... }: {
-
       options = {
-
         disk = mkOption {
           default = "";
           example = "vol-d04895b8";
@@ -41,9 +38,7 @@ let
             Filesystem type for automatically created EBS volumes.
           '';
         };
-   
       };
-
     };
 
   isEc2Hvm =
@@ -64,13 +59,8 @@ let
     else dev;
 
   amis = import ./ec2-amis.nix;
-
 in
-
 {
-
-  ###### interface
-
   options = {
 
     deployment.ec2.accessKeyId = mkOption {
@@ -216,12 +206,7 @@ in
 
   };
 
-
-  ###### implementation
-
-
-  config = mkIf (config.deployment.targetEnv == "ec2") {
-
+  config = {
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 
     boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm ( mkOverride 10 "root (hd0,0)" );
@@ -272,7 +257,5 @@ in
           "cr1.8xlarge" = { cores = 32; memory = 245756; allowsEbsOptimized = false; };
         };
       in attrByPath [ type ] null mapping;
-
   };
-
 }

@@ -202,7 +202,7 @@ attachEBS instanceA volumeA = do
                       False -> error $ mconcat ["can't handle disk: ", T.unpack t]
 
 
-ec2plan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> [(Text, HashMap Text Text)] -> m [(Text, Value)]
+ec2plan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> UserDataA -> m [(Text, Value, Value)]
 ec2plan expressionName keypairs info userDataA = do
     mapM_ (\k -> aws1 k "keyFingerprint") keypairs
 
@@ -222,13 +222,14 @@ ec2plan expressionName keypairs info userDataA = do
 
     elbPlan instanceA sgA subnetA elbs
 
-    Array instanceInfos <- aws (EC2.DescribeInstances instanceIds)
+    Array reportedInfos <- aws (EC2.DescribeInstances instanceIds)
    
     let orderedInstanceNames = fmap fst $ sortBy (compare `on` (fst . snd)) instanceA
         err = error "could not sort instanceIds after DescribeInstances"
         tcast = castValue :: Value -> Maybe Text
-        orderedInfos = sortBy (compare `on` (maybe err id . fmap tcast . alookupS "instancesSet.instanceId")) $ V.toList instanceInfos
-        in return $ zip orderedInstanceNames orderedInfos
+        orderedReportedInfos = sortBy (compare `on` (maybe err id . fmap tcast . alookupS "instancesSet.instanceId")) $ V.toList reportedInfos
+        orderedInstanceInfos = fmap snd $ sortBy (compare `on` fst) instances
+        in return $ zip3 orderedInstanceNames orderedReportedInfos orderedInstanceInfos
   where
     cast :: FromJSON a => Text -> [a]
     cast = (`mcast` info)

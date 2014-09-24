@@ -185,7 +185,7 @@ findRegions acc (Array v) = mappend acc $ join (findRegions [] <$> V.toList v)
 findRegions acc _ = acc
 
 -- | read files mentioned in userData for each instance
-preReadUserData :: Value -> IO [(Text, HashMap Text Text)]
+preReadUserData :: Value -> IO UserDataA
 preReadUserData info =
     fmap mconcat $ forM (alistFromObject "machines" info) $ \inst -> do
         let (name, dataA) = parse inst $ \(name, Object obj) -> do
@@ -206,6 +206,16 @@ prepareKeyPairs info =
         pubkey <- fgconsume_ $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]) "ssh-keygen"
         return [(kPK, EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey)]
 
+toMachine k (h, reportedInfo, resourceInfo) = Machine h
+                                (cast "instancesSet.ipAddress" :: Text)
+                                (cast "instancesSet.privateIpAddress" :: Text)
+                                (cast "instancesSet.instanceId" :: Text)
+                                k
+                                (acast "nix" resourceInfo :: Bool)
+  where
+    cast :: FromJSON a => Text -> a
+    cast = (`acast` reportedInfo)
+
 debugEvalResources :: DeployContext -> Value -> IO [Machine]
 debugEvalResources ctx@DeployContext{..} info = do
     let region = "us-east-1"
@@ -224,15 +234,6 @@ debugEvalResources ctx@DeployContext{..} info = do
     return $ fmap (toMachine keypair) instances
   where
     name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
-
-    toMachine k (h, info) = Machine h
-                                    (cast "instancesSet.ipAddress" :: Text)
-                                    (cast "instancesSet.privateIpAddress" :: Text)
-                                    (cast "instancesSet.instanceId" :: Text)
-                                    k
-      where
-        cast :: FromJSON a => Text -> a
-        cast = (`acast` info)
 
 evalResources :: DeployContext -> Value -> IO [Machine]
 evalResources ctx@DeployContext{..} info = do
@@ -261,12 +262,3 @@ evalResources ctx@DeployContext{..} info = do
     return $ fmap (toMachine keypair) instances
   where
     name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
-
-    toMachine k (h, info) = Machine h
-                                    (cast "instancesSet.ipAddress" :: Text)
-                                    (cast "instancesSet.privateIpAddress" :: Text)
-                                    (cast "instancesSet.instanceId" :: Text)
-                                    k
-      where
-        cast :: FromJSON a => Text -> a
-        cast = (`acast` info)
