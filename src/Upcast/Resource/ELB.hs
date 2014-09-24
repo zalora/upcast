@@ -142,7 +142,7 @@ elbPlan instanceA sgA subnetA elbs = do
         let [elbInfo] = V.toList elbInfos
 
         let (elbZoneId :: Text, elbName :: Text) = parse elbInfo $ \(Object obj) -> do
-              (,) <$> obj .: "CanonicalHostedZoneNameID" <*> obj .: "CanonicalHostedZoneName"
+              (,) <$> obj .: "CanonicalHostedZoneNameID" <*> obj .: "DNSName"
 
         let crr = (\x -> x elbName elbZoneId) <$> r53
         return [(clb, attrs, crr)]
