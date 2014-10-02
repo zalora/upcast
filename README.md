@@ -20,9 +20,10 @@ Available commands:
 
 
 ```console
+$ export NIX_PATH=nixpkgs=/path/to/zalora/nixpkgs:$NIX_PATH
 $ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys # assuming you used nixops
 $ cabal install
-$ upcast run my-network.nix -- -j4
+$ upcast run my-network.nix
 ```
 
 See example deployments in `examples/`.
@@ -109,6 +110,7 @@ Host *
 
 ### Known issues
 
+- you have to use [zalora's fork of nixpkgs with upcast](https://github.com/zalora/nixpkgs)
 - state files are not garbage collected, have to be often cleaned up manually;
 - altering of most resources is not supported properly (you need to remove using aws cli, cleanup the state file and try again);
 - word "aterm" is naming a completely different thing;
