@@ -10,6 +10,7 @@ let
   hostname = "${pkgs.nettools}/bin/hostname";
   ip = "${pkgs.iproute}/sbin/ip";
   bash = "${pkgs.bash}/bin/bash";
+  xargs = "${pkgs.findutils}/bin/xargs";
 
   hostname-script = ''
     set -- $(${curl} http://169.254.169.254/latest/user-data | ${jq} -r .hostname)
@@ -65,13 +66,13 @@ let
 
   cfg = config.ec2;
 
-  run-register-hostnames = concatStringsSep "\n" (map (script: ''
-        ${bash} ${script}
-        '')
-      (mapAttrsToList (zone: args: register-hostname {
-                       inherit zone;
-                       inherit (args) zoneId iamCredentialName useLocalHostname;
-                       }) cfg.route53RegisterHostname));
+  run-register-hostnames = ''
+    echo ${concatStringsSep " " (
+        mapAttrsToList (zone: args: register-hostname {
+         inherit zone;
+         inherit (args) zoneId iamCredentialName useLocalHostname;
+       }) cfg.route53RegisterHostname)} | ${xargs} -n1 -P6 ${bash}
+  '';
 
 in
 {
