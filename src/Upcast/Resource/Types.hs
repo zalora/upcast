@@ -77,6 +77,7 @@ data TXR = TXR TX Text
 data ResourceF next = AWS TX next
                     | AWSR TXR (Text -> next)
                     | AWSV TX (Value -> next)
+                    | Log Text next
                     | Wait TX next
                     | AWS53CRR R53.ChangeResourceRecordSets (Text -> next)
                     deriving (Functor)
@@ -90,6 +91,9 @@ aws1 tx k = liftF (AWSR (TXR (TX tx) k) id)
 
 aws :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m Value
 aws tx = liftF (AWSV (TX tx) id)
+
+awslog :: MonadFree ResourceF m => Text -> m ()
+awslog text = liftF (Log text ())
 
 wait :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
 wait tx = liftF (Wait (TX tx) ())

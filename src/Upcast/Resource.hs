@@ -87,7 +87,7 @@ substituteTX state (TX tx) EvalContext{..} = do
 
 substitute_ :: SubStore -> Text -> IO any -> ResourceT IO (Sub, SubStore, Value)
 substitute_ state key action = liftIO $ do
-    T.putStrLn key
+    T.hPutStrLn stderr key
     substitute state key (action >> return Null)
 
 evalPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext (ResourceT IO) a
@@ -103,12 +103,16 @@ evalPlan state (Free (AWS tx next)) = do
 evalPlan state (Free (AWSV (TX tx) next)) = do
     EvalContext{..} <- ask
     result <- liftResourceT $ Aws.pureAws awsConf qapi mgr tx
+    -- liftIO $ print result
     evalPlan state $ next result
 evalPlan state (Free (Wait (TX tx) next)) = do
     EvalContext{..} <- ask
     desc <- txshow tx
     r <- liftIO $ runResourceT $ retry desc (Aws.pureAws awsConf qapi mgr tx) awsTest
     -- liftIO $ print r
+    evalPlan state next
+evalPlan state (Free (Log t next)) = do
+    liftIO . T.hPutStrLn stderr $ t
     evalPlan state next
 evalPlan state (Free (AWS53CRR crr next)) = do
     EvalContext{..} <- ask
@@ -139,6 +143,9 @@ debugPlan state (Free (AWSV (TX tx) next)) = do
 debugPlan state (Free (Wait (TX tx) next)) = do
     liftIO (putStrLn "-- wait")
     debugPlan state next
+debugPlan state (Free (Log t next)) = do
+    liftIO . T.hPutStrLn stderr $ t
+    debugPlan state next
 debugPlan state (Free (AWS53CRR crr next)) = do
     EvalContext{..} <- ask
     txb <- liftIO $ rqBody crr route53
@@ -152,17 +159,22 @@ retry :: forall exc ret m. (E.Exception exc, MonadIO m, MonadBaseControl IO m)
          -> m ret
          -> (Either exc ret -> Either String ret)
          -> m ret
-retry desc action test = loop
+retry desc action test = loop Nothing
   where
-    loop = do
-      result <- catchAll action
-      case (test result) of
-        Left reason -> warn reason >> loop
-        Right v -> return v
+    loop lastErr = do
+        result <- catchAll action
+        case (test result) of
+          Left reason -> warn reason >> loop (Just reason)
+          Right v -> do
+            when (lastErr == Nothing) $ liftIO $ T.hPutStrLn stderr ""
+            return v
 
-    warn val = liftIO $ do
-      T.hPutStrLn stderr (T.concat ["retrying <", desc, "> after 1: ", T.pack val])
-      threadDelay 1000000
+      where
+        warn val = liftIO $ do
+          case maybe False (== val) lastErr of
+            False -> T.hPutStrLn stderr (T.concat ["retrying <", desc, "> after 1: ", T.pack val])
+            True -> T.hPutStr stderr "." >> hFlush stderr
+          threadDelay 1000000
 
     catchAll :: m ret -> m (Either exc ret)
     catchAll = E.handle (return . Left) . fmap Right

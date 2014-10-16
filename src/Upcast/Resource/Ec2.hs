@@ -164,6 +164,12 @@ createInstances instances subnetA sgA defTags userDataA = do
               let run_blockDeviceMappings = catMaybes $ fmap parseBlockDevice (Map.toList $ (\case Just bd -> bd) blockDevs)
 
               return (name, maybe [] (Map.toList) blockDevs, EC2.RunInstances{..})
+        awslog $ mconcat [ "instance: ", name
+                         , " (", EC2.run_instanceType cinst, ", ", EC2.run_imageId cinst
+                         , ", "
+                         , T.pack $ show $ EC2.run_blockDeviceMappings cinst
+                         , ")"
+                         ]
         instanceId <- aws1 cinst "instancesSet.instanceId"
         aws_ (EC2.CreateTags [instanceId] (("Name", name):defTags))
         return [(name, (instanceId, blockDevs))]
@@ -174,13 +180,15 @@ createInstances instances subnetA sgA defTags userDataA = do
       diskName :: Text <- obj .: "disk"
       when ("res-" `T.isPrefixOf` diskName) $ fail "ignore (handled later)"
       unless ("ephemeral" `T.isPrefixOf` diskName) $ fail "ignore (not implemented)"
+
       let bdm_device = EC2.Ephemeral diskName
 
       return EC2.BlockDeviceMapping{..}
 
-    userData hostname = T.decodeUtf8 $ toStrict $ A.encode $ object $ mconcat [ [ "hostname" .= hostname ]
-                                                                              , maybe [] (H.toList . fmap String) $ lookup hostname userDataA
-                                                                              ]
+    textObject = T.decodeUtf8 . toStrict . A.encode . object
+    userData hostname = textObject $ mconcat [ [ "hostname" .= hostname ]
+                                             , maybe [] (H.toList . fmap String) $ lookup hostname userDataA
+                                             ]
 
 attachEBS instanceA volumeA = do
     forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
