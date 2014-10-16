@@ -31,6 +31,17 @@ let
             '';
         };
 
+        blockDeviceMappingName = mkOption {
+          default = "";
+          type = types.str;
+          example = "/dev/sdb";
+          description = ''
+            The name of the block device that's accepted by AWS' RunInstances.
+            Must properly map to <literal>fileSystems.device</literal> option.
+            Leave blank for defaults.
+          '';
+        };
+
         fsType = mkOption {
           default = "ext4"; # FIXME: this default doesn't work
           type = types.str;
@@ -51,6 +62,8 @@ let
    || builtins.substring 0 2 cfg.instanceType == "r3"
    || builtins.substring 0 2 cfg.instanceType == "m3"
    || builtins.substring 0 2 cfg.instanceType == "t2";
+
+  resolveDevice = base: override: dmToDevice (if override == "" then base else override);
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
   dmToDevice = dev:
@@ -229,7 +242,7 @@ in
     fileSystems = {};
 
     deployment.ec2.blockDeviceMapping = mkFixStrictness (listToAttrs
-      (map (fs: nameValuePair (dmToDevice fs.device)
+      (map (fs: nameValuePair (resolveDevice fs.device fs.ec2.blockDeviceMappingName)
         { inherit (fs.ec2) disk;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
