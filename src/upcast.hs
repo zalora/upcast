@@ -35,13 +35,16 @@ sequenceMaybe :: Monad m => [m (Maybe a)] -> m (Maybe a)
 sequenceMaybe [] = return Nothing
 sequenceMaybe (act:actions) = act >>= maybe (sequenceMaybe actions) (return . Just)
 
+nixPath :: IO (Maybe String)
+nixPath = sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
+
 context :: String -> [String] -> IO DeployContext
 context file args = do
     path <- canonicalizePath file
     env <- getEnvDefault "UPCAST_NIX_FLAGS" ""
 
     closuresPath <- randomTempFileName "machines."
-    Just upcastNix <- fmap T.pack <$> sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
+    Just upcastNix <- fmap T.pack <$> nixPath
     nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
 
     let uuid = "new-upcast-deployment"
@@ -144,6 +147,10 @@ Host #{m_hostname}
     ControlPersist 60s
 |]
 
+printNixPath = do
+  Just p <- nixPath
+  putStrLn p
+
 main = do
     hSetBuffering stderr LineBuffering
     join $ customExecParser prefs opts
@@ -155,14 +162,14 @@ main = do
                         , prefColumns = 80
                         }
 
-    opts = parser `info` header "upcast - infrastructure orchestratrion"
+    opts = (subparser commands) `info` header "upcast - infrastructure orchestratrion"
 
-    parser = subparser (command "run" (args run `info` progDesc "evaluate resources, run builds and deploy") <>
-                        command "build" (args buildOnly `info` progDesc "perform a build of all machine closures") <>
-                        command "ssh-config" (args sshConfig `info` progDesc "dump ssh config for deployment (evaluates resources)") <>
-                        command "resource-info" (args infoOnly `info` progDesc "dump resource information in json format") <>
-                        command "resource-debug" (args debug `info` progDesc "evaluate resources in debugging mode")
-                        )
+    commands = command "run" (args run `info` progDesc "evaluate resources, run builds and deploy")
+            <> command "build" (args buildOnly `info` progDesc "perform a build of all machine closures")
+            <> command "ssh-config" (args sshConfig `info` progDesc "dump ssh config for deployment (evaluates resources)")
+            <> command "resource-info" (args infoOnly `info` progDesc "dump resource information in json format")
+            <> command "resource-debug" (args debug `info` progDesc "evaluate resources in debugging mode")
+            <> command "nix-path" (pure printNixPath `info` progDesc "print effective path to upcast nix expressions")
 
     args comm = comm <$> argument str exp <*> many (argument str nixArgs)
     exp = metavar "<expression>"

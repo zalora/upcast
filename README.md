@@ -16,6 +16,7 @@ Available commands:
   ssh-config               dump ssh config for deployment (evaluates resources)
   resource-info            dump resource information in json format
   resource-debug           evaluate resources in debugging mode
+  nix-path                 print effective path to upcast nix expressions
 ```
 
 
