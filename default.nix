@@ -11,12 +11,49 @@ in
 , src ? builtins.filterSource (path: type: type != "unknown" && baseNameOf path != ".git" && baseNameOf path != "result") ./.
 , haskellPackages ? pkgs.haskellPackages_ghc783
 }:
+with pkgs.lib;
 
 let
+  unsafeDerivation = args: derivation ({
+    PATH = builtins.getEnv "PATH";
+    system = builtins.currentSystem;
+    builder = ./bootstrap/proxy-bash.sh;
+    preferLocalBuild = true;
+    __noChroot = true;
+  } // args);
+
+  shell = name: command: unsafeDerivation {
+    inherit name;
+    args = ["-c" command];
+  };
+
+  # Build a cabal package given a local .cabal file
+  buildLocalCabalWithArgs = { src
+                            , name
+                            , args ? {}
+                            , cabalDrvArgs ? { jailbreak = true; }
+                            # for import-from-derivation, want to use current system
+                            , nativePkgs ? import pkgs.path {}
+                            }: let
+
+    cabalExpr = shell "${name}.nix" ''
+      export HOME="$TMPDIR"
+      ${let c2n = builtins.getEnv "OVERRIDE_cabal2nix";
+        in if c2n != "" then c2n
+           else "${nativePkgs.haskellPackages.cabal2nix}/bin/cabal2nix"} \
+        ${src + "/${name}.cabal"} --sha256=FILTERME \
+          | grep -v FILTERME | sed \
+            -e 's/{ cabal/{ cabal, cabalInstall, cabalDrvArgs ? {}, src/' \
+            -e 's/cabal.mkDerivation (self: {/cabal.mkDerivation (self: cabalDrvArgs \/\/ {/' \
+            -e 's/buildDepends = \[/buildDepends = \[ cabalInstall/' \
+            -e 's/pname = \([^$]*\)/pname = \1  inherit src;/'  > $out
+    '';
+  in haskellPackages.callPackage cabalExpr ({ inherit src cabalDrvArgs; } // args);
+
   aws = haskellPackages.callPackage ./nixpkgs/aws.nix {};
 in
 
-haskellPackages.buildLocalCabalWithArgs {
+buildLocalCabalWithArgs {
   inherit src name;
   args = {
     inherit aws;
