@@ -87,7 +87,7 @@ substituteTX state (TX tx) EvalContext{..} = do
 
 substitute_ :: SubStore -> Text -> IO any -> ResourceT IO (Sub, SubStore, Value)
 substitute_ state key action = liftIO $ do
-    T.hPutStrLn stderr key
+    -- T.hPutStrLn stderr key
     substitute state key (action >> return Null)
 
 evalPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext (ResourceT IO) a
