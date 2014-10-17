@@ -1,19 +1,4 @@
 let
-   nixpkgs = (import <nixpkgs> {}).fetchgit {
-    url = "git://github.com/NixOS/nixpkgs.git";
-    rev = "5cac6895da590a6c9bf55d50d01247a1a14a5d8d";
-    sha256 = "22414544b7706db2344fbb21b2bd6d9e021e1a14307cbd4c1a6e7f73cfb4937d";
-  };
-in
-{ system ? builtins.currentSystem
-, pkgs ? import nixpkgs { inherit system; }
-, name ? "upcast"
-, src ? builtins.filterSource (path: type: type != "unknown" && baseNameOf path != ".git" && baseNameOf path != "result") ./.
-, haskellPackages ? pkgs.haskellPackages_ghc783
-}:
-with pkgs.lib;
-
-let
   unsafeDerivation = args: derivation ({
     PATH = builtins.getEnv "PATH";
     system = builtins.currentSystem;
@@ -27,6 +12,31 @@ let
     args = ["-c" command];
   };
 
+  # working git must be in $PATH.
+  fetchgit =
+    {url, rev ? "origin/master", sha256 ? "whatever", shallow ? false}:
+      shell (baseNameOf (toString url)) ''
+        git clone ${if shallow then "--depth 1 -b ${rev}" else ""} --recursive ${url} $out
+        cd $out
+        ${if shallow then "" else "git checkout ${rev}"}
+      '';
+
+   nixpkgs = fetchgit {
+    url = "git://github.com/zalora/nixpkgs.git";
+    rev = "upcast";
+    shallow = true;
+  };
+
+in
+{ system ? builtins.currentSystem
+, pkgs ? import nixpkgs { inherit system; }
+, name ? "upcast"
+, src ? builtins.filterSource (path: type: type != "unknown" && baseNameOf path != ".git" && baseNameOf path != "result") ./.
+, haskellPackages ? pkgs.haskellPackages_ghc783
+}:
+with pkgs.lib;
+
+let
   # Build a cabal package given a local .cabal file
   buildLocalCabalWithArgs = { src
                             , name
