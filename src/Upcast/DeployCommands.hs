@@ -50,6 +50,18 @@ nixBuildMachines ctx expr uuid outputPath =
       -o #{outputPath}
     |] "build"
 
+nixInstantiateMachines :: DeployContext -> String -> String -> String -> Command Local
+nixInstantiateMachines ctx expr uuid outputPath =
+    Cmd Local [n|
+      nix-instantiate #{nixBaseOptions ctx}
+      --read-write-mode
+      --argstr system x86_64-linux
+      --arg networkExprs '#{expr}'
+      --argstr uuid '#{uuid}'
+      '<upcast/eval-deployment.nix>'
+      -A remoteMachines
+    |] "instantiate"
+
 nixCopyClosureTo :: Show a => a -> Install -> Command Local
 nixCopyClosureTo sshAuthSock Install{ i_remote = (Remote _ host), i_closure = path } =
     Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] host

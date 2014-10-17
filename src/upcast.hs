@@ -124,11 +124,14 @@ debug file args = do
     machines <- debugEvalResources ctx info
     return ()
 
-buildOnly file args = do
+fgcmd f file args = do
     ctx@DeployContext{..} <- context file args
-    let build = nixBuildMachines ctx (T.unpack expressionFile) uuid closuresPath
+    let build = f ctx (T.unpack expressionFile) uuid closuresPath
     fgrun build
     return ()
+
+buildOnly = fgcmd nixBuildMachines
+instantiateOnly = fgcmd nixInstantiateMachines
 
 run file args = do
     ctx@DeployContext{..} <- context file args
@@ -162,16 +165,17 @@ main = do
                         , prefColumns = 80
                         }
 
-    opts = (subparser commands) `info` header "upcast - infrastructure orchestratrion"
-
-    commands = command "run" (args run `info` progDesc "evaluate resources, run builds and deploy")
-            <> command "build" (args buildOnly `info` progDesc "perform a build of all machine closures")
-            <> command "ssh-config" (args sshConfig `info` progDesc "dump ssh config for deployment (evaluates resources)")
-            <> command "resource-info" (args infoOnly `info` progDesc "dump resource information in json format")
-            <> command "resource-debug" (args debug `info` progDesc "evaluate resources in debugging mode")
-            <> command "nix-path" (pure printNixPath `info` progDesc "print effective path to upcast nix expressions")
-
     args comm = comm <$> argument str exp <*> many (argument str nixArgs)
     exp = metavar "<expression>"
     nixArgs = metavar "nix arguments..."
+
+    opts = (subparser cmds) `info` header "upcast - infrastructure orchestratrion"
+
+    cmds = command "run" (args run `info` progDesc "evaluate resources, run builds and deploy")
+        <> command "instantiate" (args instantiateOnly `info` progDesc "perform instantiation of all machine closures")
+        <> command "build" (args buildOnly `info` progDesc "perform a build of all machine closures")
+        <> command "ssh-config" (args sshConfig `info` progDesc "dump ssh config for deployment (evaluates resources)")
+        <> command "resource-info" (args infoOnly `info` progDesc "dump resource information in json format")
+        <> command "resource-debug" (args debug `info` progDesc "evaluate resources in debugging mode")
+        <> command "nix-path" (pure printNixPath `info` progDesc "print effective path to upcast nix expressions")
 

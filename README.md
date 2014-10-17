@@ -13,6 +13,7 @@ Usage: upcast COMMAND
 Available commands:
   run                      evaluate resources, run builds and deploy
   build                    perform a build of all machine closures
+  instantiate              perform instantiation of all machine closures
   ssh-config               dump ssh config for deployment (evaluates resources)
   resource-info            dump resource information in json format
   resource-debug           evaluate resources in debugging mode
