@@ -74,7 +74,7 @@ fgrun c@(Cmd _ _ desc) = do
     ref <- newIORef mempty
     (time, _) <- measure $ runResourceT $ run c $$ awaitForever $ liftIO . output ref
     code <- readIORef ref
-    printExit Run code time
+    printExit Run c code time
     return code
   where
     output ref (Flush code) = writeIORef ref code
@@ -84,7 +84,7 @@ fgconsume :: Command Local -> IO (Either BS.ByteString BS.ByteString)
 fgconsume c@(Cmd Local s _) = do
     print' Consume c
     (time, (Just code, output)) <- measure $ (runResourceT $ proc $$ CL.consume) >>= return . concat
-    printExit Consume code time
+    printExit Consume c code time
     case code of
         ExitSuccess -> return $ Right output
         _ -> return $ Left output
@@ -192,7 +192,11 @@ color Run = 3
 needsColor = unsafePerformIO $ IO.hIsTerminalDevice stderr
 output = IO.hPutStrLn stderr
 
-printExit mode ExitSuccess time = output $ applyColor (color mode) $ mconcat ["completed in ", show time]
-printExit mode (ExitFailure code) time = output $ applyColor 0 $ mconcat ["failed with ", show code, ", time: ", show time]
+prefix (Cmd Local _ desc) = mconcat [applyColor 4 desc, "% "]
 
-print' mode (Cmd Local comm desc) = output $ mconcat [applyColor 4 desc, "% ", applyColor (color mode) $ L.take 1000 comm]
+printExit mode cmd ex time = output $ mconcat [ prefix cmd, suffix ex ]
+  where
+    suffix (ExitFailure code) = applyColor 0 $ mconcat ["failed with ", show code, ", time: ", show time]
+    suffix ExitSuccess = applyColor (color mode) $ mconcat ["completed in ", show time]
+
+print' mode c@(Cmd Local comm desc) = output $ mconcat [prefix c, applyColor (color mode) $ L.take 1000 comm]
