@@ -115,6 +115,18 @@ in
       '';
     };
 
+    deployment.ec2.ebsBoot = mkOption {
+      default = true;
+      type = types.bool;
+      description = ''
+        Whether you want to boot from an EBS-backed AMI.  Only
+        EBS-backed instances can be stopped and restarted, and attach
+        other EBS volumes at boot time.  This option determines the
+        selection of the default AMI; if you explicitly specify
+        <option>deployment.ec2.ami</option>, it has no effect.
+      '';
+    };
+
     deployment.ec2.instanceType = mkOption {
       default = "m1.small";
       example = "m1.large";
