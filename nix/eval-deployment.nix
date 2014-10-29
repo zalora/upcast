@@ -27,4 +27,4 @@ let
       };
     } ] ++ (if lib.isList networkExprs then networkExprs else [ networkExprs ]);
   };
-in eval.config.toplevel // { inherit eval; }
+in eval.config.toplevel // { inherit eval; inherit __nixPath; }
