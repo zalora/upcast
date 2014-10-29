@@ -3,6 +3,7 @@
 , checkConfigurationOptions ? false
 , uuid ? "default"
 , args ? {}
+, internal ? {}
 }:
 
 let
@@ -15,9 +16,10 @@ let
       key = _file;
 
       config = {
-        __internal.args = lib.mapAttrs (n: lib.mkDefault) args;
-
-        __internal.check = lib.mkDefault checkConfigurationOptions;
+        __internal = {
+          args = lib.mapAttrs (n: lib.mkDefault) args;
+          check = lib.mkDefault checkConfigurationOptions;
+        } // internal;
 
         inherit uuid;
 
