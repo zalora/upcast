@@ -86,7 +86,7 @@ in
         options = {
           zoneId = mkOption { type = types.string; example = "ZOZONEZONEZONE"; };
           iamCredentialName = mkOption { type = types.string; example = "doge-iam-dns-profile"; };
-          useLocalHostname = mkOption { type = types.bool; default = true; }; 
+          useLocalHostname = mkOption { type = types.bool; default = false; }; 
         };
       }));
       default = {};
