@@ -10,11 +10,6 @@ module Upcast.Command (
 , fgconsume
 , fgconsume_
 , spawn
-, ssh
-, sshBaseOptions
-, sshMaster
-, sshMasterExit
-, sshFast
 ) where
 
 import Control.Monad.Trans (liftIO)
@@ -100,28 +95,13 @@ fgconsume_ c = either id id <$> fgconsume c
 run :: MonadResource m => Command Local -> ProcessSource i m
 run (Cmd Local s _) = roProcessSource (cmd s) Nothing Nothing
 
+runPty :: MonadResource m => Command Local -> ProcessSource i m
+runPty (Cmd Local s _) =  undefined
+
 spawn :: Command Local -> IO ProcessHandle
 spawn (Cmd Local s _) = do
     (_, _, _, handle) <- createProcess $ cmd s
     return handle
-
-sshBaseOptions = [n|-A -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
-
-ssh :: Command Remote -> Command Local
-ssh (Cmd (Remote (Just key) host) cmd desc) =
-    Cmd Local [n|ssh ${sshBaseOptions} -i '#{key}' root@'#{host}' -- '#{cmd}'|] desc
-ssh (Cmd (Remote Nothing host) cmd desc) =
-    Cmd Local [n|ssh ${sshBaseOptions} root@'#{host}' -- '#{cmd}'|] desc
-
-sshMaster controlPath (Remote key host) =
-    Cmd Local [n|ssh -x root@'#{host}' -S '#{controlPath}' -M -N -f -oNumberOfPasswordPrompts=0 -oServerAliveInterval=60 -i '#{key}'|] host
-
-sshMasterExit controlPath (Remote _ host) =
-    Cmd Local [n|ssh root@'#{host}' -S '#{controlPath}' -O exit|] host
-
-sshFast controlPath (Cmd (Remote key host) cmd desc) =
-    Cmd Local [n|ssh -oControlPath='#{controlPath}' -i '#{key}' -x root@'#{host}' -- '#{cmd}'|] desc
-
 
 cmd :: String -> CreateProcess
 cmd s = CreateProcess { cmdspec = ShellCommand s
