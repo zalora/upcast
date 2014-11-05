@@ -98,6 +98,19 @@ export UPCAST_SSH_AUTH_SOCK=$SSH_AUTH_SOCK
 export UPCAST_SSH_CLOSURE_CACHE=nix-ssh@example.com
 ```
 
+#### Unattended builds
+
+No packages build or copied to your host!
+
+```bash
+drv=$(upcast instantiate ebuild.nix | awk '/nix.store/ {print $2}')
+builder=nixos-box.doge-enterprises.net
+nix-copy-closure --to $builder $drv
+ssh $builder nix-store --realise $drv
+env UPCAST_UNATTENDED=1 UPCAST_SSH_CLOSURE_CACHE=$builder upcast run ebuild.nix
+```
+
+
 #### SSH shared connections
 
 `ControlMaster` helps speed up subsequent ssh sessions by reusing a single TCP connection. See [ssh_config(5)](http://www.openbsd.org/cgi-bin/man.cgi/OpenBSD-current/man5/ssh_config.5?query=ssh_config).

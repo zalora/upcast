@@ -46,18 +46,21 @@ context file args = do
     closuresPath <- randomTempFileName "machines."
     Just upcastNix <- fmap T.pack <$> nixPath
     nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
+    unattended <- getEnv "UPCAST_UNATTENDED"
 
     let uuid = "new-upcast-deployment"
         sshAuthSock = "/dev/null"
         nixArgs = T.concat [T.pack $ intercalate " " args, " ", T.pack env]
         expressionFile = T.pack path
         stateFile = replaceExtension path "store"
+        deployMode = maybe Unattended (const Default) unattended
 
     return DeployContext{..}
 
 install DeployContext{..} machines = do
     installs <- mapM installP machines
-    mapConcurrently go installs >> return ()
+    mapConcurrently go installs
+    return ()
   where
     fgrun' = expect ExitSuccess "install step failed" . fgrun
 
@@ -92,22 +95,25 @@ deploy ctx@DeployContext{..} = do
     machines <- resources ctx
     let nixMachines = filter (\Machine{..} -> m_nix == True) machines
     unless (null nixMachines) $ do
-      ctx' <- ctxAuth $ catMaybes $ fmap m_keyFile nixMachines
-      let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid closuresPath
-      expect ExitSuccess "nix build of machine closures failed" $ fgrun build
+      ctx' <- ctxAuth ctx $ catMaybes $ fmap m_keyFile nixMachines
+      when (deployMode /= Unattended) $ do
+        let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid
+        expect ExitSuccess "nix build of machine closures failed" $ fgrun build
+        return ()
       install ctx' nixMachines
+
+ctxAuth :: DeployContext -> [Text] -> IO DeployContext
+ctxAuth ctx keyFiles = do
+    userAuthSock <- getEnv "UPCAST_SSH_AUTH_SOCK"
+    agentSocket <- case userAuthSock of
+                     Just sock -> do
+                        warn ["Using UPCAST_SSH_AUTH_SOCK: ", sock]
+                        return sock
+                     Nothing | null keyFiles ->  fallback
+                             | otherwise -> setupAgentF sshAddKeyFile keyFiles
+
+    return ctx { sshAuthSock = T.pack agentSocket }
   where
-    ctxAuth keyFiles = do
-      userAuthSock <- getEnv "UPCAST_SSH_AUTH_SOCK"
-      agentSocket <- case userAuthSock of
-                       Just sock -> do
-                          warn ["Using UPCAST_SSH_AUTH_SOCK: ", sock]
-                          return sock
-                       Nothing | null keyFiles ->  fallback
-                               | otherwise -> setupAgentF sshAddKeyFile keyFiles
-
-      return ctx { sshAuthSock = T.pack agentSocket }
-
     fallback = do
       sock <- getEnvDefault "SSH_AUTH_SOCK" ""
       warn ["None of instances reference ssh key files, using SSH_AUTH_SOCK (", show sock, ")."]
@@ -126,24 +132,26 @@ debug file args = do
 
 fgcmd f file args = do
     ctx@DeployContext{..} <- context file args
-    let build = f ctx (T.unpack expressionFile) uuid closuresPath
+    let build = f ctx (T.unpack expressionFile) uuid
     fgrun build
     return ()
 
 buildOnly = fgcmd nixBuildMachines
 instantiateOnly = fgcmd nixInstantiateMachines
 
-run file args = do
-    ctx@DeployContext{..} <- context file args
-    deploy ctx
+run file args = context file args >>= deploy
 
-sshConfig file args = context file args >>= resources >>= putStrLn . intercalate "\n" . fmap config
+sshConfig file args =
+    context file args >>= resources >>= putStrLn . intercalate "\n" . fmap config
   where
+    identity (Just file) = T.concat ["\n    IdentityFile ", file, "\n"]
+    identity Nothing = ""
+
     config Machine{..} = [nl|
 Host #{m_hostname}
     # #{m_instanceId}
     HostName #{m_publicIp}
-    User root#{case m_keyFile of Just file -> T.concat ["\n    IdentityFile ", file, "\n"]; Nothing -> ""}
+    User root#{identity m_keyFile}
     ControlMaster auto
     ControlPath ~/.ssh/master-%r@%h:%p
     ForwardAgent yes

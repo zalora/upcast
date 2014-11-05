@@ -9,6 +9,8 @@ import Data.ByteString.Char8 (ByteString)
 
 import Upcast.Command (Remote)
 
+data DeployMode = Default | Unattended deriving (Eq, Show)
+
 -- | Structure used to carry user (commandline & enviroment) and runtime (currently ssh agent) globals.
 data DeployContext =
     DeployContext { upcastNix :: Text
@@ -19,6 +21,7 @@ data DeployContext =
                   , stateFile :: FilePath -- ^ *.store file
                   , uuid :: String -- ^ Used by nix files, NixOps legacy.
                   , nixSSHClosureCache :: Maybe String
+                  , deployMode :: DeployMode
                   } deriving (Show)
 
 -- | Structure used to pass arguments between evaluation and installation phases.

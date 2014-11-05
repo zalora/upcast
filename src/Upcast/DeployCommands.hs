@@ -39,19 +39,19 @@ nixDeploymentInfo ctx expr uuid =
       -A info
     |] "info"
 
-nixBuildMachines :: DeployContext -> String -> String -> String -> Command Local
-nixBuildMachines ctx expr uuid outputPath =
+nixBuildMachines :: DeployContext -> String -> String -> Command Local
+nixBuildMachines ctx@DeployContext{closuresPath} expr uuid =
     Cmd Local [n|
       nix-build #{nixBaseOptions ctx}
       --arg networkExprs '#{expr}'
       --argstr uuid #{uuid}
       '<upcast/eval-deployment.nix>'
       -A machines
-      -o #{outputPath}
+      -o #{closuresPath}
     |] "build"
 
-nixInstantiateMachines :: DeployContext -> String -> String -> String -> Command Local
-nixInstantiateMachines ctx expr uuid outputPath =
+nixInstantiateMachines :: DeployContext -> String -> String -> Command Local
+nixInstantiateMachines ctx expr uuid =
     Cmd Local [n|
       nix-instantiate #{nixBaseOptions ctx}
       --read-write-mode
