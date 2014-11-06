@@ -73,7 +73,7 @@ fgrun c@(Cmd _ _ desc) = do
     return code
   where
     output ref (Flush code) = writeIORef ref code
-    output ref (Chunk s) = B8.putStrLn $ mconcat [B8.pack $ applyColor 4 desc, "> ", s]
+    output ref (Chunk s) = B8.hPutStrLn stderr $ mconcat [B8.pack $ applyColor 4 desc, "> ", s]
 
 fgconsume :: Command Local -> IO (Either BS.ByteString BS.ByteString)
 fgconsume c@(Cmd Local s _) = do
