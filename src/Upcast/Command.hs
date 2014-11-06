@@ -10,16 +10,10 @@ module Upcast.Command (
 , fgconsume
 , fgconsume_
 , spawn
-, ssh
-, sshBaseOptions
-, sshMaster
-, sshMasterExit
-, sshFast
 ) where
 
-import Control.Monad.Trans (liftIO)
-import Control.Monad (ap, join, (<=<), when)
-import Control.Applicative ((<$>))
+import Upcast.Monad
+
 import System.FilePath (FilePath)
 import System.Process (createProcess, waitForProcess, interruptProcessGroupOf,
                        CreateProcess(..), CmdSpec(..), StdStream(..), shell, ProcessHandle)
@@ -27,9 +21,10 @@ import System.Exit (ExitCode(..))
 import GHC.IO.Handle (hClose, Handle, hSetBinaryMode)
 import System.IO (hSetBuffering, BufferMode(..), stdout, stderr, IOMode(..), openFile, hPutStrLn)
 import qualified System.IO as IO
+import System.IO.Error (tryIOError)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.IO (createPipe, fdToHandle)
-import Control.Monad.Trans.Resource (runResourceT, liftResourceT, MonadResource(..))
+import System.Posix.Pty (spawnWithPty, readPty, Pty)
 import qualified Data.List as L
 import Data.Maybe (maybe)
 import Data.Monoid
@@ -72,7 +67,7 @@ fgrun :: Command Local -> IO ExitCode
 fgrun c@(Cmd _ _ desc) = do
     print' Run c
     ref <- newIORef mempty
-    (time, _) <- measure $ runResourceT $ run c $$ awaitForever $ liftIO . output ref
+    (time, _) <- measure $ runResourceT $ runPty c $$ awaitForever $ liftIO . output ref
     code <- readIORef ref
     printExit Run c code time
     return code
@@ -100,28 +95,41 @@ fgconsume_ c = either id id <$> fgconsume c
 run :: MonadResource m => Command Local -> ProcessSource i m
 run (Cmd Local s _) = roProcessSource (cmd s) Nothing Nothing
 
+runPty :: MonadResource m => Command Local -> ProcessSource i m
+runPty (Cmd Local s _) = do
+  (pty, proc) <- liftIO $ spawnWithPty Nothing True "/bin/sh" ["-c", s] (80, 25)
+  sourcePty (Just proc) pty
+
 spawn :: Command Local -> IO ProcessHandle
 spawn (Cmd Local s _) = do
     (_, _, _, handle) <- createProcess $ cmd s
     return handle
 
-sshBaseOptions = [n|-A -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
+sourcePty :: MonadResource m => Maybe ProcessHandle -> Pty -> ProcessSource i m
+sourcePty proc pty = loop ""
+  where
+    onEof = case proc of
+              Just handle -> do
+                code <- liftIO $ waitForProcess handle
+                yield (Flush code)
+              Nothing -> return ()
 
-ssh :: Command Remote -> Command Local
-ssh (Cmd (Remote (Just key) host) cmd desc) =
-    Cmd Local [n|ssh ${sshBaseOptions} -i '#{key}' root@'#{host}' -- '#{cmd}'|] desc
-ssh (Cmd (Remote Nothing host) cmd desc) =
-    Cmd Local [n|ssh ${sshBaseOptions} root@'#{host}' -- '#{cmd}'|] desc
+    push (x:[]) = return x
+    push (x:y:[]) | y == B8.empty = yield (Chunk x) >> return ""
+    push (x:xs) = yield (Chunk x) >> push xs
+    push [] = return ""
 
-sshMaster controlPath (Remote key host) =
-    Cmd Local [n|ssh -x root@'#{host}' -S '#{controlPath}' -M -N -f -oNumberOfPasswordPrompts=0 -oServerAliveInterval=60 -i '#{key}'|] host
+    leftover "" = return ()
+    leftover x = yield (Chunk x)
 
-sshMasterExit controlPath (Remote _ host) =
-    Cmd Local [n|ssh root@'#{host}' -S '#{controlPath}' -O exit|] host
-
-sshFast controlPath (Cmd (Remote key host) cmd desc) =
-    Cmd Local [n|ssh -oControlPath='#{controlPath}' -i '#{key}' -x root@'#{host}' -- '#{cmd}'|] desc
-
+    loop acc = do
+      err <- liftIO $ (tryIOError . readPty) pty
+      case err of
+         Left _ -> leftover acc >> onEof
+         Right s -> do
+           let x:xs = B8.split '\n' s
+           yield (Chunk $ mconcat [acc, x])
+           push xs >>= loop
 
 cmd :: String -> CreateProcess
 cmd s = CreateProcess { cmdspec = ShellCommand s
@@ -152,12 +160,6 @@ roProcessSource proc stdout stderr =
              (\hs -> mapMBoth_ hClose hs >> interruptProcessGroupOf prochn)
              (\(rh, _) -> sourceHandle (Just prochn) rh)
 
-mapMBoth :: Monad m => (t -> m a) -> (t, t) -> m (a, a)
-mapMBoth f (a, b) = return (,) `ap` f a `ap` f b
-
-mapMBoth_ :: Monad m => (t -> m a) -> (t, t) -> m ()
-mapMBoth_ f (a, b) = f a >> f b  >> return ()
-
 createPipeHandle :: IO (Handle, Handle)
 createPipeHandle = join $ fmap (mapMBoth fdToHandle) createPipe
 
@@ -178,6 +180,7 @@ sourceHandle ph h = loop
             if BS.null x
               then onEof
               else yield (Chunk x) >> loop
+
 
 applyColor :: Int -> String -> String
 applyColor index s = case needsColor of

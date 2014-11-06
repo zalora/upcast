@@ -16,6 +16,9 @@ import Upcast.Command
 nixBaseOptions :: DeployContext -> String
 nixBaseOptions DeployContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
 
+sshBaseOptions :: String
+sshBaseOptions = [n|-A -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
+
 sshAgent :: FilePath -> Command Local
 sshAgent socket = Cmd Local [n|ssh-agent -a #{socket}|] "agent"
 
