@@ -53,7 +53,7 @@ context file args = do
         nixArgs = T.concat [T.pack $ intercalate " " args, " ", T.pack env]
         expressionFile = T.pack path
         stateFile = replaceExtension path "store"
-        deployMode = maybe Unattended (const Default) unattended
+        deployMode = maybe Default (const Unattended) unattended
 
     return DeployContext{..}
 
