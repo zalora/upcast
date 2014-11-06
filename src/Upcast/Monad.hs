@@ -6,9 +6,12 @@ module Upcast.Monad (
 , ap
 , join
 , when
+, unless
 , foldM
 , mapM
 , mapM_
+
+, (<<<)
 
 , liftIO
 
@@ -21,6 +24,7 @@ module Upcast.Monad (
 ) where
 
 import Control.Applicative ((<$>))
+import Control.Arrow ((<<<))
 import Control.Monad
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Resource (runResourceT, liftResourceT, MonadResource(..))

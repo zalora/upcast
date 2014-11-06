@@ -10,11 +10,11 @@ import Control.Exception
 
 oops = throwIO . ErrorCall
 
-expect :: Eq a => a -> String -> IO a -> IO a
+expect :: Eq a => a -> String -> IO a -> IO ()
 expect value excuse action = do
   result <- action
   case result of
-      x | x == value -> return x
+      x | x == value -> return ()
       _ -> oops excuse
 
 expectRight :: IO (Either String a) -> IO a

@@ -3,6 +3,7 @@
 module Upcast.DeployCommands where
 
 import Data.Text (Text)
+import Data.Monoid (mconcat)
 
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.Char8 (intercalate, split)
@@ -53,21 +54,28 @@ nixBuildMachines ctx@DeployContext{closuresPath} expr uuid =
       -o #{closuresPath}
     |] "build"
 
-nixInstantiateMachines :: DeployContext -> String -> String -> Command Local
-nixInstantiateMachines ctx expr uuid =
+nixInstantiateMachines :: DeployContext -> String -> String -> String -> Command Local
+nixInstantiateMachines ctx expr uuid root =
     Cmd Local [n|
       nix-instantiate #{nixBaseOptions ctx}
       --read-write-mode
       --argstr system x86_64-linux
       --arg networkExprs '#{expr}'
       --argstr uuid '#{uuid}'
+      --add-root '#{root}'
+      --indirect
       '<upcast/eval-deployment.nix>'
       -A remoteMachines
     |] "instantiate"
 
 nixCopyClosureTo :: Show a => a -> Install -> Command Local
 nixCopyClosureTo sshAuthSock Install{ i_remote = (Remote _ host), i_closure = path } =
-    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] host
+    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] $ mconcat ["copy:", host]
+
+nixCopyClosureFrom :: Install -> Command Remote
+nixCopyClosureFrom Install{i_remote, i_closure, i_sshClosureCache=Just (Remote _ host)} =
+    Cmd i_remote [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --from #{host} #{i_closure} --gzip|] $ "copyfrom"
+
 
 nixSetProfile :: Install -> Command Remote
 nixSetProfile Install{i_closure, i_remote = r@(Remote _ host)} =
@@ -97,4 +105,4 @@ sshPrepCacheKnownHost Install{i_remote = r@(Remote _ host), i_sshClosureCache = 
 
 ssh :: Text -> Command Remote -> Command Local
 ssh sshAuthSock (Cmd (Remote _ host) cmd desc) =
-    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] desc
+    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] $ mconcat [desc, ":", host]

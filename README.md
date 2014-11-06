@@ -95,19 +95,23 @@ Inherently, you also should propagate ssh keys of your instances to that ssh-age
 
 ```bash
 export UPCAST_SSH_AUTH_SOCK=$SSH_AUTH_SOCK
-export UPCAST_SSH_CLOSURE_CACHE=nix-ssh@example.com
+export UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com
 ```
 
 #### Unattended builds
 
 No packages build or copied to your host!
 
+(still working on the UX yet :angel:)
+
 ```bash
-drv=$(upcast instantiate ebuild.nix | awk '/nix.store/ {print $2}')
-builder=nixos-box.doge-enterprises.net
-nix-copy-closure --to $builder $drv
-ssh $builder nix-store --realise $drv
-env UPCAST_UNATTENDED=1 UPCAST_SSH_CLOSURE_CACHE=$builder upcast run ebuild.nix
+builder=user@hydra.com
+
+upcast instantiate examples/vpc-nix-instance.nix | {read drv; nix-copy-closure --to $builder $drv 2>/dev/null && ssh $builder "nix-store --realise $drv 2>/dev/null && cat $(nix-store -qu $drv)"} | tail -1
+env UPCAST_CLOSURES="<paste the above json line here>" \
+  UPCAST_SSH_CLOSURE_CACHE=$builder \
+  UPCAST_UNATTENDED=1 \
+  upcast run examples/vpc-nix-instance.nix
 ```
 
 

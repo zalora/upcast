@@ -2,13 +2,12 @@
 
 module Main where
 
-import Control.Monad (join, when, unless)
-import Control.Arrow ((>>>))
+import Upcast.Monad
 import Control.Applicative
 import Options.Applicative
 import Control.Concurrent.Async
 
-import System.Directory (canonicalizePath)
+import System.Directory (canonicalizePath, removeFile)
 import System.FilePath.Posix
 import System.Posix.Files (readSymbolicLink)
 import System.Posix.Env (getEnvDefault, getEnv)
@@ -17,7 +16,11 @@ import Data.List (intercalate)
 import qualified Data.Text as T
 import Data.Text (Text(..))
 import Data.ByteString.Char8 (split)
+import qualified Data.ByteString.Char8 as BS
 import Data.Maybe (catMaybes)
+import qualified Data.Map as Map
+
+import Data.Aeson (decodeStrict)
 
 import Upcast.IO
 import Upcast.Interpolate (nl)
@@ -47,44 +50,58 @@ context file args = do
     Just upcastNix <- fmap T.pack <$> nixPath
     nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
     unattended <- getEnv "UPCAST_UNATTENDED"
+    subs <- getEnv "UPCAST_CLOSURES"
 
     let uuid = "new-upcast-deployment"
         sshAuthSock = "/dev/null"
         nixArgs = T.concat [T.pack $ intercalate " " args, " ", T.pack env]
-        expressionFile = T.pack path
+        expressionFile = path
         stateFile = replaceExtension path "store"
         deployMode = maybe Default (const Unattended) unattended
+        closureSubstitutes = maybe Map.empty id $ join $ decodeStrict . BS.pack <$> subs
 
     return DeployContext{..}
 
-install DeployContext{..} machines = do
+install ctx@DeployContext{..} machines = do
     installs <- mapM installP machines
     mapConcurrently go installs
     return ()
   where
     fgrun' = expect ExitSuccess "install step failed" . fgrun
+    fgssh = fgrun' . ssh sshAuthSock
+
+    resolveClosure :: Text -> IO StorePath
+    resolveClosure hostname =
+        case Map.lookup hostname closureSubstitutes of
+            Just x -> return x
+            _ -> readSymbolicLink $ closuresPath </> (T.unpack hostname)
 
     installP :: Machine -> IO Install
     installP i_machine@Machine{..} = do
-      i_closure <- readSymbolicLink $ closuresPath </> (T.unpack m_hostname)
+      i_closure <- resolveClosure m_hostname
       i_paths <- (fmap (split '\n') . fgconsume_ . nixClosure) $ i_closure
       let i_sshClosureCache = fmap (Remote Nothing) nixSSHClosureCache
       return Install{..}
       where
         i_remote = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
-
-    baseCommands = [ ssh sshAuthSock . nixTrySubstitutes
-                   , nixCopyClosureTo sshAuthSock
-                   , ssh sshAuthSock . nixSetProfile
-                   , ssh sshAuthSock . nixSwitchToConfiguration
-                   ]
-
+  
     go :: Install -> IO ()
-    go install@Install{i_sshClosureCache = Just (Remote _ cacheHost)} =
-      mapM_ fgrun' $ (ssh sshAuthSock . sshPrepCacheKnownHost):baseCommands <*> pure install
+    go install@Install{i_sshClosureCache = Just (Remote _ cacheHost)} = do
+      fgssh $ sshPrepCacheKnownHost install
+      go' install
 
-    go install =
-      mapM_ fgrun' $ baseCommands <*> pure install
+    go install = go' install
+
+    go' install = do
+      if (deployMode /= Unattended)
+          then do
+            fgssh . nixTrySubstitutes $ install
+            fgrun' . nixCopyClosureTo sshAuthSock $ install
+          else do
+            fgssh . nixCopyClosureFrom $ install
+      fgssh . nixSetProfile $ install
+      fgssh . nixSwitchToConfiguration $ install
+
 
 resources ctx = do
     info <- expectRight $ deploymentInfo ctx
@@ -97,9 +114,8 @@ deploy ctx@DeployContext{..} = do
     unless (null nixMachines) $ do
       ctx' <- ctxAuth ctx $ catMaybes $ fmap m_keyFile nixMachines
       when (deployMode /= Unattended) $ do
-        let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid
+        let build = nixBuildMachines ctx' expressionFile uuid
         expect ExitSuccess "nix build of machine closures failed" $ fgrun build
-        return ()
       install ctx' nixMachines
 
 ctxAuth :: DeployContext -> [Text] -> IO DeployContext
@@ -130,14 +146,19 @@ debug file args = do
     machines <- debugEvalResources ctx info
     return ()
 
-fgcmd f file args = do
+buildOnly file args = do
     ctx@DeployContext{..} <- context file args
-    let build = f ctx (T.unpack expressionFile) uuid
-    fgrun build
-    return ()
+    expect ExitSuccess "build failed" $
+      fgrun $ nixBuildMachines ctx expressionFile uuid
 
-buildOnly = fgcmd nixBuildMachines
-instantiateOnly = fgcmd nixInstantiateMachines
+instantiateOnly file args = do
+    ctx@DeployContext{..} <- context file args
+    tmp <- randomTempFileName "drvlink."
+    expect ExitSuccess "instantiation failed" $ do
+      fgrun $ nixInstantiateMachines ctx expressionFile uuid tmp
+    drvPath <- readSymbolicLink tmp
+    removeFile tmp
+    putStrLn drvPath
 
 run file args = context file args >>= deploy
 
