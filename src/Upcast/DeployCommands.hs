@@ -69,10 +69,6 @@ nixCopyClosureTo :: Show a => a -> Install -> Command Local
 nixCopyClosureTo sshAuthSock Install{ i_remote = (Remote _ host), i_closure = path } =
     Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] host
 
-nixCopyClosureToFast :: (Show a, Show b) => a -> Remote -> b -> Command Local
-nixCopyClosureToFast controlPath (Remote key host) path =
-    Cmd Local [n|env NIX_SSHOPTS="-i #{key} -S #{controlPath} #{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] host
-
 nixSetProfile :: Install -> Command Remote
 nixSetProfile Install{i_closure, i_remote = r@(Remote _ host)} =
     Cmd r [n|nix-env -p /nix/var/nix/profiles/system --set "#{i_closure}"|] host
