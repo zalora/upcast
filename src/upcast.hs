@@ -73,15 +73,15 @@ install DeployContext{..} machines = do
       where
         i_remote = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
 
-    baseCommands = [ ssh' sshAuthSock . nixTrySubstitutes
+    baseCommands = [ ssh sshAuthSock . nixTrySubstitutes
                    , nixCopyClosureTo sshAuthSock
-                   , ssh' sshAuthSock . nixSetProfile
-                   , ssh' sshAuthSock . nixSwitchToConfiguration
+                   , ssh sshAuthSock . nixSetProfile
+                   , ssh sshAuthSock . nixSwitchToConfiguration
                    ]
 
     go :: Install -> IO ()
     go install@Install{i_sshClosureCache = Just (Remote _ cacheHost)} =
-      mapM_ fgrun' $ (ssh' sshAuthSock . sshPrepCacheKnownHost):baseCommands <*> pure install
+      mapM_ fgrun' $ (ssh sshAuthSock . sshPrepCacheKnownHost):baseCommands <*> pure install
 
     go install =
       mapM_ fgrun' $ baseCommands <*> pure install

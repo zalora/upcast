@@ -99,6 +99,6 @@ sshPrepCacheKnownHost Install{i_remote = r@(Remote _ host), i_sshClosureCache = 
   where
     [_, knownHost] = split '@' $ C8.pack known
 
-ssh' :: Text -> Command Remote -> Command Local
-ssh' sshAuthSock (Cmd (Remote _ host) cmd desc) =
+ssh :: Text -> Command Remote -> Command Local
+ssh sshAuthSock (Cmd (Remote _ host) cmd desc) =
     Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] desc
