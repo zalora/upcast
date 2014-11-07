@@ -1,6 +1,6 @@
 module Upcast.Monad (
 -- * re-exports
-  (<$>)
+  module Control.Applicative
 
 , (<=<)
 , ap
@@ -23,7 +23,7 @@ module Upcast.Monad (
 , mapMBoth_
 ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative
 import Control.Arrow ((<<<))
 import Control.Monad
 import Control.Monad.Trans (liftIO)

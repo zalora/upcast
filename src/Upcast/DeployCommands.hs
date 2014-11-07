@@ -14,8 +14,8 @@ import Upcast.Nix
 import Upcast.Types
 import Upcast.Command
 
-nixBaseOptions :: DeployContext -> String
-nixBaseOptions DeployContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
+nixBaseOptions :: EnvContext -> String
+nixBaseOptions EnvContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
 
 sshBaseOptions :: String
 sshBaseOptions = [n|-A -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
@@ -33,9 +33,9 @@ sshListKeys :: FilePath -> Command Local
 sshListKeys socket = Cmd Local [n|env SSH_AUTH_SOCK=#{socket} ssh-add -l|] "agent"
 
 nixDeploymentInfo :: DeployContext -> String -> String -> Command Local
-nixDeploymentInfo ctx expr uuid =
+nixDeploymentInfo DeployContext{envContext} expr uuid =
     Cmd Local [n|
-      nix-instantiate #{nixBaseOptions ctx}
+      nix-instantiate #{nixBaseOptions envContext}
       --arg networkExprs '#{expr}'
       --argstr uuid #{uuid}
       '<upcast/eval-deployment.nix>'
@@ -44,9 +44,9 @@ nixDeploymentInfo ctx expr uuid =
     |] "info"
 
 nixBuildMachines :: DeployContext -> String -> String -> Command Local
-nixBuildMachines ctx@DeployContext{closuresPath} expr uuid =
+nixBuildMachines DeployContext{closuresPath, envContext} expr uuid =
     Cmd Local [n|
-      nix-build #{nixBaseOptions ctx}
+      nix-build #{nixBaseOptions envContext}
       --arg networkExprs '#{expr}'
       --argstr uuid #{uuid}
       '<upcast/eval-deployment.nix>'
@@ -55,9 +55,9 @@ nixBuildMachines ctx@DeployContext{closuresPath} expr uuid =
     |] "build"
 
 nixInstantiateMachines :: DeployContext -> String -> String -> String -> Command Local
-nixInstantiateMachines ctx expr uuid root =
+nixInstantiateMachines DeployContext{envContext} expr uuid root =
     Cmd Local [n|
-      nix-instantiate #{nixBaseOptions ctx}
+      nix-instantiate #{nixBaseOptions envContext}
       --read-write-mode
       --argstr system x86_64-linux
       --arg networkExprs '#{expr}'
@@ -103,6 +103,10 @@ sshPrepCacheKnownHost Install{i_remote = r@(Remote _ host), i_sshClosureCache = 
   where
     [_, knownHost] = split '@' $ C8.pack known
 
-ssh :: Text -> Command Remote -> Command Local
-ssh sshAuthSock (Cmd (Remote _ host) cmd desc) =
+sshA :: Text -> Command Remote -> Command Local
+sshA sshAuthSock (Cmd (Remote _ host) cmd desc) =
     Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] $ mconcat [desc, ":", host]
+
+ssh :: Command Remote -> Command Local
+ssh (Cmd (Remote _ host) cmd desc) =
+    Cmd Local [n|ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] $ mconcat [desc, ":", host]

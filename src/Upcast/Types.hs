@@ -15,18 +15,22 @@ data DeployMode = Default | Unattended deriving (Eq, Show)
 type StorePath = String
 type StorePathBS = ByteString
 
+data EnvContext = EnvContext
+                { upcastNix :: Text
+                , nixArgs :: Text
+                , nixSSHClosureCache :: Maybe String
+                , deployMode :: DeployMode
+                , sshAuthSock :: Text
+                } deriving (Show)
+
 -- | Structure used to carry user (commandline & enviroment) and runtime (currently ssh agent) globals.
-data DeployContext =
-    DeployContext { upcastNix :: Text
-                  , nixArgs :: Text
-                  , sshAuthSock :: Text
-                  , closuresPath :: String -- ^ Path to store links to machine closures.
+data DeployContext = DeployContext
+                  { closuresPath :: String -- ^ Path to store links to machine closures.
                   , expressionFile :: String
                   , stateFile :: FilePath -- ^ *.store file
                   , uuid :: String -- ^ Used by nix files, NixOps legacy.
-                  , nixSSHClosureCache :: Maybe String
-                  , deployMode :: DeployMode
                   , closureSubstitutes :: Map Text StorePath
+                  , envContext :: EnvContext
                   } deriving (Show)
 
 -- | Structure used to pass arguments between evaluation and installation phases.
@@ -41,9 +45,15 @@ data Machine = Machine
 
 -- | Per-machine Nix closure install context used in some of 'DeployCommands'.
 data Install = Install
-             { i_machine :: Machine
-             , i_remote :: Remote
+             { i_remote :: Remote
              , i_closure :: StorePath
              , i_paths :: [StorePathBS]
              , i_sshClosureCache :: Maybe Remote
              } deriving (Show)
+
+-- | CLI arguments to the 'install' command.
+data InstallCli = InstallCli
+                { ic_target :: String
+                , ic_closure :: FilePath
+                } deriving (Show)
+
