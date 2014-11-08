@@ -202,12 +202,15 @@ in
       type = types.nullOr (union types.str (resource "ec2-subnet"));
       default = null;
       apply = x: if x == null then null else if builtins.isString x then x else x._name;
+      description = ''
+        EC2 VPC subnet id
+      '';
     };
 
     deployment.ec2.userData = mkOption {
       default = {};
       type = types.attrsOf types.path;
-      example = { host-aes-key = ./secrets/aes-key; };
+      example = { host-aes-key = "./secrets/aes-key"; };
       description = ''
         Attribute set containing mappings to files that will be passed in as user data.
       '';
