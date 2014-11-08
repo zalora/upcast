@@ -5,6 +5,8 @@ module Upcast.Install (
 , install
 ) where
 
+import Control.Exception.Base (SomeException, try)
+
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Data.Text (Text(..))
@@ -24,13 +26,15 @@ import Upcast.Environment
 fgrun' = expect ExitSuccess "install step failed" . fgrun
 fgssh = fgrun' . ssh
 
+isLeft (Left _) = True
+isLeft _ = False
+
 installMachines ctx@DeployContext{envContext=e@EnvContext{..}, ..} machines = do
     installs <- mapM installP machines
-    mapConcurrently (go e) installs
+    results <- mapConcurrently (try . go e) installs :: IO [Either SomeException ()]
+    warn ["installs failed: ", show [i | (e, i) <- zip results installs, isLeft e]]
     return ()
   where
-    fgssh = fgrun' . sshA sshAuthSock
-
     resolveClosure :: Text -> IO StorePath
     resolveClosure hostname =
         case Map.lookup hostname closureSubstitutes of
@@ -51,7 +55,7 @@ install args@InstallCli{..} = do
   let i_closure = ic_closure
       i_remote = Remote Nothing ic_target
       i_paths = []
-      i_sshClosureCache = fmap (Remote Nothing) (nixSSHClosureCache env)
+      i_sshClosureCache = Remote Nothing <$> (nixSSHClosureCache env)
       i = Install{..}
   go env i
 

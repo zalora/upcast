@@ -1,12 +1,32 @@
 module Upcast.IO (
   module System.IO
+, ASCIIColor(..)
 , expect
 , expectRight
 , warn
+, warn8
+, applyColor
 ) where
 
 import System.IO
+import System.IO.Unsafe (unsafePerformIO)
 import Control.Exception
+
+import Data.Monoid (mconcat)
+import qualified Data.ByteString.Char8 as B8
+
+data ASCIIColor = Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
+                deriving (Enum)
+
+needsColor = unsafePerformIO $ hIsTerminalDevice stderr
+
+applyColor :: ASCIIColor -> String -> String
+applyColor color s = case needsColor of
+                         True -> "\ESC[1;" ++ colorCode ++ "m" ++ s ++ "\ESC[0m"
+                         False -> s
+  where
+    colorCode = show $ 30 + fromEnum color
+
 
 oops = throwIO . ErrorCall
 
@@ -24,5 +44,5 @@ expectRight action = do
       Right smth -> return smth
       Left err -> oops err
 
-warn = hPutStrLn stderr . concat
-
+warn = hPutStrLn stderr . mconcat
+warn8 = B8.hPutStrLn stderr . mconcat

@@ -13,20 +13,19 @@ module Upcast.Command (
 ) where
 
 import Upcast.Monad
+import qualified Upcast.IO as IO
+import Upcast.IO (openFile, warn, warn8, applyColor)
 
 import System.FilePath (FilePath)
 import System.Process (createProcess, waitForProcess, interruptProcessGroupOf,
-                       CreateProcess(..), CmdSpec(..), StdStream(..), shell, ProcessHandle)
+                       CreateProcess(..), CmdSpec(..), StdStream(..), shell,
+                       ProcessHandle)
 import System.Exit (ExitCode(..))
-import GHC.IO.Handle (hClose, Handle, hSetBinaryMode)
-import System.IO (hSetBuffering, BufferMode(..), stdout, stderr, IOMode(..), openFile, hPutStrLn)
-import qualified System.IO as IO
+import GHC.IO.Handle (hClose, Handle)
 import System.IO.Error (tryIOError)
-import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.IO (createPipe, fdToHandle)
 import System.Posix.Pty (spawnWithPty, readPty, Pty)
 import qualified Data.List as L
-import Data.Maybe (maybe)
 import Data.Monoid
 import Data.Time.Clock
 import Data.IORef
@@ -73,7 +72,8 @@ fgrun c@(Cmd _ _ desc) = do
     return code
   where
     output ref (Flush code) = writeIORef ref code
-    output ref (Chunk s) = B8.hPutStrLn stderr $ mconcat [B8.pack $ applyColor 4 desc, "> ", s]
+    output ref (Chunk s) = warn8 [ (B8.pack $ applyColor IO.Magenta desc)
+                                 , "> ", s ]
 
 fgconsume :: Command Local -> IO (Either BS.ByteString BS.ByteString)
 fgconsume c@(Cmd Local s _) = do
@@ -84,7 +84,7 @@ fgconsume c@(Cmd Local s _) = do
         ExitSuccess -> return $ Right output
         _ -> return $ Left output
     where
-      proc = bracketP (openFile "/dev/stderr" WriteMode) (hClose) $ \wh -> roProcessSource (cmd s) Nothing (Just wh)
+      proc = bracketP (openFile "/dev/stderr" IO.WriteMode) (hClose) $ \wh -> roProcessSource (cmd s) Nothing (Just wh)
       concat = L.foldl' mappend (Just ExitSuccess, BS.empty) . fmap chunk
       chunk (Chunk a) = (Just ExitSuccess, a)
       chunk (Flush code) = (Just code, BS.empty)
@@ -182,24 +182,18 @@ sourceHandle ph h = loop
               else yield (Chunk x) >> loop
 
 
-applyColor :: Int -> String -> String
-applyColor index s = case needsColor of
-                         True -> "\ESC[1;" ++ color ++ "m" ++ s ++ "\ESC[0m"
-                         False -> s
+color Consume = IO.Cyan
+color Run = IO.Blue
+
+prefix (Cmd Local _ desc) = mconcat [applyColor IO.Magenta desc, "% "]
+
+printExit mode cmd ex time = warn [ prefix cmd, suffix ex ]
   where
-    color = show $ (31 + (index `mod` 7))
+    suffix (ExitFailure code) = applyColor IO.Red $ "failed with "
+                                                  <> show code
+                                                  <> ", time: "
+                                                  <> show time
+    suffix ExitSuccess = applyColor (color mode) $ "completed in " <> show time
 
-color Consume = 5
-color Run = 3
-
-needsColor = unsafePerformIO $ IO.hIsTerminalDevice stderr
-output = IO.hPutStrLn stderr
-
-prefix (Cmd Local _ desc) = mconcat [applyColor 4 desc, "% "]
-
-printExit mode cmd ex time = output $ mconcat [ prefix cmd, suffix ex ]
-  where
-    suffix (ExitFailure code) = applyColor 0 $ mconcat ["failed with ", show code, ", time: ", show time]
-    suffix ExitSuccess = applyColor (color mode) $ mconcat ["completed in ", show time]
-
-print' mode c@(Cmd Local comm desc) = output $ mconcat [prefix c, applyColor (color mode) $ L.take 1000 comm]
+print' mode c@(Cmd Local comm desc) =
+  warn [prefix c, applyColor (color mode) $ L.take 1000 comm]
