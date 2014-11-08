@@ -245,7 +245,7 @@ debugEvalResources ctx@DeployContext{..} info = do
 
     return $ fmap (toMachine keypair) instances
   where
-    name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
+    name = T.pack $ snd $ splitFileName $ expressionFile
 
 evalResources :: DeployContext -> Value -> IO [Machine]
 evalResources ctx@DeployContext{..} info = do
@@ -273,4 +273,4 @@ evalResources ctx@DeployContext{..} info = do
 
     return $ fmap (toMachine keypair) instances
   where
-    name = T.pack $ snd $ splitFileName $ T.unpack expressionFile
+    name = T.pack $ snd $ splitFileName $ expressionFile

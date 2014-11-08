@@ -2,21 +2,16 @@
 
 module Main where
 
-import Control.Monad (join, when, unless)
-import Control.Arrow ((>>>))
-import Control.Applicative
+import Upcast.Monad
 import Options.Applicative
-import Control.Concurrent.Async
 
-import System.Directory (canonicalizePath)
-import System.FilePath.Posix
-import System.Posix.Files (readSymbolicLink)
+import System.Directory (removeFile)
 import System.Posix.Env (getEnvDefault, getEnv)
+import System.Posix.Files (readSymbolicLink)
 
 import Data.List (intercalate)
 import qualified Data.Text as T
 import Data.Text (Text(..))
-import Data.ByteString.Char8 (split)
 import Data.Maybe (catMaybes)
 
 import Upcast.IO
@@ -29,78 +24,23 @@ import Upcast.Deploy
 import Upcast.DeployCommands
 import Upcast.Command
 import Upcast.Temp
-import Paths_upcast
-
-sequenceMaybe :: Monad m => [m (Maybe a)] -> m (Maybe a)
-sequenceMaybe [] = return Nothing
-sequenceMaybe (act:actions) = act >>= maybe (sequenceMaybe actions) (return . Just)
-
-nixPath :: IO (Maybe String)
-nixPath = sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
-
-context :: String -> [String] -> IO DeployContext
-context file args = do
-    path <- canonicalizePath file
-    env <- getEnvDefault "UPCAST_NIX_FLAGS" ""
-
-    closuresPath <- randomTempFileName "machines."
-    Just upcastNix <- fmap T.pack <$> nixPath
-    nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
-    unattended <- getEnv "UPCAST_UNATTENDED"
-
-    let uuid = "new-upcast-deployment"
-        sshAuthSock = "/dev/null"
-        nixArgs = T.concat [T.pack $ intercalate " " args, " ", T.pack env]
-        expressionFile = T.pack path
-        stateFile = replaceExtension path "store"
-        deployMode = maybe Default (const Unattended) unattended
-
-    return DeployContext{..}
-
-install DeployContext{..} machines = do
-    installs <- mapM installP machines
-    mapConcurrently go installs
-    return ()
-  where
-    fgrun' = expect ExitSuccess "install step failed" . fgrun
-
-    installP :: Machine -> IO Install
-    installP i_machine@Machine{..} = do
-      i_closure <- readSymbolicLink $ closuresPath </> (T.unpack m_hostname)
-      i_paths <- (fmap (split '\n') . fgconsume_ . nixClosure) $ i_closure
-      let i_sshClosureCache = fmap (Remote Nothing) nixSSHClosureCache
-      return Install{..}
-      where
-        i_remote = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
-
-    baseCommands = [ ssh sshAuthSock . nixTrySubstitutes
-                   , nixCopyClosureTo sshAuthSock
-                   , ssh sshAuthSock . nixSetProfile
-                   , ssh sshAuthSock . nixSwitchToConfiguration
-                   ]
-
-    go :: Install -> IO ()
-    go install@Install{i_sshClosureCache = Just (Remote _ cacheHost)} =
-      mapM_ fgrun' $ (ssh sshAuthSock . sshPrepCacheKnownHost):baseCommands <*> pure install
-
-    go install =
-      mapM_ fgrun' $ baseCommands <*> pure install
+import Upcast.Environment
+import Upcast.Install
 
 resources ctx = do
     info <- expectRight $ deploymentInfo ctx
     machines <- evalResources ctx info
     return machines
 
-deploy ctx@DeployContext{..} = do
+deploy ctx@DeployContext{envContext=EnvContext{..}, ..} = do
     machines <- resources ctx
     let nixMachines = filter (\Machine{..} -> m_nix == True) machines
     unless (null nixMachines) $ do
       ctx' <- ctxAuth ctx $ catMaybes $ fmap m_keyFile nixMachines
       when (deployMode /= Unattended) $ do
-        let build = nixBuildMachines ctx' (T.unpack expressionFile) uuid
+        let build = nixBuildMachines ctx' expressionFile uuid
         expect ExitSuccess "nix build of machine closures failed" $ fgrun build
-        return ()
-      install ctx' nixMachines
+      installMachines ctx' nixMachines
 
 ctxAuth :: DeployContext -> [Text] -> IO DeployContext
 ctxAuth ctx keyFiles = do
@@ -112,7 +52,7 @@ ctxAuth ctx keyFiles = do
                      Nothing | null keyFiles ->  fallback
                              | otherwise -> setupAgentF sshAddKeyFile keyFiles
 
-    return ctx { sshAuthSock = T.pack agentSocket }
+    return ctx { envContext = (envContext ctx){ sshAuthSock = T.pack agentSocket } }
   where
     fallback = do
       sock <- getEnvDefault "SSH_AUTH_SOCK" ""
@@ -120,29 +60,34 @@ ctxAuth ctx keyFiles = do
       when (null sock) $ fail "SSH_AUTH_SOCK is not set, please setup your ssh agent with necessary keys."
       return sock
 
-infoOnly file args = do
-    info <- expectRight $ context file args >>= deploymentInfo
+infoOnly file = do
+    info <- expectRight $ context file >>= deploymentInfo
     pprint info
 
-debug file args = do
-    ctx@DeployContext{..} <- context file args
+debug file = do
+    ctx@DeployContext{..} <- context file
     info <- expectRight $ deploymentInfo ctx
     machines <- debugEvalResources ctx info
     return ()
 
-fgcmd f file args = do
-    ctx@DeployContext{..} <- context file args
-    let build = f ctx (T.unpack expressionFile) uuid
-    fgrun build
-    return ()
+buildOnly file = do
+    ctx@DeployContext{..} <- context file
+    expect ExitSuccess "build failed" $
+      fgrun $ nixBuildMachines ctx expressionFile uuid
 
-buildOnly = fgcmd nixBuildMachines
-instantiateOnly = fgcmd nixInstantiateMachines
+instantiateOnly file = do
+    ctx@DeployContext{..} <- context file
+    tmp <- randomTempFileName "drvlink."
+    expect ExitSuccess "instantiation failed" $ do
+      fgrun $ nixInstantiateMachines ctx expressionFile uuid tmp
+    drvPath <- readSymbolicLink tmp
+    removeFile tmp
+    putStrLn drvPath
 
-run file args = context file args >>= deploy
+run file = context file >>= deploy
 
-sshConfig file args =
-    context file args >>= resources >>= putStrLn . intercalate "\n" . fmap config
+sshConfig file =
+    context file >>= resources >>= putStrLn . intercalate "\n" . fmap config
   where
     identity (Just file) = T.concat ["\n    IdentityFile ", file, "\n"]
     identity Nothing = ""
@@ -173,17 +118,35 @@ main = do
                         , prefColumns = 80
                         }
 
-    args comm = comm <$> argument str exp <*> many (argument str nixArgs)
+    args comm = comm <$> argument str exp
     exp = metavar "<expression>"
-    nixArgs = metavar "nix arguments..."
 
     opts = (subparser cmds) `info` header "upcast - infrastructure orchestratrion"
 
-    cmds = command "run" (args run `info` progDesc "evaluate resources, run builds and deploy")
-        <> command "instantiate" (args instantiateOnly `info` progDesc "perform instantiation of all machine closures")
-        <> command "build" (args buildOnly `info` progDesc "perform a build of all machine closures")
-        <> command "ssh-config" (args sshConfig `info` progDesc "dump ssh config for deployment (evaluates resources)")
-        <> command "resource-info" (args infoOnly `info` progDesc "dump resource information in json format")
-        <> command "resource-debug" (args debug `info` progDesc "evaluate resources in debugging mode")
-        <> command "nix-path" (pure printNixPath `info` progDesc "print effective path to upcast nix expressions")
+    cmds = command "run"
+           (args run `info` progDesc "evaluate resources, run builds and deploy")
+        <> command "instantiate"
+           (args instantiateOnly `info`
+             progDesc "perform instantiation of all machine closures")
+        <> command "build"
+           (args buildOnly `info` progDesc "perform a build of all machine closures")
+        <> command "ssh-config"
+           (args sshConfig `info`
+             progDesc "dump ssh config for deployment (evaluates resources)")
+        <> command "resource-info"
+           (args infoOnly `info` progDesc "dump resource information in json format")
+        <> command "resource-debug"
+           (args debug `info` progDesc "evaluate resources in debugging mode")
+        <> command "nix-path"
+           (pure printNixPath `info`
+             progDesc "print effective path to upcast nix expressions")
+        <> command "install"
+           (install <$> installCli `info` progDesc "install system closure over ssh")
 
+    installCli :: Parser InstallCli
+    installCli = InstallCli
+                 <$> strOption (long "target"
+                                <> short 't'
+                                <> metavar "ADDRESS"
+                                <> help "SSH-accessible host that contains Nix")
+                 <*> argument str (metavar "CLOSURE")

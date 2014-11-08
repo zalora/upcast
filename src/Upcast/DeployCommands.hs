@@ -3,6 +3,7 @@
 module Upcast.DeployCommands where
 
 import Data.Text (Text)
+import Data.Monoid (mconcat)
 
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.Char8 (intercalate, split)
@@ -13,8 +14,8 @@ import Upcast.Nix
 import Upcast.Types
 import Upcast.Command
 
-nixBaseOptions :: DeployContext -> String
-nixBaseOptions DeployContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
+nixBaseOptions :: EnvContext -> String
+nixBaseOptions EnvContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
 
 sshBaseOptions :: String
 sshBaseOptions = [n|-A -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
@@ -32,9 +33,9 @@ sshListKeys :: FilePath -> Command Local
 sshListKeys socket = Cmd Local [n|env SSH_AUTH_SOCK=#{socket} ssh-add -l|] "agent"
 
 nixDeploymentInfo :: DeployContext -> String -> String -> Command Local
-nixDeploymentInfo ctx expr uuid =
+nixDeploymentInfo DeployContext{envContext} expr uuid =
     Cmd Local [n|
-      nix-instantiate #{nixBaseOptions ctx}
+      nix-instantiate #{nixBaseOptions envContext}
       --arg networkExprs '#{expr}'
       --argstr uuid #{uuid}
       '<upcast/eval-deployment.nix>'
@@ -43,9 +44,9 @@ nixDeploymentInfo ctx expr uuid =
     |] "info"
 
 nixBuildMachines :: DeployContext -> String -> String -> Command Local
-nixBuildMachines ctx@DeployContext{closuresPath} expr uuid =
+nixBuildMachines DeployContext{closuresPath, envContext} expr uuid =
     Cmd Local [n|
-      nix-build #{nixBaseOptions ctx}
+      nix-build #{nixBaseOptions envContext}
       --arg networkExprs '#{expr}'
       --argstr uuid #{uuid}
       '<upcast/eval-deployment.nix>'
@@ -53,29 +54,35 @@ nixBuildMachines ctx@DeployContext{closuresPath} expr uuid =
       -o #{closuresPath}
     |] "build"
 
-nixInstantiateMachines :: DeployContext -> String -> String -> Command Local
-nixInstantiateMachines ctx expr uuid =
+nixInstantiateMachines :: DeployContext -> String -> String -> String -> Command Local
+nixInstantiateMachines DeployContext{envContext} expr uuid root =
     Cmd Local [n|
-      nix-instantiate #{nixBaseOptions ctx}
+      nix-instantiate #{nixBaseOptions envContext}
       --read-write-mode
       --argstr system x86_64-linux
       --arg networkExprs '#{expr}'
       --argstr uuid '#{uuid}'
+      --add-root '#{root}'
+      --indirect
       '<upcast/eval-deployment.nix>'
       -A remoteMachines
     |] "instantiate"
 
 nixCopyClosureTo :: Show a => a -> Install -> Command Local
 nixCopyClosureTo sshAuthSock Install{ i_remote = (Remote _ host), i_closure = path } =
-    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] host
+    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] $ mconcat [host, ":copyto"]
+
+nixCopyClosureFrom :: Install -> Command Remote
+nixCopyClosureFrom Install{i_remote, i_closure, i_sshClosureCache=Just (Remote _ host)} =
+    Cmd i_remote [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --from #{host} #{i_closure} --gzip|] $ "copyfrom"
 
 nixSetProfile :: Install -> Command Remote
 nixSetProfile Install{i_closure, i_remote = r@(Remote _ host)} =
-    Cmd r [n|nix-env -p /nix/var/nix/profiles/system --set "#{i_closure}"|] host
+    Cmd r [n|nix-env -p /nix/var/nix/profiles/system --set "#{i_closure}"|] "set-profile"
 
 nixSwitchToConfiguration :: Install -> Command Remote
 nixSwitchToConfiguration Install{i_remote = r@(Remote _ host)} =
-    Cmd r [n|env NIXOS_NO_SYNC=1 /nix/var/nix/profiles/system/bin/switch-to-configuration switch|] host
+    Cmd r [n|env NIXOS_NO_SYNC=1 /nix/var/nix/profiles/system/bin/switch-to-configuration switch|] "switch"
 
 nixClosure :: FilePath -> Command Local
 nixClosure path =
@@ -85,16 +92,22 @@ nixTrySubstitutes :: Install -> Command Remote
 nixTrySubstitutes Install{i_remote = r@(Remote _ host), i_sshClosureCache = Just (Remote _ cache), i_closure} =
     Cmd r [n|nix-store -j4 -r --ignore-unknown
              --option use-ssh-substituter true
-             --option ssh-substituter-hosts #{cache} #{i_closure}|] host
+             --option ssh-substituter-hosts #{cache} #{i_closure}|] "try-substitutes"
 nixTrySubstitutes Install{i_remote = r@(Remote _ host), i_paths} =
-    Cmd r [n|nix-store -j4 -r --ignore-unknown #{intercalate " " i_paths}|] host
+    Cmd r [n|nix-store -j4 -r --ignore-unknown #{intercalate " " i_paths}|] "try-substitutes"
 
 sshPrepCacheKnownHost :: Install -> Command Remote
 sshPrepCacheKnownHost Install{i_remote = r@(Remote _ host), i_sshClosureCache = Just (Remote _ known)} =
-    Cmd r [n|ssh-keygen -R #{knownHost}; ssh-keyscan -t rsa,dsa #{knownHost} > ~/.ssh/known_hosts|] host
+    Cmd r [n|ssh-keygen -R #{knownHost}; ssh-keyscan -t rsa,dsa #{knownHost} > ~/.ssh/known_hosts|] "prep-cache-known-host"
   where
-    [_, knownHost] = split '@' $ C8.pack known
+    knownHost = case split '@' $ C8.pack known of
+                    [_, a] -> a
+                    _ -> error "ssh closure cache must look like `user@hostname'."
 
-ssh :: Text -> Command Remote -> Command Local
-ssh sshAuthSock (Cmd (Remote _ host) cmd desc) =
-    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] desc
+sshA :: Text -> Command Remote -> Command Local
+sshA sshAuthSock (Cmd (Remote _ host) cmd desc) =
+    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
+
+ssh :: Command Remote -> Command Local
+ssh (Cmd (Remote _ host) cmd desc) =
+    Cmd Local [n|ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]

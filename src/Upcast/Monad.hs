@@ -1,14 +1,17 @@
 module Upcast.Monad (
 -- * re-exports
-  (<$>)
+  module Control.Applicative
 
 , (<=<)
 , ap
 , join
 , when
+, unless
 , foldM
 , mapM
 , mapM_
+
+, (<<<)
 
 , liftIO
 
@@ -20,7 +23,8 @@ module Upcast.Monad (
 , mapMBoth_
 ) where
 
-import Control.Applicative ((<$>))
+import Control.Applicative
+import Control.Arrow ((<<<))
 import Control.Monad
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Resource (runResourceT, liftResourceT, MonadResource(..))
