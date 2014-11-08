@@ -33,6 +33,7 @@ $ awk 'NR==1 {print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys # assuming you
 $ cabal install
 
 ## fill in your ec2 vpc account information (look into other examples/ files to provision a VPC)
+$ cp examples/ec2-info.nix{.example,}
 $ vim examples/ec2-info.nix
 
 ## execute the deployment
