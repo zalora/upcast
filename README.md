@@ -23,20 +23,28 @@ Available commands:
 
 
 ```console
+## see https://github.com/zalora/nixpkgs
 $ export NIX_PATH=nixpkgs=/path/to/zalora/nixpkgs:$NIX_PATH
-$ awk 'NR==1{print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys # assuming you used nixops
-$ cabal install
-$ upcast run my-network.nix
-```
 
-See example deployments in `examples/`.
+## prepare credentials
+$ awk 'NR==1 {print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys # assuming you used nixops
+
+## build upcast
+$ cabal install
+
+## fill in your ec2 vpc account information (look into other examples/ files to provision a VPC)
+$ vim examples/ec2-info.nix
+
+## execute the deployment
+$ upcast run examples/vpc-nix-instance.nix
+```
 
 ### Goals
 
 - simplicity, extensibility;
 - shared state stored as nix expressions next to machines expressions;
 - first-class AWS support (including AWS features nixops doesn't have);
-- minimum dependency of network latency of the client (see section "Network performance");
+- pleasant user experience and network performance (see below);
 - support for running day-to-day operations on deployed resources, services and machines.
 
 ### Notable differences from NixOps
