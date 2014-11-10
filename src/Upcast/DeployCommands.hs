@@ -80,9 +80,13 @@ nixInstantiateMachines NixContext{..} root =
 nixRealise :: FilePath -> Command Local
 nixRealise drv = Cmd Local [n|nix-store --realise #{drv}|] "realise"
 
-nixCopyClosureTo :: Install -> Command Local
-nixCopyClosureTo Install{ i_remote = (Remote _ host), i_closure = path } =
+nixCopyClosureTo :: String -> FilePath -> Command Local
+nixCopyClosureTo host path =
     Cmd Local [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] $ mconcat [host, ":copyto"]
+
+nixCopyClosureToI :: Install -> Command Local
+nixCopyClosureToI Install{ i_remote = (Remote _ host), i_closure = path } =
+    nixCopyClosureTo host path
 
 nixCopyClosureFrom :: String -> Install -> Command Remote
 nixCopyClosureFrom from  Install{i_remote, i_closure} =

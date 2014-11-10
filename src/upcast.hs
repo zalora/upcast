@@ -14,10 +14,11 @@ import qualified Data.Text as T
 import Data.Text (Text(..))
 import Data.Maybe (catMaybes)
 import qualified Data.Map as Map
+import qualified Data.ByteString.Char8 as B8
 
 import Upcast.Types
 import Upcast.IO
-import Upcast.Interpolate (nl)
+import Upcast.Interpolate (nl, n)
 import Upcast.Nix
 import Upcast.Infra
 import Upcast.DeployCommands
@@ -74,6 +75,16 @@ buildThenInstall ctx dm machines = do
 build :: FilePath -> IO ()
 build = nixContext >=>
   expect ExitSuccess "build failed" .  fgrun . flip nixBuildMachines Nothing
+
+buildRemote :: BuildRemoteCli -> IO ()
+buildRemote BuildRemoteCli{..} = do
+  let remote = Remote Nothing brc_builder
+  nix <- nixContext brc_expressionFile
+  drv <- instantiateTmp nix
+  srsly "nix-copy-closure failed" . fgrun $ nixCopyClosureTo brc_builder drv
+  srsly "realise failed" . fgrun . ssh . forward remote $ nixRealise drv
+  p <- fgconsume_ . ssh $ Cmd remote [n|cat $(nix-store -qu #{drv})|] "query"
+  B8.putStrLn p
 
 instantiate :: FilePath -> IO ()
 instantiate = nixContext >=> instantiateTmp >=> putStrLn
@@ -150,6 +161,10 @@ main = do
            (args build `info`
             progDesc "nix-build all NixOS closures")
 
+        <> command "build-remote"
+           (buildRemote <$> buildRemoteCli `info`
+            progDesc "nix-build all NixOS closures remotely")
+
         <> command "nix-path"
            (pure printNixPath `info`
             progDesc "print effective path to upcast nix expressions")
@@ -158,7 +173,6 @@ main = do
            (install <$> installCli `info`
             progDesc "install nix environment-like closure over ssh")
 
-    installCli :: Parser InstallCli
     installCli = InstallCli
                  <$> strOption (long "target"
                                 <> short 't'
@@ -171,3 +185,10 @@ main = do
                                 <> help "attach CLOSURE to PROFILE (otherwise system)"))
                  <*> pullOption
                  <*> argument str (metavar "CLOSURE")
+
+    buildRemoteCli = BuildRemoteCli
+                     <$> strOption (long "target"
+                                    <> short 't'
+                                    <> metavar "ADDRESS"
+                                    <> help "SSH-accessible host with Nix")
+                     <*> argument str exp

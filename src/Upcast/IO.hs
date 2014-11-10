@@ -4,6 +4,7 @@ module Upcast.IO (
 , applyColor
 , oops
 , expect
+, srsly
 , expectRight
 , warn
 , warn8
@@ -12,6 +13,7 @@ module Upcast.IO (
 
 import System.IO
 import System.IO.Unsafe (unsafePerformIO)
+import System.Exit (ExitCode(..))
 import Control.Exception
 
 import Data.Monoid (mconcat)
@@ -43,6 +45,9 @@ expect value excuse action = do
   case result of
       x | x == value -> return ()
       _ -> oops excuse
+
+srsly :: String -> IO ExitCode -> IO ()
+srsly = expect ExitSuccess
 
 expectRight :: IO (Either String a) -> IO a
 expectRight action = do

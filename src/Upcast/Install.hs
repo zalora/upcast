@@ -70,7 +70,7 @@ go dm install@Install{i_paths} = do
 
 
   case dm of
-      Push -> fgrun' . nixCopyClosureTo $ install
+      Push -> fgrun' . nixCopyClosureToI $ install
       Pull from -> fgssh . nixCopyClosureFrom from $ install
 
   fgssh . nixSetProfile $ install

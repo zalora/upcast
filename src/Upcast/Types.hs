@@ -65,3 +65,8 @@ data RunCli = RunCli
             , rc_expressionFile :: FilePath
             }
 
+-- | CLI arguments to 'buildRemote'.
+data BuildRemoteCli = BuildRemoteCli
+                    { brc_builder :: String
+                    , brc_expressionFile :: FilePath
+                    }
