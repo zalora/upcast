@@ -8,7 +8,7 @@
            , QuasiQuotes
            #-}
 
-module Upcast.Resource.Ec2 where
+module Upcast.Infra.Ec2 where
 
 import Control.Applicative
 import Control.Monad
@@ -37,8 +37,8 @@ import qualified Aws.Ec2 as EC2
 
 import Upcast.Interpolate (n)
 import Upcast.ATerm (alookupS)
-import Upcast.Resource.Types
-import Upcast.Resource.ELB
+import Upcast.Infra.Types
+import Upcast.Infra.ELB
 
 
 createVPC vpcs defTags = do
@@ -210,7 +210,7 @@ attachEBS instanceA volumeA = do
                       False -> error $ mconcat ["can't handle disk: ", T.unpack t]
 
 
-ec2plan :: (MonadFree ResourceF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> UserDataA -> m [(Text, Value, Value)]
+ec2plan :: (MonadFree InfraF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> UserDataA -> m [(Text, Value, Value)]
 ec2plan expressionName keypairs info userDataA = do
     mapM_ (\k -> aws1 k "keyFingerprint") keypairs
 

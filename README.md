@@ -8,17 +8,17 @@ Its nix codebase (and, by extension, its interface) was started off by copying f
 ```console
 upcast - infrastructure orchestratrion
 
-Usage: upcast COMMAND
+Usage: <interactive> COMMAND
 
 Available commands:
-  run                      evaluate resources, run builds and deploy
-  build                    perform a build of all machine closures
-  instantiate              perform instantiation of all machine closures
-  ssh-config               dump ssh config for deployment (evaluates resources)
-  resource-info            dump resource information in json format
-  resource-debug           evaluate resources in debugging mode
+  run                      evaluate infrastructure, run builds and deploy
+  infra                    evaluate infrastructure and output ssh_config(5)
+  infra-tree               dump infrastructure tree in json format
+  infra-debug              evaluate infrastructure in debug mode
+  instantiate              nix-instantiate all NixOS closures
+  build                    nix-build all NixOS closures
   nix-path                 print effective path to upcast nix expressions
-  install                  install system closure over ssh
+  install                  install nix environment-like closure over ssh
 ```
 
 
@@ -46,14 +46,13 @@ $ upcast run examples/vpc-nix-instance.nix
 - shared state stored as nix expressions next to machines expressions;
 - first-class AWS support (including AWS features nixops doesn't have);
 - pleasant user experience and network performance (see below);
-- support for running day-to-day operations on deployed resources, services and machines.
+- support for running day-to-day operations on infrastructure, services and machines.
 
 ### Notable differences from NixOps
 
 #### Expression files
 
-- You can no longer specify the machine environment using `deployment.targetEnv`, now you need to explicitly include the resource module instead.
-  Currently available modules are: `<upcast/env-ec2.nix>`.
+- You can no longer specify the machine environment using `deployment.targetEnv`, now you need to explicitly include a module instead (currently available: `<upcast/env-ec2.nix>`).
 - You can deploy an EC2 instance that does not use nix in its base AMI by using `deployment.nix = false;` (you won't be able to deploy a nix closure to such machine)>
 
 #### Operation modes
@@ -63,7 +62,9 @@ $ upcast run examples/vpc-nix-instance.nix
 - Physical specs are removed
   - Identical machines get identical machine closures, they are no longer parametric by things like hostnames (these are configured at runtime).
 
-#### Resources
+#### Infrastructure services
+
+(this is what used to be called `resources` in NixOps)
 
 - New: EC2-VPC support, ELB support;
 - Additionally planned: AWS autoscaling, EBS snapshotting;
@@ -154,7 +155,7 @@ Host *
 
 - you have to use [zalora's fork of nixpkgs with upcast](https://github.com/zalora/nixpkgs)
 - state files are not garbage collected, have to be often cleaned up manually;
-- altering of most resources is not supported properly (you need to remove using aws cli, cleanup the state file and try again);
+- altering infra state is not supported properly (you need to remove using aws cli, cleanup the state file and try again);
 - word "aterm" is naming a completely different thing;
 
 Note: the app is currently in HEAVY development (and is already being used to power production cloud instances)

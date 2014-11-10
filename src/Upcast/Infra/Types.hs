@@ -7,7 +7,7 @@
            , TypeFamilies
            #-}
 
-module Upcast.Resource.Types where
+module Upcast.Infra.Types where
   
 import Control.Applicative
 import Control.Monad (mzero)
@@ -74,31 +74,31 @@ data TX = forall r. (ServiceConfiguration r ~ QueryAPIConfiguration, Transaction
 -- | Transaction that needs a result, obtained from a Value by Text-typed keypath
 data TXR = TXR TX Text
 
-data ResourceF next = AWS TX next
+data InfraF next = AWS TX next
                     | AWSR TXR (Text -> next)
                     | AWSV TX (Value -> next)
                     | Log Text next
                     | Wait TX next
                     | AWS53CRR R53.ChangeResourceRecordSets (Text -> next)
                     deriving (Functor)
-type ResourcePlan = Free ResourceF
+type InfraPlan = Free InfraF
 
-aws_ :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
+aws_ :: (MonadFree InfraF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
 aws_ tx = liftF (AWS (TX tx) ())
 
-aws1 :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> Text -> m Text
+aws1 :: (MonadFree InfraF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> Text -> m Text
 aws1 tx k = liftF (AWSR (TXR (TX tx) k) id)
 
-aws :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m Value
+aws :: (MonadFree InfraF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m Value
 aws tx = liftF (AWSV (TX tx) id)
 
-awslog :: MonadFree ResourceF m => Text -> m ()
+awslog :: MonadFree InfraF m => Text -> m ()
 awslog text = liftF (Log text ())
 
-wait :: (MonadFree ResourceF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
+wait :: (MonadFree InfraF m, ServiceConfiguration r ~ QueryAPIConfiguration, Transaction r Value) => r -> m ()
 wait tx = liftF (Wait (TX tx) ())
 
-aws53crr :: MonadFree ResourceF m => R53.ChangeResourceRecordSets -> m Text
+aws53crr :: MonadFree InfraF m => R53.ChangeResourceRecordSets -> m Text
 aws53crr crr = liftF (AWS53CRR crr id)
 
 type InstanceA = [(Text, (Text, [(Text, Value)]))] -- | (name (id, blockdevices))

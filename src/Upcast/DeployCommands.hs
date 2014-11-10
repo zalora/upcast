@@ -13,6 +13,7 @@ import Upcast.Interpolate (n)
 import Upcast.Nix
 import Upcast.Types
 import Upcast.Command
+import Upcast.Temp (randomTempFileName)
 
 nixBaseOptions :: EnvContext -> String
 nixBaseOptions EnvContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
@@ -31,6 +32,17 @@ sshAddKeyFile socket keyFile = Cmd Local [n|env SSH_AUTH_SOCK=#{socket} SSH_ASKP
 
 sshListKeys :: FilePath -> Command Local
 sshListKeys socket = Cmd Local [n|env SSH_AUTH_SOCK=#{socket} ssh-add -l|] "agent"
+
+setupAgent :: [Text] -> IO FilePath
+setupAgent privkeys = setupAgentF sshAddKey privkeys
+
+setupAgentF :: (FilePath -> a -> Command Local) -> [a] -> IO FilePath
+setupAgentF liftKey keyvals = do
+    agentSocket <- randomTempFileName "ssh-agent.sock."
+    spawn $ sshAgent agentSocket
+    mapM_ (fgrun . liftKey agentSocket) $ keyvals
+    fgrun $ sshListKeys agentSocket
+    return agentSocket
 
 nixDeploymentInfo :: DeployContext -> String -> String -> Command Local
 nixDeploymentInfo DeployContext{envContext} expr uuid =

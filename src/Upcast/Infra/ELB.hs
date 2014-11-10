@@ -6,7 +6,7 @@
            , LambdaCase
            #-}
 
-module Upcast.Resource.ELB where
+module Upcast.Infra.ELB where
 
 import Control.Applicative
 import Control.Monad
@@ -30,7 +30,7 @@ import qualified Aws.Route53 as R53
 import qualified Aws.Ec2 as EC2
 import qualified Aws.Elb as ELB
 
-import Upcast.Resource.Types
+import Upcast.Infra.Types
 
 instance FromJSON ELB.LbProtocol where
     parseJSON (String "http")  = pure ELB.HTTP
@@ -43,7 +43,7 @@ data R53Alias = R53Alias Text R53.HostedZoneId
 
 catTuples = foldr (\(ls, sp) (lss, sps) -> (ls:lss, sp:sps)) ([], [])
 
-elbPlan :: (MonadFree ResourceF m, Functor m)
+elbPlan :: (MonadFree InfraF m, Functor m)
         => InstanceA
         -> [(Text, Text)]
         -> [(Text, Text)]

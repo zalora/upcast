@@ -9,7 +9,7 @@
            , LambdaCase
            #-}
 
-module Upcast.Resource where
+module Upcast.Infra where
 
 import Prelude hiding (sequence)
 
@@ -57,10 +57,10 @@ import Upcast.Command (fgconsume_, Command(..), Local(..))
 
 import Upcast.TermSubstitution
 
-import Upcast.Resource.Types
-import Upcast.Resource.Ec2
+import Upcast.Infra.Types
+import Upcast.Infra.Ec2
 
--- | ReaderT context ResourcePlan evaluates in.
+-- | ReaderT context InfraPlan evaluates in.
 data EvalContext = EvalContext
                { mgr :: HTTP.Manager
                , awsConf :: Aws.Configuration
@@ -90,7 +90,7 @@ substitute_ state key action = liftIO $ do
     -- T.hPutStrLn stderr key
     substitute state key (action >> return Null)
 
-evalPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext (ResourceT IO) a
+evalPlan :: SubStore -> InfraPlan a -> ReaderT EvalContext (ResourceT IO) a
 evalPlan state (Free (AWSR (TXR tx keyPath) next)) = do
     sub@(t, state', val) <- ask >>= liftResourceT . substituteTX state tx
     let result = acast keyPath val :: Text
@@ -130,7 +130,7 @@ txshow tx = do
     EvalContext{qapi} <- ask
     rqBody tx qapi
 
-debugPlan :: SubStore -> ResourcePlan a -> ReaderT EvalContext IO a
+debugPlan :: SubStore -> InfraPlan a -> ReaderT EvalContext IO a
 debugPlan state (Free (AWSR (TXR (TX tx) keyPath) next)) = do
     txshow tx >>= liftIO . T.putStrLn
     debugPlan state $ next "dbg-00000"
@@ -218,18 +218,18 @@ prepareKeyPairs info =
         pubkey <- fgconsume_ $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack kPK, " -y"]) "ssh-keygen"
         return [(kPK, EC2.ImportKeyPair kName $ T.decodeUtf8 $ Base64.encode pubkey)]
 
-toMachine k (h, reportedInfo, resourceInfo) = Machine h
+toMachine k (h, reportedInfo, infraInfo) = Machine h
                                 (cast "instancesSet.ipAddress" :: Text)
                                 (cast "instancesSet.privateIpAddress" :: Text)
                                 (cast "instancesSet.instanceId" :: Text)
                                 k
-                                (acast "nix" resourceInfo :: Bool)
+                                (acast "nix" infraInfo :: Bool)
   where
     cast :: FromJSON a => Text -> a
     cast = (`acast` reportedInfo)
 
-debugEvalResources :: DeployContext -> Value -> IO [Machine]
-debugEvalResources ctx@DeployContext{..} info = do
+debugEvalInfra :: DeployContext -> Value -> IO [Machine]
+debugEvalInfra ctx@DeployContext{..} info = do
     let region = "us-east-1"
     let (keypair, keypairs) = (Nothing, [])
 
@@ -247,8 +247,8 @@ debugEvalResources ctx@DeployContext{..} info = do
   where
     name = T.pack $ snd $ splitFileName $ expressionFile
 
-evalResources :: DeployContext -> Value -> IO [Machine]
-evalResources ctx@DeployContext{..} info = do
+evalInfra :: DeployContext -> Value -> IO [Machine]
+evalInfra ctx@DeployContext{..} info = do
     region <- let regions = L.nub $ findRegions [] info
                   in case regions of
                        reg:[] -> return reg

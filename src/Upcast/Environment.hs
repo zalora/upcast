@@ -8,13 +8,18 @@ import System.FilePath.Posix
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Text as T
+import Data.Text (Text)
 import qualified Data.Map as Map
 
 import Data.Aeson (decodeStrict)
 
 import Upcast.Monad
+import Upcast.IO
 import Upcast.Types
 import Upcast.Temp
+import Upcast.Command
+import Upcast.DeployCommands (setupAgentF, sshAddKeyFile)
+
 import Paths_upcast
 
 sequenceMaybe :: Monad m => [m (Maybe a)] -> m (Maybe a)
@@ -47,4 +52,24 @@ context file = do
         closureSubstitutes = maybe Map.empty id $ join $ decodeStrict . BS.pack <$> subs
 
     return DeployContext{..}
+
+ctxAuth :: DeployContext -> [Text] -> IO DeployContext
+ctxAuth ctx keyFiles = do
+    userAuthSock <- getEnv "UPCAST_SSH_AUTH_SOCK"
+    agentSocket <- case userAuthSock of
+                     Just sock -> do
+                        warn ["Using UPCAST_SSH_AUTH_SOCK: ", sock]
+                        return sock
+                     Nothing | null keyFiles ->  fallback
+                             | otherwise -> setupAgentF sshAddKeyFile keyFiles
+
+    return ctx { envContext = (envContext ctx){ sshAuthSock = T.pack agentSocket } }
+  where
+    fallback = do
+      sock <- getEnvDefault "SSH_AUTH_SOCK" ""
+      warn [ "None of instances reference ssh key files, using SSH_AUTH_SOCK ("
+           , show sock, ")."]
+      when (null sock) $
+        fail "SSH_AUTH_SOCK is not set, please setup your ssh agent with necessary keys."
+      return sock
 
