@@ -17,6 +17,7 @@ Available commands:
   infra-debug              evaluate infrastructure in debug mode
   instantiate              nix-instantiate all NixOS closures
   build                    nix-build all NixOS closures
+  build-remote             nix-build all NixOS closures remotely
   nix-path                 print effective path to upcast nix expressions
   install                  install nix environment-like closure over ssh
 ```
@@ -77,65 +78,80 @@ $ upcast run examples/vpc-nix-instance.nix
 
 ![motivation](http://i.imgur.com/HY2Gtk5.png)
 
-### Network performance
+### Cookbook
 
-> tl;dr: do all of these steps if you're using a Mac and/or like visting Starbucks
+#### Nix-profile uploads
 
-#### Configuring remote builds
+Read more about [Nix profiles](http://nixos.org/nix/manual/#sec-profiles) here.
 
-Add the following to your shell profile (this is a must if you are using Darwin, otherwise package builds will fail):
-
-```bash
-export NIX_BUILD_HOOK="$HOME/.nix-profile/libexec/nix/build-remote.pl"
-export NIX_REMOTE_SYSTEMS="$HOME/remote-systems.conf"
-export NIX_CURRENT_LOAD="/tmp/remote-load"
-```
-
-`remote-systems.conf` must follow a special format described
-in [this Nix wiki page](https://nixos.org/wiki/Distributed_build)
-and [chapter 6 of Nix manual](http://nixos.org/nix/manual/#chap-distributed-builds).
-`NIX_CURRENT_LOAD` should point to a directory.
-
-#### Making instances download packages from a different host over ssh (a closure cache)
-
-This is useful if one of your remote systems is accessible over ssh and has
-better latency to the instance than the machine you run Upcast on.
-
-The key to that host must be already available in your ssh-agent.
-Inherently, you also should propagate ssh keys of your instances to that ssh-agent in this case.
+Install a system closure to any NixOS system (`system` profile) and switch to it.
 
 ```bash
-export UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com
-```
-
-#### Adhoc installations
-
-Install NixOS system closure and switch configuration in one command!
-
-```bash
-builder=user@hydra.com
-
-# building the whole thing
-upcast instantiate examples/vpc-nix-instance.nix | {read drv; nix-copy-closure --to $builder $drv 2>/dev/null && ssh $builder "nix-store --realise $drv 2>/dev/null && cat $(nix-store -qu $drv)"}
-
-# copying store path from the previous build
+# assuming the closure was built earlier
 upcast install -t ec2-55-99-44-111.eu-central-1.compute.amazonaws.com /nix/store/72q9sd9an61h0h1pa4ydz7qa1cdpf0mj-nixos-14.10pre-git
 ```
 
-#### Unattended builds
+Install a [buildEnv](https://github.com/NixOS/nixpkgs/blob/d232390d5dc3dcf912e76ea160aea62f049918e1/pkgs/build-support/buildenv/default.nix) package into a profile (note how handy `build-remote -A` hack is):
 
-No packages build or copied to your host!
+```bash
+env UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com \
+ upcast install -p /nix/var/nix/profiles/per-user/my-scripts -t nixos.megabrain.com $(upcast build-remote -A my-env scripts.nix)
+```
 
-(still working on the UX yet :angel:)
+### Achieving productivity
+
+> tl;dr: do all of these steps if you're using a Mac and/or like visting Starbucks
+
+#### Remote builds and remote deployments
+
+Unlike [Nix distributed builds](http://nixos.org/nix/manual/#chap-distributed-builds)
+packages are not copied back and forth to/from your local machine.
+
+```
+upcast build-remote -t hydra.com examples/vpc-nix-instance.nix
+```
+
+The former is roughly equivalent to:
 
 ```bash
 builder=user@hydra.com
+upcast instantiate examples/vpc-nix-instance.nix | {
+  read drv;
+  nix-copy-closure --to $builder $drv 2>/dev/null &&
+    ssh $builder "nix-store --realise $drv 2>/dev/null && cat $(nix-store -qu $drv)"
+}
+```
 
-upcast instantiate examples/vpc-nix-instance.nix | {read drv; nix-copy-closure --to $builder $drv 2>/dev/null && ssh $builder "nix-store --realise $drv 2>/dev/null && cat $(nix-store -qu $drv)"} | tail -1
-env UPCAST_CLOSURES="<paste the above json line here>" \
-  UPCAST_SSH_CLOSURE_CACHE=$builder \
-  UPCAST_UNATTENDED=1 \
-  upcast run examples/vpc-nix-instance.nix
+This outputs a json string that looks like `{"node":"/nix/store/72q9sd9an61h0h1pa4ydz7qa1cdpf0mj-nixos-14.10pre-git"}`, you can use it as a part of your deployment without having to upload packages from your local store using `run -f`:
+
+```
+upcast run -m '{"node":"/nix/store/72q9sd9an61h0h1pa4ydz7qa1cdpf0mj-nixos-14.10pre-git"}' -f user@hydra.com examples/vpc-nix-instance.nix
+```
+
+If you want to update your existing systems as part of your CI workflow without having to talk to infrastructure services, you can cook something like this:
+
+```
+upcast infra examples/vpc-nix-instance.nix > ssh_config
+
+awk '/^Host/{print $2}' ssh_config | \
+    xargs -I% -P4 -n1 -t ssh -F ssh_config % nix-collect-garbage -d
+
+awk '/^Host/{print $2}' ssh_config | \
+    xargs -I% -P4 -n1 -t upcast install -t % $(upcast build-remote -A some-system blah.nix)
+```
+
+#### Making instances download packages from a different host over ssh (a closure cache)
+
+If you still want to (or have to) build most of the packages locally,
+this is useful if one of your cache systems is accessible over ssh
+and has better latency to the instance than the machine you run Upcast on.  
+
+The key to that host must be already available in your ssh-agent.
+Inherently, you should also propagate ssh keys of your instances to
+that ssh-agent in this case.
+
+```bash
+export UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com
 ```
 
 #### SSH shared connections
@@ -156,6 +172,7 @@ Host *
 - state files are not garbage collected, have to be often cleaned up manually;
 - altering infra state is not supported properly (you need to remove using aws cli, cleanup the state file and try again);
 - word "aterm" is naming a completely different thing;
+- i hardcoded `x86_64-linux` in some places :angel:
 
 Note: the app is currently in HEAVY development (and is already being used to power production cloud instances)
 so interfaces may break without notice.
