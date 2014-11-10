@@ -23,12 +23,17 @@ import Upcast.Command
 import Upcast.DeployCommands
 import Upcast.Environment
 
+fgrun' :: Command Local -> IO ()
 fgrun' = expect ExitSuccess "install step failed" . fgrun
+
+fgssh :: Command Remote -> IO ()
 fgssh = fgrun' . ssh
 
+isLeft :: Either a b -> Bool
 isLeft (Left _) = True
 isLeft _ = False
 
+installMachines :: DeployContext -> [Machine] -> IO ()
 installMachines ctx@DeployContext{envContext=e@EnvContext{..}, ..} machines = do
     installs <- mapM installP machines
     results <- mapConcurrently (try . go e) installs :: IO [Either SomeException ()]
@@ -50,6 +55,7 @@ installMachines ctx@DeployContext{envContext=e@EnvContext{..}, ..} machines = do
       where
         i_remote = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
   
+install :: InstallCli -> IO ()
 install args@InstallCli{..} = do
   env <- readEnvContext
   let i_closure = ic_closure
@@ -65,6 +71,7 @@ go env install@Install{i_sshClosureCache = Just (Remote _ cacheHost)} = do
   go' env install
 go env install = go' env install
 
+go' :: EnvContext -> Install -> IO ()
 go' EnvContext{..} install = do
   if (deployMode /= Unattended)
       then do
