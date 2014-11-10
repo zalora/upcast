@@ -64,8 +64,7 @@ install args@InstallCli{..} = do
       i_paths = []
       i_sshClosureCache = Remote Nothing <$> (nixSSHClosureCache env)
       i_profile = maybe nixSystemProfile id ic_profile
-      i = Install{..}
-  go env i
+  go env Install{..}
 
 go :: EnvContext -> Install -> IO ()
 go env install@Install{i_sshClosureCache = Just (Remote _ cacheHost)} = do
