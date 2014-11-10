@@ -82,16 +82,16 @@ $ upcast run examples/vpc-nix-instance.nix
 
 #### Nix-profile uploads
 
-Read more about [Nix profiles](http://nixos.org/nix/manual/#sec-profiles) here.
+Read more about Nix profiles [here](http://nixos.org/nix/manual/#sec-profiles).
 
-Install a system closure to any NixOS system (`system` profile) and switch to it.
+Install a system closure to any NixOS system (i.e. update `system` profile) and switch to it:
 
 ```bash
 # assuming the closure was built earlier
 upcast install -t ec2-55-99-44-111.eu-central-1.compute.amazonaws.com /nix/store/72q9sd9an61h0h1pa4ydz7qa1cdpf0mj-nixos-14.10pre-git
 ```
 
-Install a [buildEnv](https://github.com/NixOS/nixpkgs/blob/d232390d5dc3dcf912e76ea160aea62f049918e1/pkgs/build-support/buildenv/default.nix) package into a profile (note how handy `build-remote -A` hack is):
+Install a [buildEnv](https://github.com/NixOS/nixpkgs/blob/d232390d5dc3dcf912e76ea160aea62f049918e1/pkgs/build-support/buildenv/default.nix) package into `per-user/my-scripts` profile (note how handy `build-remote -A` hack is):
 
 ```bash
 env UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com \
@@ -100,12 +100,12 @@ env UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com \
 
 ### Achieving productivity
 
-> tl;dr: do all of these steps if you're using a Mac and/or like visting Starbucks
+> tl;dr: do all of these steps if you're using a Mac and/or like visiting Starbucks
 
 #### Remote builds and remote deployments
 
 Unlike [Nix distributed builds](http://nixos.org/nix/manual/#chap-distributed-builds)
-packages are not copied back and forth to/from your local machine.
+packages are not copied back and forth between the instance and your local machine.
 
 ```
 upcast build-remote -t hydra.com examples/vpc-nix-instance.nix
