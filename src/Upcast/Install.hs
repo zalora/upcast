@@ -82,5 +82,6 @@ go' EnvContext{..} install = do
       else do
         fgssh . nixCopyClosureFrom $ install
   fgssh . nixSetProfile $ install
-  fgssh . nixSwitchToConfiguration $ install
+  when (i_profile install == nixSystemProfile) $ do
+    fgssh . nixSwitchToConfiguration $ install
 

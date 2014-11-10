@@ -85,7 +85,7 @@ nixSystemProfile = "/nix/var/nix/profiles/system"
 
 nixSwitchToConfiguration :: Install -> Command Remote
 nixSwitchToConfiguration Install{i_remote = r@(Remote _ host)} =
-    Cmd r [n|env NIXOS_NO_SYNC=1 /nix/var/nix/profiles/system/bin/switch-to-configuration switch|] "switch"
+    Cmd r [n|env NIXOS_NO_SYNC=1 #{nixSystemProfile}/bin/switch-to-configuration switch|] "switch"
 
 nixClosure :: FilePath -> Command Local
 nixClosure path =
