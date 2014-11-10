@@ -14,6 +14,7 @@ import Data.Text (Text(..))
 import Control.Concurrent.Async
 import System.FilePath.Posix
 import System.Posix.Files (readSymbolicLink)
+import System.Posix.Env (getEnv)
 import Data.ByteString.Char8 (split)
 
 import Upcast.Monad
@@ -42,7 +43,7 @@ installMachines dm resolveClosure machines = do
 
     installP :: Machine -> IO Install
     installP Machine{..} = do
-        EnvContext{nixSSHClosureCache} <- readEnvContext
+        nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
         i_closure <- resolveClosure m_hostname
         i_paths <- (fmap (split '\n') . fgconsume_ . nixClosure) $ i_closure
         return Install{..}
@@ -52,7 +53,6 @@ installMachines dm resolveClosure machines = do
   
 install :: InstallCli -> IO ()
 install args@InstallCli{..} = do
-  env <- readEnvContext
   let i_closure = ic_closure
       i_remote = Remote Nothing ic_target
       i_paths = []
@@ -61,7 +61,7 @@ install args@InstallCli{..} = do
 
 go :: DeliveryMode -> Install -> IO ()
 go dm install@Install{i_paths} = do
-  EnvContext{nixSSHClosureCache} <- readEnvContext
+  nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
   case nixSSHClosureCache of
       Just cache -> do
         fgssh $ sshPrepKnownHost cache install

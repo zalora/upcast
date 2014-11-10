@@ -15,18 +15,10 @@ type StorePath = String
 type StorePathBS = ByteString
 type Hostname = Text
 
-data EnvContext = EnvContext
-                { upcastNix :: Text
-                , nixArgs :: Text
-                , nixSSHClosureCache :: Maybe String
-                } deriving (Show)
-
--- | Structure used to carry user (commandline & enviroment) and runtime (currently ssh agent) globals.
-data DeployContext = DeployContext
-                  { expressionFile :: String
-                  , stateFile :: FilePath -- ^ *.store file
-                  , uuid :: String -- ^ Used by nix files, NixOps legacy.
-                  , envContext :: EnvContext
+data NixContext = NixContext
+                  { nix_expressionFile :: FilePath
+                  , nix_args :: Text
+                  , nix_sshClosureCache :: Maybe String
                   } deriving (Show)
 
 data InfraContext = InfraContext
@@ -53,6 +45,11 @@ data Install = Install
              , i_profile :: FilePath
              } deriving (Show)
 
+data DeliveryMode = Push | Pull String
+
+toDelivery :: Maybe String -> DeliveryMode
+toDelivery = maybe Push Pull
+
 -- | CLI arguments to 'install'.
 data InstallCli = InstallCli
                 { ic_target :: String
@@ -67,9 +64,4 @@ data RunCli = RunCli
             , rc_pullFrom :: Maybe String
             , rc_expressionFile :: FilePath
             }
-
-data DeliveryMode = Push | Pull String
-
-toDelivery :: Maybe String -> DeliveryMode
-toDelivery = maybe Push Pull
 

@@ -1,7 +1,7 @@
 { system ? builtins.currentSystem
 , networkExprs
 , checkConfigurationOptions ? false
-, uuid ? "default"
+, uuid ? "new-upcast-deployment"
 , args ? {}
 , internal ? {}
 }:

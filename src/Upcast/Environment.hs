@@ -31,22 +31,15 @@ sequenceMaybe (act:actions) = act >>= maybe (sequenceMaybe actions) (return . Ju
 nixPath :: IO (Maybe String)
 nixPath = sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
 
-readEnvContext :: IO EnvContext
-readEnvContext = do
+nixContext :: FilePath -> IO NixContext
+nixContext nix_expressionFile = do
+    Just upcastPath <- fmap T.pack <$> nixPath
     nixArgs <- T.pack <$> getEnvDefault "UPCAST_NIX_FLAGS" ""
-    nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
-    Just upcastNix <- fmap T.pack <$> nixPath
-    return EnvContext{..}
+    let nix_args = " -I upcast=" <> upcastPath <> " " <> nixArgs <> " --show-trace "
 
-context :: String -> IO DeployContext
-context file = do
-    expressionFile <- canonicalizePath file
-    envContext <- readEnvContext
+    nix_sshClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
 
-    let uuid = "new-upcast-deployment"
-        stateFile = replaceExtension expressionFile "store"
-
-    return DeployContext{..}
+    return NixContext{..}
 
 parseSubstitutesMap :: String -> ReadM (Map Text StorePath)
 parseSubstitutesMap s =

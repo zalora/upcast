@@ -15,9 +15,6 @@ import Upcast.Types
 import Upcast.Command
 import Upcast.Temp (randomTempFileName)
 
-nixBaseOptions :: EnvContext -> String
-nixBaseOptions EnvContext{..} = [n| -I upcast=#{upcastNix} #{nixArgs} --show-trace |]
-
 sshBaseOptions :: String
 sshBaseOptions = [n|-A -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
 
@@ -44,23 +41,21 @@ setupAgentF liftKey keyvals = do
     fgrun $ sshListKeys agentSocket
     return agentSocket
 
-nixDeploymentInfo :: DeployContext -> String -> String -> Command Local
-nixDeploymentInfo DeployContext{envContext} expr uuid =
+nixDeploymentInfo :: NixContext -> Command Local
+nixDeploymentInfo NixContext{..} =
     Cmd Local [n|
-      nix-instantiate #{nixBaseOptions envContext}
-      --arg networkExprs '#{expr}'
-      --argstr uuid #{uuid}
+      nix-instantiate #{nix_args}
+      --arg networkExprs '#{nix_expressionFile}'
       '<upcast/eval-deployment.nix>'
       --eval-only --strict --read-write-mode
       -A info
     |] "info"
 
-nixBuildMachines :: DeployContext -> Maybe FilePath -> Command Local
-nixBuildMachines DeployContext{..} closuresPath =
+nixBuildMachines :: NixContext -> Maybe FilePath -> Command Local
+nixBuildMachines NixContext{..} closuresPath =
     Cmd Local [n|
-      nix-build #{nixBaseOptions envContext}
-      --arg networkExprs '#{expressionFile}'
-      --argstr uuid #{uuid}
+      nix-build #{nix_args}
+      --arg networkExprs '#{nix_expressionFile}'
       '<upcast/eval-deployment.nix>'
       #{outLink}
     |] "build"
@@ -69,14 +64,13 @@ nixBuildMachines DeployContext{..} closuresPath =
                   Nothing -> [n|-A remoteMachines --no-out-link|]
                   Just o -> [n|-A machines -o #{o}|]
 
-nixInstantiateMachines :: DeployContext -> String -> Command Local
-nixInstantiateMachines DeployContext{..} root =
+nixInstantiateMachines :: NixContext -> FilePath -> Command Local
+nixInstantiateMachines NixContext{..} root =
     Cmd Local [n|
-      nix-instantiate #{nixBaseOptions envContext}
+      nix-instantiate #{nix_args}
       --read-write-mode
       --argstr system x86_64-linux
-      --arg networkExprs '#{expressionFile}'
-      --argstr uuid '#{uuid}'
+      --arg networkExprs '#{nix_expressionFile}'
       --add-root '#{root}'
       --indirect
       '<upcast/eval-deployment.nix>'

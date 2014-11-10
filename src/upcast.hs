@@ -26,43 +26,42 @@ import Upcast.Temp
 import Upcast.Environment
 import Upcast.Install
 
-evalInfraContext :: DeployContext -> IO InfraContext
-evalInfraContext ctx@DeployContext{..} =
-    let info = nixDeploymentInfo ctx expressionFile uuid
-        in do
-          i <- fgconsume_ info
-          value <- expectRight $ return (nixValue i)
-          return InfraContext{ inc_expressionFile = expressionFile
-                             , inc_data = value
-                             , inc_stateFile = stateFile
-                             }
+evalInfraContext :: NixContext -> IO InfraContext
+evalInfraContext nix@NixContext{nix_expressionFile=file} = do
+  value <- expectRight $ nixValue <$> fgconsume_ (nixDeploymentInfo nix)
+  return InfraContext{ inc_expressionFile = file
+                     , inc_stateFile = replaceExtension file "store"
+                     , inc_data = value
+                     }
+
+icontext :: FilePath -> IO InfraContext
+icontext = nixContext >=> evalInfraContext
 
 infra :: FilePath -> IO [Machine]
-infra = context >=> evalInfraContext >=> evalInfra
+infra = icontext >=> evalInfra
 
 infraDump :: FilePath -> IO ()
-infraDump = context >=> evalInfraContext >=> pprint . inc_data
+infraDump = icontext >=> pprint . inc_data
 
 infraDebug :: FilePath -> IO ()
-infraDebug = context >=> evalInfraContext >=> debugEvalInfra >=> const (return ())
-
+infraDebug = icontext >=> debugEvalInfra >=> const (return ())
 
 run :: RunCli -> IO ()
 run RunCli{..} = do
-  ctx@DeployContext{envContext} <- context rc_expressionFile
-  machines' <- evalInfra =<< evalInfraContext ctx
+  nix <- nixContext rc_expressionFile
+  machines' <- evalInfra =<< evalInfraContext nix
   let machines = [m | m@Machine{..} <- machines', m_nix]
       dm = toDelivery rc_pullFrom
   when (null machines) $ oops "no Nix instances, plan complete"
 
   case rc_closureSubstitutes of
       Nothing ->
-        buildThenInstall ctx dm machines
+        buildThenInstall nix dm machines
       Just s ->
         installMachines dm
         (maybe (error "closure not found") return . flip Map.lookup s) machines
 
-buildThenInstall :: DeployContext -> DeliveryMode -> [Machine] -> IO ()
+buildThenInstall :: NixContext -> DeliveryMode -> [Machine] -> IO ()
 buildThenInstall ctx dm machines = do
   closuresPath <- randomTempFileName "machines."
 
@@ -73,13 +72,13 @@ buildThenInstall ctx dm machines = do
   installMachines dm (readSymbolicLink . (closuresPath </>) . T.unpack) machines
 
 build :: FilePath -> IO ()
-build =
-  context >=> expect ExitSuccess "build failed" .  fgrun . flip nixBuildMachines Nothing
+build = nixContext >=>
+  expect ExitSuccess "build failed" .  fgrun . flip nixBuildMachines Nothing
 
 instantiate :: FilePath -> IO ()
-instantiate = context >=> instantiateTmp >=> putStrLn
+instantiate = nixContext >=> instantiateTmp >=> putStrLn
 
-instantiateTmp :: DeployContext -> IO FilePath
+instantiateTmp :: NixContext -> IO FilePath
 instantiateTmp ctx = do
   tmp <- randomTempFileName "drvlink."
   expect ExitSuccess "instantiation failed" $ do
