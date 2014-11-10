@@ -6,6 +6,7 @@ import Upcast.Monad
 import Options.Applicative
 
 import System.Directory (removeFile)
+import System.Posix.Env (getEnvDefault)
 import System.Posix.Files (readSymbolicLink)
 import System.FilePath.Posix
 
@@ -79,8 +80,13 @@ build = nixContext >=>
 buildRemote :: BuildRemoteCli -> IO ()
 buildRemote BuildRemoteCli{..} = do
   let remote = Remote Nothing brc_builder
-  nix <- nixContext brc_expressionFile
-  drv <- instantiateTmp nix
+  drv <-
+    case brc_attribute of
+        Nothing -> nixContext brc_expressionFile >>= instantiateTmp
+        Just attr -> do
+          args <- getEnvDefault "UPCAST_NIX_FLAGS" ""
+          fgtmp $ nixInstantiate args attr brc_expressionFile
+
   srsly "nix-copy-closure failed" . fgrun $ nixCopyClosureTo brc_builder drv
   srsly "realise failed" . fgrun . ssh . forward remote $ nixRealise drv
   p <- fgconsume_ . ssh $ Cmd remote [n|cat $(nix-store -qu #{drv})|] "query"
@@ -90,13 +96,7 @@ instantiate :: FilePath -> IO ()
 instantiate = nixContext >=> instantiateTmp >=> putStrLn
 
 instantiateTmp :: NixContext -> IO FilePath
-instantiateTmp ctx = do
-  tmp <- randomTempFileName "drvlink."
-  expect ExitSuccess "instantiation failed" $ do
-    fgrun $ nixInstantiateMachines ctx tmp
-  drvPath <- readSymbolicLink tmp
-  removeFile tmp
-  return drvPath
+instantiateTmp ctx = fgtmp $ nixInstantiateMachines ctx
 
 sshConfig :: FilePath -> IO ()
 sshConfig = infra >=> putStrLn . intercalate "\n" . fmap config
@@ -119,6 +119,15 @@ printNixPath :: IO ()
 printNixPath = do
   Just p <- nixPath
   putStrLn p
+
+fgtmp :: (FilePath -> Command Local) -> IO FilePath
+fgtmp f = do
+  tmp <- randomTempFileName "fgtmp."
+  let cmd@(Cmd _ _ tag) = f tmp
+  expect ExitSuccess (tag <> " failed") $ fgrun cmd
+  dest <- readSymbolicLink tmp
+  removeFile tmp
+  return dest
 
 main :: IO ()
 main = do
@@ -174,21 +183,25 @@ main = do
             progDesc "install nix environment-like closure over ssh")
 
     installCli = InstallCli
-                 <$> strOption (long "target"
-                                <> short 't'
-                                <> metavar "ADDRESS"
-                                <> help "SSH-accessible host with Nix")
-                 <*> optional (strOption
-                               (long "profile"
-                                <> short 'p'
-                                <> metavar "PROFILE"
-                                <> help "attach CLOSURE to PROFILE (otherwise system)"))
-                 <*> pullOption
-                 <*> argument str (metavar "CLOSURE")
+      <$> strOption (long "target"
+                     <> short 't'
+                     <> metavar "ADDRESS"
+                     <> help "SSH-accessible host with Nix")
+      <*> optional (strOption
+                    (long "profile"
+                     <> short 'p'
+                     <> metavar "PROFILE"
+                     <> help "attach CLOSURE to PROFILE (otherwise system)"))
+      <*> pullOption
+      <*> argument str (metavar "CLOSURE")
 
     buildRemoteCli = BuildRemoteCli
-                     <$> strOption (long "target"
-                                    <> short 't'
-                                    <> metavar "ADDRESS"
-                                    <> help "SSH-accessible host with Nix")
-                     <*> argument str exp
+      <$> strOption (long "target"
+                    <> short 't'
+                    <> metavar "ADDRESS"
+                    <> help "SSH-accessible host with Nix")
+      <*> optional (strOption (short 'A'
+                     <> metavar "ATTRIBUTE"
+                     <> help "build a specific attribute in the expression file \
+                             \(`nix-build'-like behaviour)"))
+      <*> argument str exp

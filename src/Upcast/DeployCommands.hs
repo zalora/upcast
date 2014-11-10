@@ -77,6 +77,18 @@ nixInstantiateMachines NixContext{..} root =
       -A remoteMachines
     |] "instantiate"
 
+nixInstantiate :: String -> String -> FilePath -> FilePath -> Command Local
+nixInstantiate nix_args attr exprFile root =
+    Cmd Local [n|
+      nix-instantiate #{nix_args}
+      --read-write-mode
+      --argstr system x86_64-linux
+      --add-root '#{root}'
+      --indirect
+      -A '#{attr}'
+      '#{exprFile}'
+    |] "instantiate"
+
 nixRealise :: FilePath -> Command Local
 nixRealise drv = Cmd Local [n|nix-store --realise #{drv}|] "realise"
 

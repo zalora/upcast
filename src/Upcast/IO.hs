@@ -16,7 +16,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import System.Exit (ExitCode(..))
 import Control.Exception
 
-import Data.Monoid (mconcat)
+import Data.Monoid (mconcat, (<>))
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as LBS
 

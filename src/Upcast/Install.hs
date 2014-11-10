@@ -68,7 +68,6 @@ go dm install@Install{i_paths} = do
         unless (null i_paths) $ fgssh . nixTrySubstitutes cache $ install
       _ -> return ()
 
-
   case dm of
       Push -> fgrun' . nixCopyClosureToI $ install
       Pull from -> fgssh . nixCopyClosureFrom from $ install
