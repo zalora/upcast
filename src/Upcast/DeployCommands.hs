@@ -77,8 +77,11 @@ nixCopyClosureFrom Install{i_remote, i_closure, i_sshClosureCache=Just (Remote _
     Cmd i_remote [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --from #{host} #{i_closure} --gzip|] $ "copyfrom"
 
 nixSetProfile :: Install -> Command Remote
-nixSetProfile Install{i_closure, i_remote = r@(Remote _ host)} =
-    Cmd r [n|nix-env -p /nix/var/nix/profiles/system --set "#{i_closure}"|] "set-profile"
+nixSetProfile Install{i_closure, i_profile, i_remote = r@(Remote _ host)} =
+    Cmd r [n|nix-env -p #{i_profile} --set "#{i_closure}"|] "set-profile"
+
+nixSystemProfile :: FilePath
+nixSystemProfile = "/nix/var/nix/profiles/system"
 
 nixSwitchToConfiguration :: Install -> Command Remote
 nixSwitchToConfiguration Install{i_remote = r@(Remote _ host)} =

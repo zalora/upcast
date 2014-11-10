@@ -51,6 +51,7 @@ installMachines ctx@DeployContext{envContext=e@EnvContext{..}, ..} machines = do
         i_closure <- resolveClosure m_hostname
         i_paths <- (fmap (split '\n') . fgconsume_ . nixClosure) $ i_closure
         let i_sshClosureCache = fmap (Remote Nothing) nixSSHClosureCache
+            i_profile = nixSystemProfile
         return Install{..}
       where
         i_remote = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
@@ -62,6 +63,7 @@ install args@InstallCli{..} = do
       i_remote = Remote Nothing ic_target
       i_paths = []
       i_sshClosureCache = Remote Nothing <$> (nixSSHClosureCache env)
+      i_profile = maybe nixSystemProfile id ic_profile
       i = Install{..}
   go env i
 

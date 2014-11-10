@@ -148,5 +148,10 @@ main = do
                  <$> strOption (long "target"
                                 <> short 't'
                                 <> metavar "ADDRESS"
-                                <> help "SSH-accessible host that contains Nix")
+                                <> help "SSH-accessible host with Nix")
+                 <*> optional (strOption
+                               (long "profile"
+                                <> short 'p'
+                                <> metavar "PROFILE"
+                                <> help "attach CLOSURE to PROFILE (otherwise system)"))
                  <*> argument str (metavar "CLOSURE")

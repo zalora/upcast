@@ -48,12 +48,14 @@ data Install = Install
              { i_remote :: Remote
              , i_closure :: StorePath
              , i_paths :: [StorePathBS]
+             , i_profile :: FilePath
              , i_sshClosureCache :: Maybe Remote
              } deriving (Show)
 
 -- | CLI arguments to the 'install' command.
 data InstallCli = InstallCli
                 { ic_target :: String
+                , ic_profile :: Maybe FilePath
                 , ic_closure :: FilePath
                 } deriving (Show)
 
