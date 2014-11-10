@@ -107,7 +107,7 @@ env UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com \
 Unlike [Nix distributed builds](http://nixos.org/nix/manual/#chap-distributed-builds)
 packages are not copied back and forth between the instance and your local machine.
 
-```
+```bash
 upcast build-remote -t hydra.com examples/vpc-nix-instance.nix
 ```
 
@@ -124,13 +124,13 @@ upcast instantiate examples/vpc-nix-instance.nix | {
 
 This outputs a json string that looks like `{"node":"/nix/store/72q9sd9an61h0h1pa4ydz7qa1cdpf0mj-nixos-14.10pre-git"}`, you can use it as a part of your deployment without having to upload packages from your local store using `run -f`:
 
-```
+```bash
 upcast run -m '{"node":"/nix/store/72q9sd9an61h0h1pa4ydz7qa1cdpf0mj-nixos-14.10pre-git"}' -f user@hydra.com examples/vpc-nix-instance.nix
 ```
 
 If you want to update your existing systems as part of your CI workflow without having to talk to infrastructure services, you can cook something like this:
 
-```
+```bash
 upcast infra examples/vpc-nix-instance.nix > ssh_config
 
 awk '/^Host/{print $2}' ssh_config | \
