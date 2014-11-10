@@ -2,7 +2,6 @@
 
 module Upcast.Aws (
   simpleAws
-, pprint
 , instances
 , instanceStatus
 , securityGroups
@@ -46,7 +45,6 @@ import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.ByteString.Base64 as Base64
 import Data.Aeson.Types (ToJSON)
 import Data.Aeson (encode)
-import Data.Aeson.Encode.Pretty (encodePretty)
 
 import qualified Aws
 import Aws.Core (Transaction)
@@ -55,6 +53,8 @@ import Aws.Ec2
 
 import qualified Aws.Ec2 as EC2
 import qualified Aws.Elb as ELB
+
+import Upcast.IO
 
 catchAny :: IO a -> (Control.Exception.SomeException -> IO a) -> IO a
 catchAny = Control.Exception.catch
@@ -66,9 +66,6 @@ simpleAws arg region = do
     -- cfg <- Aws.dbgConfiguration
     cfg <- Aws.baseConfiguration
     Aws.simpleAws cfg (QueryAPIConfiguration region) arg
-
-pprint :: ToJSON a => a -> IO ()
-pprint = LBS.putStrLn . encodePretty
 
 instances ids = simpleAws $ EC2.DescribeInstances ids
 
@@ -140,4 +137,4 @@ elbInstanceHealth lb = simpleAws $ ELB.DescribeInstanceHealth lb
 elbPolicies lb = simpleAws $ ELB.DescribeLoadBalancerPolicies lb
 
 status = mapConcurrently ((flip catchAny $ \e -> return $ Left e) . fmap Right . azs []) knownRegions
-pstatus = fmap rights status >>= mapM_ (LBS.putStrLn . encode)
+pstatus = fmap rights status >>= mapM_ pprint

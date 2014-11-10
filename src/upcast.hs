@@ -15,11 +15,10 @@ import Data.Text (Text(..))
 import Data.Maybe (catMaybes)
 import qualified Data.Map as Map
 
+import Upcast.Types
 import Upcast.IO
 import Upcast.Interpolate (nl)
 import Upcast.Nix
-import Upcast.Aws
-import Upcast.Types
 import Upcast.Infra
 import Upcast.DeployCommands
 import Upcast.Command
@@ -74,7 +73,8 @@ buildThenInstall ctx dm machines = do
   installMachines dm (readSymbolicLink . (closuresPath </>) . T.unpack) machines
 
 build :: FilePath -> IO ()
-build = context >=> expect ExitSuccess "build failed" .  fgrun . flip nixBuildMachines Nothing
+build =
+  context >=> expect ExitSuccess "build failed" .  fgrun . flip nixBuildMachines Nothing
 
 instantiate :: FilePath -> IO ()
 instantiate = context >=> instantiateTmp >=> putStrLn

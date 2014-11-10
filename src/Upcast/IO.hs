@@ -1,12 +1,13 @@
 module Upcast.IO (
   module System.IO
 , ASCIIColor(..)
+, applyColor
 , oops
 , expect
 , expectRight
 , warn
 , warn8
-, applyColor
+, pprint
 ) where
 
 import System.IO
@@ -15,6 +16,10 @@ import Control.Exception
 
 import Data.Monoid (mconcat)
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.ByteString.Lazy.Char8 as LBS
+
+import Data.Aeson.Types (ToJSON)
+import Data.Aeson.Encode.Pretty (encodePretty)
 
 data ASCIIColor = Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
                 deriving (Enum)
@@ -29,6 +34,7 @@ applyColor color s = case needsColor of
     colorCode = show $ 30 + fromEnum color
 
 
+oops :: String -> IO a
 oops = throwIO . ErrorCall
 
 expect :: Eq a => a -> String -> IO a -> IO ()
@@ -45,5 +51,11 @@ expectRight action = do
       Right smth -> return smth
       Left err -> oops err
 
+warn :: [String] -> IO ()
 warn = hPutStrLn stderr . mconcat
+
+warn8 :: [B8.ByteString] -> IO ()
 warn8 = B8.hPutStrLn stderr . mconcat
+
+pprint :: ToJSON a => a -> IO ()
+pprint = LBS.putStrLn . encodePretty
