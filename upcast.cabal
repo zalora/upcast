@@ -27,7 +27,7 @@ executable upcast
                      , random
                      , pretty-show
                      , aws, http-conduit, conduit-extra, http-types
-                     , optparse-applicative
+                     , optparse-applicative >= 0.11.0.1
                      , vk-aws-route53 > 0.1.1
                      , aws-ec2 >= 0.2.2
                      , vk-posix-pty

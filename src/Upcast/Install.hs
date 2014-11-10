@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell, OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
 
 module Upcast.Install (
   installMachines
@@ -23,38 +23,39 @@ import Upcast.Command
 import Upcast.DeployCommands
 import Upcast.Environment
 
+data DeliveryMode = Push | Pull String
+
+toDelivery :: Maybe String -> DeliveryMode
+toDelivery = maybe Push Pull
+
 fgrun' :: Command Local -> IO ()
 fgrun' = expect ExitSuccess "install step failed" . fgrun
 
 fgssh :: Command Remote -> IO ()
 fgssh = fgrun' . ssh
 
-isLeft :: Either a b -> Bool
-isLeft (Left _) = True
-isLeft _ = False
-
-installMachines :: DeployContext -> [Machine] -> IO ()
-installMachines ctx@DeployContext{envContext=e@EnvContext{..}, ..} machines = do
+installMachines :: Maybe String -> (Hostname -> IO StorePath) -> [Machine] -> IO ()
+installMachines pullFrom resolveClosure machines = do
     installs <- mapM installP machines
-    results <- mapConcurrently (try . go e) installs :: IO [Either SomeException ()]
+    results <- mapConcurrently safei installs :: IO [Either SomeException ()]
     warn ["installs failed: ", show [i | (e, i) <- zip results installs, isLeft e]]
     return ()
   where
-    resolveClosure :: Text -> IO StorePath
-    resolveClosure hostname =
-        case Map.lookup hostname closureSubstitutes of
-            Just x -> return x
-            _ -> readSymbolicLink $ closuresPath </> (T.unpack hostname)
+    safei = try . go (toDelivery pullFrom)
+
+    isLeft :: Either a b -> Bool
+    isLeft (Left _) = True
+    isLeft _ = False
 
     installP :: Machine -> IO Install
     installP Machine{..} = do
+        EnvContext{nixSSHClosureCache} <- readEnvContext
         i_closure <- resolveClosure m_hostname
         i_paths <- (fmap (split '\n') . fgconsume_ . nixClosure) $ i_closure
-        let i_sshClosureCache = fmap (Remote Nothing) nixSSHClosureCache
-            i_profile = nixSystemProfile
         return Install{..}
       where
         i_remote = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
+        i_profile = nixSystemProfile
   
 install :: InstallCli -> IO ()
 install args@InstallCli{..} = do
@@ -62,24 +63,23 @@ install args@InstallCli{..} = do
   let i_closure = ic_closure
       i_remote = Remote Nothing ic_target
       i_paths = []
-      i_sshClosureCache = Remote Nothing <$> (nixSSHClosureCache env)
       i_profile = maybe nixSystemProfile id ic_profile
-  go env Install{..}
+  go (toDelivery ic_pullFrom) Install{..}
 
-go :: EnvContext -> Install -> IO ()
-go env install@Install{i_sshClosureCache = Just (Remote _ cacheHost)} = do
-  fgssh $ sshPrepCacheKnownHost install
-  go' env install
-go env install = go' env install
+go :: DeliveryMode -> Install -> IO ()
+go dm install@Install{i_paths} = do
+  EnvContext{nixSSHClosureCache} <- readEnvContext
+  case nixSSHClosureCache of
+      Just cache -> do
+        fgssh $ sshPrepKnownHost cache install
+        unless (null i_paths) $ fgssh . nixTrySubstitutes cache $ install
+      _ -> return ()
 
-go' :: EnvContext -> Install -> IO ()
-go' EnvContext{..} install = do
-  if (deployMode /= Unattended)
-      then do
-        fgssh . nixTrySubstitutes $ install
-        fgrun' . nixCopyClosureTo sshAuthSock $ install
-      else do
-        fgssh . nixCopyClosureFrom $ install
+
+  case dm of
+      Push -> fgrun' . nixCopyClosureTo $ install
+      Pull from -> fgssh . nixCopyClosureFrom from $ install
+
   fgssh . nixSetProfile $ install
   when (i_profile install == nixSystemProfile) $ do
     fgssh . nixSwitchToConfiguration $ install

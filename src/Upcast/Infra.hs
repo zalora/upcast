@@ -228,49 +228,49 @@ toMachine k (h, reportedInfo, infraInfo) = Machine h
     cast :: FromJSON a => Text -> a
     cast = (`acast` reportedInfo)
 
-debugEvalInfra :: DeployContext -> Value -> IO [Machine]
-debugEvalInfra ctx@DeployContext{..} info = do
+debugEvalInfra :: InfraContext -> IO [Machine]
+debugEvalInfra InfraContext{..} = do
     let region = "us-east-1"
     let (keypair, keypairs) = (Nothing, [])
 
-    userDataA <- preReadUserData info
+    userDataA <- preReadUserData inc_data
 
     instances <- do
       awsConf <- liftIO $ Aws.dbgConfiguration
       let context = EvalContext undefined awsConf (QueryAPIConfiguration $ T.encodeUtf8 region) R53.route53
-          action = debugPlan emptyStore (ec2plan name (snd <$> keypairs) info userDataA)
+          action = debugPlan emptyStore (ec2plan name (snd <$> keypairs) inc_data userDataA)
           in runReaderT action context
 
     -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
 
     return $ fmap (toMachine keypair) instances
   where
-    name = T.pack $ snd $ splitFileName $ expressionFile
+    name = T.pack $ snd $ splitFileName $ inc_expressionFile
 
-evalInfra :: DeployContext -> Value -> IO [Machine]
-evalInfra ctx@DeployContext{..} info = do
-    region <- let regions = L.nub $ findRegions [] info
+evalInfra :: InfraContext -> IO [Machine]
+evalInfra InfraContext{..} = do
+    region <- let regions = L.nub $ findRegions [] inc_data
                   in case regions of
                        reg:[] -> return reg
                        _ -> error $ mconcat [ "can only operate with expressions that "
                                             , "do not span multiple EC2 regions, given: "
                                             , show regions
                                             ]
-    store <- loadSubStore stateFile
+    store <- loadSubStore inc_stateFile
 
-    keypairs <- prepareKeyPairs info
+    keypairs <- prepareKeyPairs inc_data
     let keypair = fst <$> listToMaybe keypairs
 
-    userDataA <- preReadUserData info
+    userDataA <- preReadUserData inc_data
 
     instances <- HTTP.withManager $ \mgr -> do
       awsConf <- liftIO $ Aws.baseConfiguration
       let context = EvalContext mgr awsConf (QueryAPIConfiguration $ T.encodeUtf8 region) R53.route53
-          action = evalPlan store (ec2plan name (snd <$> keypairs) info userDataA)
+          action = evalPlan store (ec2plan name (snd <$> keypairs) inc_data userDataA)
           in runReaderT action context
 
     -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
 
     return $ fmap (toMachine keypair) instances
   where
-    name = T.pack $ snd $ splitFileName $ expressionFile
+    name = T.pack $ snd $ splitFileName $ inc_expressionFile

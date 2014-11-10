@@ -1,6 +1,7 @@
 module Upcast.IO (
   module System.IO
 , ASCIIColor(..)
+, oops
 , expect
 , expectRight
 , warn

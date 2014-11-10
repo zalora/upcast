@@ -5,37 +5,39 @@ module Upcast.Types where
 import System.FilePath (FilePath)
 import qualified Data.Text as T
 import Data.Text (Text(..))
+import Data.Aeson (Value)
 import Data.ByteString.Char8 (ByteString)
 import Data.Map (Map)
 
 import Upcast.Command (Remote)
 
-data DeployMode = Default | Unattended deriving (Eq, Show)
-
 type StorePath = String
 type StorePathBS = ByteString
+type Hostname = Text
 
 data EnvContext = EnvContext
                 { upcastNix :: Text
                 , nixArgs :: Text
                 , nixSSHClosureCache :: Maybe String
-                , deployMode :: DeployMode
-                , sshAuthSock :: Text
                 } deriving (Show)
 
 -- | Structure used to carry user (commandline & enviroment) and runtime (currently ssh agent) globals.
 data DeployContext = DeployContext
-                  { closuresPath :: String -- ^ Path to store links to machine closures.
-                  , expressionFile :: String
+                  { expressionFile :: String
                   , stateFile :: FilePath -- ^ *.store file
                   , uuid :: String -- ^ Used by nix files, NixOps legacy.
-                  , closureSubstitutes :: Map Text StorePath
                   , envContext :: EnvContext
+                  } deriving (Show)
+
+data InfraContext = InfraContext
+                  { inc_expressionFile :: String
+                  , inc_data :: Value
+                  , inc_stateFile :: FilePath
                   } deriving (Show)
 
 -- | Structure used to pass arguments between evaluation and installation phases.
 data Machine = Machine
-             { m_hostname :: Text
+             { m_hostname :: Hostname
              , m_publicIp :: Text
              , m_privateIp :: Text
              , m_instanceId :: Text
@@ -47,15 +49,22 @@ data Machine = Machine
 data Install = Install
              { i_remote :: Remote
              , i_closure :: StorePath
-             , i_paths :: [StorePathBS]
+             , i_paths :: [StorePathBS] -- ^ all deps of 'i_closure' (for 'nixTrySubstitutes')
              , i_profile :: FilePath
-             , i_sshClosureCache :: Maybe Remote
              } deriving (Show)
 
--- | CLI arguments to the 'install' command.
+-- | CLI arguments to 'install'.
 data InstallCli = InstallCli
                 { ic_target :: String
                 , ic_profile :: Maybe FilePath
+                , ic_pullFrom :: Maybe String
                 , ic_closure :: FilePath
                 } deriving (Show)
+
+-- | CLI arguments to 'run'.
+data RunCli = RunCli
+            { rc_closureSubstitutes :: Maybe (Map Hostname StorePath)
+            , rc_pullFrom :: Maybe String
+            , rc_expressionFile :: FilePath
+            }
 

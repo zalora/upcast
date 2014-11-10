@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
 
 module Main where
 
@@ -7,11 +7,13 @@ import Options.Applicative
 
 import System.Directory (removeFile)
 import System.Posix.Files (readSymbolicLink)
+import System.FilePath.Posix
 
 import Data.List (intercalate)
 import qualified Data.Text as T
 import Data.Text (Text(..))
 import Data.Maybe (catMaybes)
+import qualified Data.Map as Map
 
 import Upcast.IO
 import Upcast.Interpolate (nl)
@@ -25,56 +27,64 @@ import Upcast.Temp
 import Upcast.Environment
 import Upcast.Install
 
-deploymentInfo :: DeployContext -> IO (Either String Value)
-deploymentInfo ctx =
-    let info = nixDeploymentInfo ctx (expressionFile ctx) (uuid ctx)
+evalInfraContext :: DeployContext -> IO InfraContext
+evalInfraContext ctx@DeployContext{..} =
+    let info = nixDeploymentInfo ctx expressionFile uuid
         in do
           i <- fgconsume_ info
-          return $ nixValue i
+          value <- expectRight $ return (nixValue i)
+          return InfraContext{ inc_expressionFile = expressionFile
+                             , inc_data = value
+                             , inc_stateFile = stateFile
+                             }
 
-infra ctx = do
-    info <- expectRight $ deploymentInfo ctx
-    machines <- evalInfra ctx info
-    return machines
+infra = context >=> evalInfraContext >=> evalInfra
 
-deploy ctx@DeployContext{envContext=EnvContext{..}, ..} = do
-    machines <- infra ctx
-    let nixMachines = filter (\Machine{..} -> m_nix == True) machines
-    unless (null nixMachines) $ do
-      ctx' <- ctxAuth ctx $ catMaybes $ fmap m_keyFile nixMachines
-      when (deployMode /= Unattended) $ do
-        let build = nixBuildMachines ctx' expressionFile uuid
-        expect ExitSuccess "nix build of machine closures failed" $ fgrun build
-      installMachines ctx' nixMachines
+infraDump = context >=> evalInfraContext >=> pprint . inc_data
 
-run file = context file >>= deploy
+infraDebug = context >=> evalInfraContext >=> debugEvalInfra >=> const (return ())
 
-infraDump file = do
-    info <- expectRight $ context file >>= deploymentInfo
-    pprint info
+maybeBuild machines = go nixMachines
+  where
+    go [] = return ()
+    go _ = return ()
+    nixMachines = [m | m@Machine{..} <- machines, m_nix]
 
-infraDebug file = do
-    ctx@DeployContext{..} <- context file
-    info <- expectRight $ deploymentInfo ctx
-    machines <- debugEvalInfra ctx info
-    return ()
+run RunCli{..} = do
+  ctx@DeployContext{envContext} <- context rc_expressionFile
+  machines' <- evalInfra =<< evalInfraContext ctx
+  let machines = [m | m@Machine{..} <- machines', m_nix]
+  when (null machines) $ oops "no Nix instances, plan complete"
 
-build file = do
-    ctx@DeployContext{..} <- context file
-    expect ExitSuccess "build failed" $
-      fgrun $ nixBuildMachines ctx expressionFile uuid
+  case rc_closureSubstitutes of
+      Nothing ->
+        buildThenInstall ctx rc_pullFrom machines
+      Just s ->
+        installMachines rc_pullFrom
+        (maybe (error "closure not found") return . flip Map.lookup s) machines
 
-instantiate file = do
-    ctx@DeployContext{..} <- context file
-    tmp <- randomTempFileName "drvlink."
-    expect ExitSuccess "instantiation failed" $ do
-      fgrun $ nixInstantiateMachines ctx expressionFile uuid tmp
-    drvPath <- readSymbolicLink tmp
-    removeFile tmp
-    putStrLn drvPath
+buildThenInstall ctx pullFrom machines = do
+  closuresPath <- randomTempFileName "machines."
 
-sshConfig file =
-    context file >>= infra >>= putStrLn . intercalate "\n" . fmap config
+  expect ExitSuccess "nix build of machine closures failed" $
+    fgrun $ nixBuildMachines ctx $ Just closuresPath
+
+  prepAuth $ catMaybes $ fmap m_keyFile machines
+  installMachines pullFrom (readSymbolicLink . (closuresPath </>) . T.unpack) machines
+
+build = context >=> expect ExitSuccess "build failed" .  fgrun . flip nixBuildMachines Nothing
+
+instantiate = context >=> instantiateTmp >=> putStrLn
+
+instantiateTmp ctx = do
+  tmp <- randomTempFileName "drvlink."
+  expect ExitSuccess "instantiation failed" $ do
+    fgrun $ nixInstantiateMachines ctx tmp
+  drvPath <- readSymbolicLink tmp
+  removeFile tmp
+  return drvPath
+
+sshConfig = infra >=> putStrLn . intercalate "\n" . fmap config
   where
     identity (Just file) = T.concat ["\n    IdentityFile ", file, "\n"]
     identity Nothing = ""
@@ -111,7 +121,7 @@ main = do
     opts = (subparser cmds) `info` header "upcast - infrastructure orchestratrion"
 
     cmds = command "run"
-           (args run `info`
+           (run <$> runCli `info`
             progDesc "evaluate infrastructure, run builds and deploy")
 
         <> command "infra"
@@ -153,4 +163,5 @@ main = do
                                 <> short 'p'
                                 <> metavar "PROFILE"
                                 <> help "attach CLOSURE to PROFILE (otherwise system)"))
+                 <*> pullOption
                  <*> argument str (metavar "CLOSURE")

@@ -3,15 +3,17 @@
 module Upcast.Environment where
 
 import System.Directory (canonicalizePath)
-import System.Posix.Env (getEnvDefault, getEnv)
+import System.Posix.Env (getEnvDefault, getEnv, setEnv)
 import System.FilePath.Posix
+import Options.Applicative
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Text as T
 import Data.Text (Text)
 import qualified Data.Map as Map
+import Data.Map (Map)
 
-import Data.Aeson (decodeStrict)
+import Data.Aeson (eitherDecodeStrict)
 
 import Upcast.Monad
 import Upcast.IO
@@ -34,27 +36,42 @@ readEnvContext = do
     nixArgs <- T.pack <$> getEnvDefault "UPCAST_NIX_FLAGS" ""
     nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
     Just upcastNix <- fmap T.pack <$> nixPath
-    sshAuthSock <- T.pack <$> getEnvDefault "SSH_AUTH_SOCK" "/dev/null"
-    unattended <- getEnv "UPCAST_UNATTENDED"
-    let deployMode = maybe Default (const Unattended) unattended
     return EnvContext{..}
 
 context :: String -> IO DeployContext
 context file = do
     expressionFile <- canonicalizePath file
-
-    closuresPath <- randomTempFileName "machines."
-    subs <- getEnv "UPCAST_CLOSURES"
     envContext <- readEnvContext
 
     let uuid = "new-upcast-deployment"
         stateFile = replaceExtension expressionFile "store"
-        closureSubstitutes = maybe Map.empty id $ join $ decodeStrict . BS.pack <$> subs
 
     return DeployContext{..}
 
-ctxAuth :: DeployContext -> [Text] -> IO DeployContext
-ctxAuth ctx keyFiles = do
+parseSubstitutesMap :: String -> ReadM (Map Text StorePath)
+parseSubstitutesMap s =
+  case eitherDecodeStrict $ BS.pack s of
+      Left e -> readerError e
+      Right v -> return v
+
+pullOption = optional (strOption
+                        (long "pull"
+                        <> short 'f'
+                        <> metavar "FROM"
+                        <> help "pull closures from host"))
+
+runCli :: Parser RunCli
+runCli = RunCli
+    <$> optional (option (str >>= parseSubstitutesMap)
+               (long "closures-map"
+                <> short 'm'
+                <> metavar "JSON OBJECT"
+                <> help "json mapping from hostnames to nixos closures (see `instantiate' or `build')"))
+    <*> pullOption
+    <*> argument str (metavar "<expression>")
+
+prepAuth :: [Text] -> IO ()
+prepAuth keyFiles = do
     userAuthSock <- getEnv "UPCAST_SSH_AUTH_SOCK"
     agentSocket <- case userAuthSock of
                      Just sock -> do
@@ -63,7 +80,7 @@ ctxAuth ctx keyFiles = do
                      Nothing | null keyFiles ->  fallback
                              | otherwise -> setupAgentF sshAddKeyFile keyFiles
 
-    return ctx { envContext = (envContext ctx){ sshAuthSock = T.pack agentSocket } }
+    setEnv "SSH_AUTH_SOCK" agentSocket True
   where
     fallback = do
       sock <- getEnvDefault "SSH_AUTH_SOCK" ""

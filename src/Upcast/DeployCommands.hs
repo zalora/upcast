@@ -55,24 +55,27 @@ nixDeploymentInfo DeployContext{envContext} expr uuid =
       -A info
     |] "info"
 
-nixBuildMachines :: DeployContext -> String -> String -> Command Local
-nixBuildMachines DeployContext{closuresPath, envContext} expr uuid =
+nixBuildMachines :: DeployContext -> Maybe FilePath -> Command Local
+nixBuildMachines DeployContext{..} closuresPath =
     Cmd Local [n|
       nix-build #{nixBaseOptions envContext}
-      --arg networkExprs '#{expr}'
+      --arg networkExprs '#{expressionFile}'
       --argstr uuid #{uuid}
       '<upcast/eval-deployment.nix>'
-      -A machines
-      -o #{closuresPath}
+      #{outLink}
     |] "build"
+  where
+    outLink = case closuresPath of
+                  Nothing -> [n|-A remoteMachines --no-out-link|]
+                  Just o -> [n|-A machines -o #{o}|]
 
-nixInstantiateMachines :: DeployContext -> String -> String -> String -> Command Local
-nixInstantiateMachines DeployContext{envContext} expr uuid root =
+nixInstantiateMachines :: DeployContext -> String -> Command Local
+nixInstantiateMachines DeployContext{..} root =
     Cmd Local [n|
       nix-instantiate #{nixBaseOptions envContext}
       --read-write-mode
       --argstr system x86_64-linux
-      --arg networkExprs '#{expr}'
+      --arg networkExprs '#{expressionFile}'
       --argstr uuid '#{uuid}'
       --add-root '#{root}'
       --indirect
@@ -80,13 +83,16 @@ nixInstantiateMachines DeployContext{envContext} expr uuid root =
       -A remoteMachines
     |] "instantiate"
 
-nixCopyClosureTo :: Show a => a -> Install -> Command Local
-nixCopyClosureTo sshAuthSock Install{ i_remote = (Remote _ host), i_closure = path } =
-    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] $ mconcat [host, ":copyto"]
+nixRealise :: FilePath -> Command Local
+nixRealise drv = Cmd Local [n|nix-store --realise #{drv}|] "realise"
 
-nixCopyClosureFrom :: Install -> Command Remote
-nixCopyClosureFrom Install{i_remote, i_closure, i_sshClosureCache=Just (Remote _ host)} =
-    Cmd i_remote [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --from #{host} #{i_closure} --gzip|] $ "copyfrom"
+nixCopyClosureTo :: Install -> Command Local
+nixCopyClosureTo Install{ i_remote = (Remote _ host), i_closure = path } =
+    Cmd Local [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] $ mconcat [host, ":copyto"]
+
+nixCopyClosureFrom :: String -> Install -> Command Remote
+nixCopyClosureFrom from  Install{i_remote, i_closure} =
+    Cmd i_remote [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --from #{from} #{i_closure} --gzip|] $ "copyfrom"
 
 nixSetProfile :: Install -> Command Remote
 nixSetProfile Install{i_closure, i_profile, i_remote = r@(Remote _ host)} =
@@ -103,16 +109,14 @@ nixClosure :: FilePath -> Command Local
 nixClosure path =
     Cmd Local [n|nix-store -qR #{path}|] "closure"
 
-nixTrySubstitutes :: Install -> Command Remote
-nixTrySubstitutes Install{i_remote = r@(Remote _ host), i_sshClosureCache = Just (Remote _ cache), i_closure} =
+nixTrySubstitutes :: String -> Install -> Command Remote
+nixTrySubstitutes cache Install{i_remote = r@(Remote _ host), i_closure} =
     Cmd r [n|nix-store -j4 -r --ignore-unknown
              --option use-ssh-substituter true
              --option ssh-substituter-hosts #{cache} #{i_closure}|] "try-substitutes"
-nixTrySubstitutes Install{i_remote = r@(Remote _ host), i_paths} =
-    Cmd r [n|nix-store -j4 -r --ignore-unknown #{intercalate " " i_paths}|] "try-substitutes"
 
-sshPrepCacheKnownHost :: Install -> Command Remote
-sshPrepCacheKnownHost Install{i_remote = r@(Remote _ host), i_sshClosureCache = Just (Remote _ known)} =
+sshPrepKnownHost :: String -> Install -> Command Remote
+sshPrepKnownHost known Install{i_remote = r@(Remote _ host)} =
     Cmd r [n|ssh-keygen -R #{knownHost}; ssh-keyscan -t rsa,dsa #{knownHost} > ~/.ssh/known_hosts|] "prep-cache-known-host"
   where
     knownHost = case split '@' $ C8.pack known of
@@ -126,3 +130,6 @@ sshA sshAuthSock (Cmd (Remote _ host) cmd desc) =
 ssh :: Command Remote -> Command Local
 ssh (Cmd (Remote _ host) cmd desc) =
     Cmd Local [n|ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
+
+forward :: Remote -> Command Local -> Command Remote
+forward to (Cmd Local comm desc) = Cmd to comm desc

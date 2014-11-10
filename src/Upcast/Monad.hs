@@ -3,6 +3,7 @@ module Upcast.Monad (
   module Control.Applicative
 
 , (<=<)
+, (>=>)
 , ap
 , join
 , when
