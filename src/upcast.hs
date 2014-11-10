@@ -38,44 +38,48 @@ evalInfraContext ctx@DeployContext{..} =
                              , inc_stateFile = stateFile
                              }
 
+infra :: FilePath -> IO [Machine]
 infra = context >=> evalInfraContext >=> evalInfra
 
+infraDump :: FilePath -> IO ()
 infraDump = context >=> evalInfraContext >=> pprint . inc_data
 
+infraDebug :: FilePath -> IO ()
 infraDebug = context >=> evalInfraContext >=> debugEvalInfra >=> const (return ())
 
-maybeBuild machines = go nixMachines
-  where
-    go [] = return ()
-    go _ = return ()
-    nixMachines = [m | m@Machine{..} <- machines, m_nix]
 
+run :: RunCli -> IO ()
 run RunCli{..} = do
   ctx@DeployContext{envContext} <- context rc_expressionFile
   machines' <- evalInfra =<< evalInfraContext ctx
   let machines = [m | m@Machine{..} <- machines', m_nix]
+      dm = toDelivery rc_pullFrom
   when (null machines) $ oops "no Nix instances, plan complete"
 
   case rc_closureSubstitutes of
       Nothing ->
-        buildThenInstall ctx rc_pullFrom machines
+        buildThenInstall ctx dm machines
       Just s ->
-        installMachines rc_pullFrom
+        installMachines dm
         (maybe (error "closure not found") return . flip Map.lookup s) machines
 
-buildThenInstall ctx pullFrom machines = do
+buildThenInstall :: DeployContext -> DeliveryMode -> [Machine] -> IO ()
+buildThenInstall ctx dm machines = do
   closuresPath <- randomTempFileName "machines."
 
   expect ExitSuccess "nix build of machine closures failed" $
     fgrun $ nixBuildMachines ctx $ Just closuresPath
 
   prepAuth $ catMaybes $ fmap m_keyFile machines
-  installMachines pullFrom (readSymbolicLink . (closuresPath </>) . T.unpack) machines
+  installMachines dm (readSymbolicLink . (closuresPath </>) . T.unpack) machines
 
+build :: FilePath -> IO ()
 build = context >=> expect ExitSuccess "build failed" .  fgrun . flip nixBuildMachines Nothing
 
+instantiate :: FilePath -> IO ()
 instantiate = context >=> instantiateTmp >=> putStrLn
 
+instantiateTmp :: DeployContext -> IO FilePath
 instantiateTmp ctx = do
   tmp <- randomTempFileName "drvlink."
   expect ExitSuccess "instantiation failed" $ do
@@ -84,6 +88,7 @@ instantiateTmp ctx = do
   removeFile tmp
   return drvPath
 
+sshConfig :: FilePath -> IO ()
 sshConfig = infra >=> putStrLn . intercalate "\n" . fmap config
   where
     identity (Just file) = T.concat ["\n    IdentityFile ", file, "\n"]
@@ -100,10 +105,12 @@ Host #{m_hostname}
     ControlPersist 60s
 |]
 
+printNixPath :: IO ()
 printNixPath = do
   Just p <- nixPath
   putStrLn p
 
+main :: IO ()
 main = do
     hSetBuffering stderr LineBuffering
     join $ customExecParser prefs opts

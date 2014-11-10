@@ -23,26 +23,19 @@ import Upcast.Command
 import Upcast.DeployCommands
 import Upcast.Environment
 
-data DeliveryMode = Push | Pull String
-
-toDelivery :: Maybe String -> DeliveryMode
-toDelivery = maybe Push Pull
-
 fgrun' :: Command Local -> IO ()
 fgrun' = expect ExitSuccess "install step failed" . fgrun
 
 fgssh :: Command Remote -> IO ()
 fgssh = fgrun' . ssh
 
-installMachines :: Maybe String -> (Hostname -> IO StorePath) -> [Machine] -> IO ()
-installMachines pullFrom resolveClosure machines = do
+installMachines :: DeliveryMode -> (Hostname -> IO StorePath) -> [Machine] -> IO ()
+installMachines dm resolveClosure machines = do
     installs <- mapM installP machines
-    results <- mapConcurrently safei installs :: IO [Either SomeException ()]
+    results <- mapConcurrently (try . go dm) installs :: IO [Either SomeException ()]
     warn ["installs failed: ", show [i | (e, i) <- zip results installs, isLeft e]]
     return ()
   where
-    safei = try . go (toDelivery pullFrom)
-
     isLeft :: Either a b -> Bool
     isLeft (Left _) = True
     isLeft _ = False

@@ -68,3 +68,8 @@ data RunCli = RunCli
             , rc_expressionFile :: FilePath
             }
 
+data DeliveryMode = Push | Pull String
+
+toDelivery :: Maybe String -> DeliveryMode
+toDelivery = maybe Push Pull
+

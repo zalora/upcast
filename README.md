@@ -105,7 +105,6 @@ The key to that host must be already available in your ssh-agent.
 Inherently, you also should propagate ssh keys of your instances to that ssh-agent in this case.
 
 ```bash
-export UPCAST_SSH_AUTH_SOCK=$SSH_AUTH_SOCK
 export UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com
 ```
 
