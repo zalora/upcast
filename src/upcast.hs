@@ -89,10 +89,9 @@ buildRemote BuildRemoteCli{..} = do
 
   srsly "nix-copy-closure failed" . fgrun $ nixCopyClosureTo brc_builder drv
   srsly "realise failed" . fgrun . ssh . forward remote $ nixRealise drv
-  let query =
-      case brc_attribute of
-          Nothing -> [n|cat $(nix-store -qu #{drv})|]
-          Just _ -> [n|nix-store -qu #{drv}|]
+  let query = case brc_attribute of
+                Nothing -> [n|cat $(nix-store -qu #{drv})|]
+                Just _ -> [n|nix-store -qu #{drv}|]
   p <- fgconsume_ . ssh $ Cmd remote query "query"
   B8.putStrLn p
 
