@@ -101,7 +101,7 @@ instantiateTmp ctx = fgtmp $ nixInstantiateMachines ctx
 sshConfig :: FilePath -> IO ()
 sshConfig = infra >=> out . intercalate "\n" . fmap config
   where
-    out s = putStrLn prefix >>= putStrLn s
+    out s = putStrLn prefix >> putStrLn s
 
     identity (Just file) = T.concat ["\n    IdentityFile ", file, "\n"]
     identity Nothing = ""
