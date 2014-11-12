@@ -45,7 +45,7 @@ nixDeploymentInfo :: NixContext -> Command Local
 nixDeploymentInfo NixContext{..} =
     Cmd Local [n|
       nix-instantiate #{nix_args}
-      --arg networkExprs '#{nix_expressionFile}'
+      --argstr networkExprs '#{nix_expressionFile}'
       '<upcast/eval-deployment.nix>'
       --eval-only --strict --read-write-mode
       -A info
@@ -55,7 +55,7 @@ nixBuildMachines :: NixContext -> Maybe FilePath -> Command Local
 nixBuildMachines NixContext{..} closuresPath =
     Cmd Local [n|
       nix-build #{nix_args}
-      --arg networkExprs '#{nix_expressionFile}'
+      --argstr networkExprs '#{nix_expressionFile}'
       '<upcast/eval-deployment.nix>'
       #{outLink}
     |] "build"
@@ -70,7 +70,7 @@ nixInstantiateMachines NixContext{..} root =
       nix-instantiate #{nix_args}
       --read-write-mode
       --argstr system x86_64-linux
-      --arg networkExprs '#{nix_expressionFile}'
+      --argstr networkExprs '#{nix_expressionFile}'
       --add-root '#{root}'
       --indirect
       '<upcast/eval-deployment.nix>'

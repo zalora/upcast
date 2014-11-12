@@ -32,7 +32,8 @@ nixPath :: IO (Maybe String)
 nixPath = sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
 
 nixContext :: FilePath -> IO NixContext
-nixContext nix_expressionFile = do
+nixContext file = do
+    nix_expressionFile <- canonicalizePath file
     Just upcastPath <- fmap T.pack <$> nixPath
     nixArgs <- T.pack <$> getEnvDefault "UPCAST_NIX_FLAGS" ""
     let nix_args = " -I upcast=" <> upcastPath <> " " <> nixArgs <> " --show-trace "
