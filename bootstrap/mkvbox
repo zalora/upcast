@@ -31,5 +31,13 @@ VBoxManage startvm "$name" --type headless
 VBoxManage showvminfo "$name" | head >&2
 set +x
 
-echo access the vm: >&2
-echo ssh localhost -l root -p 2222
+echo >&2
+echo add this to your ssh config: >&2
+echo >&2
+
+cat > /dev/stdout << EOF
+Host nixos
+	User root
+	HostName localhost
+	Port ${sshport}
+EOF
