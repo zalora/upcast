@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -e
+
+VM_HOME=$HOME/vm
+name=${1:-nixos}
+vdi=${2:-/nix/store/ddjff980pc276iblz6hrx2zda3xpcj6d-zalora-virtualbox-nixops.vdi}
+pubkey=${3:-$HOME/.ssh/id_rsa.pub}
+sshport=${4:-2222}
+
+data=$VM_HOME/$name
+
+echo >&2
+echo "mkvbox name=$name vdi=$vdi pubkey=$pubkey sshport=${sshport} vmdata=$data" >&2
+echo >&2
+
+set -x
+
+mkdir -p "$data"
+VBoxManage createvm --name "$name" --ostype Linux26_64 --register
+VBoxManage clonehd "$vdi" "$data"/disk1.vdi
+VBoxManage storagectl "$name" --name SATA --add sata --portcount 30 --hostiocache on --bootable on
+VBoxManage storageattach "$name" --storagectl SATA --port 0 --device 0 --type hdd --medium "$data"/disk1.vdi
+VBoxManage createhd --filename "$data"/db.vdi --size 61440
+VBoxManage storageattach "$name" --storagectl SATA --port 1 --device 0 --type hdd --medium "$data"/db.vdi
+VBoxManage guestproperty set "$name" /VirtualBox/GuestInfo/Charon/ClientPublicKey "$(cat $pubkey)"
+VBoxManage modifyvm "$name" --memory 2048
+VBoxManage modifyvm "$name" --natpf1 "SSH,tcp,,${sshport},,22"
+VBoxManage startvm "$name" --type headless
+
+VBoxManage showvminfo "$name" | head >&2
+set +x
+
+echo access the vm: >&2
+echo ssh localhost -l root -p 2222

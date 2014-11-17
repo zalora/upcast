@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+echo this will remove all your vbox vms, enter to continue:
+read
+
+VBoxManage list vms | awk '{gsub("[{}]", "", $2); print $2}' | xargs -n1 -t -I% VBoxManage controlvm % poweroff
+sleep 1
+VBoxManage list vms | awk '{gsub("[{}]", "", $2); print $2}' | xargs -t -n1 VBoxManage unregistervm --delete
