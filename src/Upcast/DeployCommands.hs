@@ -129,7 +129,7 @@ nixTrySubstitutes cache Install{i_remote = r@(Remote _ host), i_closure} =
 
 sshPrepKnownHost :: String -> Install -> Command Remote
 sshPrepKnownHost known Install{i_remote = r@(Remote _ host)} =
-    Cmd r [n|ssh-keygen -R #{knownHost}; ssh-keyscan -t rsa,dsa #{knownHost} > ~/.ssh/known_hosts|] "prep-cache-known-host"
+    Cmd r [n|install -m 700 -d ~/.ssh; ssh-keygen -R #{knownHost}; ssh-keyscan -t rsa,dsa #{knownHost} > ~/.ssh/known_hosts|] "prep-cache-known-host"
   where
     knownHost = case split '@' $ C8.pack known of
                     [_, a] -> a
