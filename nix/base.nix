@@ -108,6 +108,8 @@ in {
             nativePkgs = import pkgs.path { system = "x86_64-linux"; }; in
         nativePkgs.writeText "upcast-machines-remote"
         (builtins.toJSON (lib.mapAttrs (n: v: ''${v.system.build.toplevel}'') machines));
+
+      vbox = lib.mapAttrs (_k: v: v.system.build.virtualBoxImage) nixMachines;
     };
   };
 }
