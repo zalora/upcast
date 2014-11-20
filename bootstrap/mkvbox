@@ -36,7 +36,7 @@ echo add this to your ssh config: >&2
 echo >&2
 
 cat > /dev/stdout << EOF
-Host nixos
+Host ${name}
 	User root
 	HostName localhost
 	Port ${sshport}
