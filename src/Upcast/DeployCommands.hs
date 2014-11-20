@@ -86,9 +86,7 @@ nixInstantiate nix_args attr exprFile root =
       --read-write-mode
       --argstr system x86_64-linux
       --add-root '#{root}'
-      --indirect
-      #{attrString}
-      '#{exprFile}'
+      --indirect #{attrString} '#{exprFile}'
     |] "instantiate"
   where
     attrString = case attr of
