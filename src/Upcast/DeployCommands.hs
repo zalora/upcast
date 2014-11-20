@@ -91,7 +91,7 @@ nixInstantiate nix_args attr exprFile root =
   where
     attrString = case attr of
                     Nothing -> ""
-                    Just a -> [n|-A '#{attr}'|]
+                    Just a -> [n|-A '#{a}'|]
 
 nixRealise :: FilePath -> Command Local
 nixRealise drv = Cmd Local [n|nix-store --realise #{drv}|] "realise"
