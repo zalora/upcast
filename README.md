@@ -41,6 +41,8 @@ $ vim examples/ec2-info.nix
 $ upcast run examples/vpc-nix-instance.nix
 ```
 
+For more examples see [nix-adhoc](https://github.com/proger/nix-adhoc).
+
 ### Goals
 
 - simplicity, extensibility;
