@@ -56,8 +56,7 @@ nixBuildMachines NixContext{..} closuresPath =
     Cmd Local [n|
       nix-build #{nix_args}
       --argstr networkExprs '#{nix_expressionFile}'
-      '<upcast/eval-deployment.nix>'
-      #{outLink}
+      '<upcast/eval-deployment.nix>' #{outLink}
     |] "build"
   where
     outLink = case closuresPath of
