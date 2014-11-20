@@ -13,25 +13,27 @@ let
   };
 
   # working git must be in $PATH.
-  fetchgit =
-    {url, rev ? "origin/master", sha256 ? "whatever", shallow ? false}:
-      shell (baseNameOf (toString url)) ''
-        git clone ${if shallow then "--depth 1 -b ${rev}" else ""} --recursive ${url} $out
+  # increase (change) `clock' to trigger updates
+  shallow-fetchgit =
+    {url, branch ? "master", clock ? 1}:
+      shell "${baseNameOf (toString url)}-${toString clock}" ''
+        git clone --depth 1 -b ${branch} --recursive ${url} $out
         cd $out
-        ${if shallow then "" else "git checkout ${rev}"}
       '';
 
-   nixpkgs = fetchgit {
+  nixpkgs = shallow-fetchgit {
     url = "git://github.com/zalora/nixpkgs.git";
-    rev = "upcast";
-    shallow = true;
+    branch = "upcast";
+    clock = 1;
   };
-
 in
 { system ? builtins.currentSystem
 , pkgs ? import nixpkgs { inherit system; }
 , name ? "upcast"
-, src ? builtins.filterSource (path: type: type != "unknown" && baseNameOf path != ".git" && baseNameOf path != "result") ./.
+, src ? builtins.filterSource (path: type: let base = baseNameOf path; in
+    type != "unknown" &&
+    base != ".git" && base != "result" && base != "dist" && base != ".cabal-sandbox"
+    ) ./.
 , haskellPackages ? pkgs.haskellPackages_ghc783
 }:
 with pkgs.lib;
@@ -69,5 +71,7 @@ buildLocalCabalWithArgs {
     inherit aws;
     vkAwsRoute53 = haskellPackages.callPackage ./nixpkgs/vk-aws-route53.nix { inherit aws; };
     awsEc2 = haskellPackages.callPackage ./nixpkgs/aws-ec2.nix { inherit aws; };
+    vkPosixPty = haskellPackages.callPackage ./nixpkgs/vk-posix-pty.nix {};
+    optparseApplicative = haskellPackages.callPackage ./nixpkgs/optparse-applicative.nix {};
   };
 }
