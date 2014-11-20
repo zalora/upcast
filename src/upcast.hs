@@ -13,7 +13,7 @@ import System.FilePath.Posix
 import Data.List (intercalate)
 import qualified Data.Text as T
 import Data.Text (Text(..))
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, isJust)
 import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as B8
 
@@ -80,18 +80,20 @@ build = nixContext >=>
 buildRemote :: BuildRemoteCli -> IO ()
 buildRemote BuildRemoteCli{..} = do
   let remote = Remote Nothing brc_builder
+      nixBuild = brc_nixBuild || isJust brc_attribute
   drv <-
-    case brc_attribute of
-        Nothing -> nixContext brc_expressionFile >>= instantiateTmp
-        Just attr -> do
-          args <- getEnvDefault "UPCAST_NIX_FLAGS" ""
-          fgtmp $ nixInstantiate args attr brc_expressionFile
+    case nixBuild of
+      False ->
+        nixContext brc_expressionFile >>= instantiateTmp
+      True -> do
+        args <- getEnvDefault "UPCAST_NIX_FLAGS" ""
+        fgtmp $ nixInstantiate args brc_attribute brc_expressionFile
 
   srsly "nix-copy-closure failed" . fgrun $ nixCopyClosureTo brc_builder drv
   srsly "realise failed" . fgrun . ssh . forward remote $ nixRealise drv
-  let query = case brc_attribute of
-                Nothing -> [n|cat $(nix-store -qu #{drv})|]
-                Just _ -> [n|nix-store -qu #{drv}|]
+  let query = case nixBuild of
+                False -> [n|cat $(nix-store -qu #{drv})|]
+                True -> [n|nix-store -qu #{drv}|]
   p <- fgconsume_ . ssh $ Cmd remote query "query"
   B8.putStrLn p
 
@@ -216,4 +218,5 @@ main = do
                      <> metavar "ATTRIBUTE"
                      <> help "build a specific attribute in the expression file \
                              \(`nix-build'-like behaviour)"))
+      <*> switch (short 'n' <> help "just run nix-build remotely")
       <*> argument str exp

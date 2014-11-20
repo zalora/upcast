@@ -69,5 +69,6 @@ data RunCli = RunCli
 data BuildRemoteCli = BuildRemoteCli
                     { brc_builder :: String
                     , brc_attribute :: Maybe String
+                    , brc_nixBuild :: Bool
                     , brc_expressionFile :: FilePath
                     }
