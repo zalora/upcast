@@ -3,28 +3,40 @@
 set -e
 
 VM_HOME=$HOME/vm
+
 name=${1:-nixos}
 vdi=${2:-/nix/store/ddjff980pc276iblz6hrx2zda3xpcj6d-zalora-virtualbox-nixops.vdi}
 pubkey=${3:-$HOME/.ssh/id_rsa.pub}
 sshport=${4:-2222}
+vmdata=${5:-$VM_HOME/$name}
 
-data=$VM_HOME/$name
+usage() {
+	echo "$1" >&2
+	echo "usage: $0 name vdi [pubkey] [sshport] [vmdata]" >&2
+	echo "defaults: pubkey=$pubkey sshport=${sshport} vmdata=$vmdata" >&2
+	echo >&2
+	exit 1
+}
+
+[ $# -lt 2 -o $# -gt 5 ] && usage
+[ ! -f $vdi ] && usage "vdi: $vdi: file not found"
+[ ! -f $pubkey ] && usage "pubkey: $pubkey: file not found"
 
 echo >&2
-echo "mkvbox name=$name vdi=$vdi pubkey=$pubkey sshport=${sshport} vmdata=$data" >&2
+echo "mkvbox: name=$name vdi=$vdi pubkey=$pubkey sshport=${sshport} vmdata=$vmdata" >&2
 echo >&2
 
 set -x
 
-mkdir -p "$data"
+mkdir -p "$vmdata"
 VBoxManage createvm --name "$name" --ostype Linux26_64 --register
-VBoxManage clonehd "$vdi" "$data"/disk1.vdi
+VBoxManage clonehd "$vdi" "$vmdata"/disk1.vdi
 VBoxManage storagectl "$name" --name SATA --add sata --portcount 30 --hostiocache on --bootable on
-VBoxManage storageattach "$name" --storagectl SATA --port 0 --device 0 --type hdd --medium "$data"/disk1.vdi
-VBoxManage createhd --filename "$data"/db.vdi --size 61440
-VBoxManage storageattach "$name" --storagectl SATA --port 1 --device 0 --type hdd --medium "$data"/db.vdi
+VBoxManage storageattach "$name" --storagectl SATA --port 0 --device 0 --type hdd --medium "$vmdata"/disk1.vdi
+VBoxManage createhd --filename "$vmdata"/db.vdi --size 61440
+VBoxManage storageattach "$name" --storagectl SATA --port 1 --device 0 --type hdd --medium "$vmdata"/db.vdi
 VBoxManage guestproperty set "$name" /VirtualBox/GuestInfo/Charon/ClientPublicKey "$(cat $pubkey)"
-VBoxManage modifyvm "$name" --memory 2048
+VBoxManage modifyvm "$name" --memory 4096
 VBoxManage modifyvm "$name" --natpf1 "SSH,tcp,,${sshport},,22"
 VBoxManage startvm "$name" --type headless
 
