@@ -29,6 +29,7 @@ let
 in
 { system ? builtins.currentSystem
 , pkgs ? import nixpkgs { inherit system; }
+, shell ? shell
 , name ? "upcast"
 , src ? builtins.filterSource (path: type: let base = baseNameOf path; in
     type != "unknown" &&
