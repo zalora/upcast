@@ -49,7 +49,7 @@ echo >&2
 echo add this to your ssh config: >&2
 echo >&2
 
-cat > /dev/stdout << EOF
+cat << EOF
 Host ${name}
 	User root
 	HostName localhost
