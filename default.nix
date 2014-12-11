@@ -7,7 +7,7 @@ let
     __noChroot = true;
   } // args);
 
-  shell = name: command: unsafeDerivation {
+  shell-fn = name: command: unsafeDerivation {
     inherit name;
     args = ["-c" command];
   };
@@ -16,7 +16,7 @@ let
   # increase (change) `clock' to trigger updates
   shallow-fetchgit =
     {url, branch ? "master", clock ? 1}:
-      shell "${baseNameOf (toString url)}-${toString clock}" ''
+      shell-fn "${baseNameOf (toString url)}-${toString clock}" ''
         git clone --depth 1 -b ${branch} --recursive ${url} $out
         cd $out
       '';
@@ -29,7 +29,7 @@ let
 in
 { system ? builtins.currentSystem
 , pkgs ? import nixpkgs { inherit system; }
-, shell ? shell
+, shell ? shell-fn
 , name ? "upcast"
 , src ? builtins.filterSource (path: type: let base = baseNameOf path; in
     type != "unknown" &&
