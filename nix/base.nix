@@ -109,7 +109,10 @@ in {
         nativePkgs.writeText "upcast-machines-remote"
         (builtins.toJSON (lib.mapAttrs (n: v: ''${v.system.build.toplevel}'') machines));
 
-      vbox = lib.mapAttrs (_k: v: v.system.build.virtualBoxImage) nixMachines;
+      vbox = lib.mapAttrs (k: v:
+        pkgs.runCommand "${k}.vdi.gz" { preferLocalBuild = true; } ''
+          ${pkgs.gzip}/bin/gzip < ${v.system.build.virtualBoxImage}/disk.vdi > $out
+          '') nixMachines;
     };
   };
 }
