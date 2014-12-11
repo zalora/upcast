@@ -24,7 +24,7 @@ let
   nixpkgs = shallow-fetchgit {
     url = "git://github.com/zalora/nixpkgs.git";
     branch = "upcast";
-    clock = 1;
+    clock = 2;
   };
 in
 { system ? builtins.currentSystem
@@ -62,17 +62,13 @@ let
             -e 's/pname = \([^$]*\)/pname = \1  inherit src;/'  > $out
     '';
   in haskellPackages.callPackage cabalExpr ({ inherit src cabalDrvArgs; } // args);
-
-  aws = haskellPackages.callPackage ./nixpkgs/aws.nix {};
 in
 
 buildLocalCabalWithArgs {
   inherit src name;
-  args = {
-    inherit aws;
-    vkAwsRoute53 = haskellPackages.callPackage ./nixpkgs/vk-aws-route53.nix { inherit aws; };
-    awsEc2 = haskellPackages.callPackage ./nixpkgs/aws-ec2.nix { inherit aws; };
+  args = rec {
+    vkAwsRoute53 = haskellPackages.callPackage ./nixpkgs/vk-aws-route53.nix {};
+    awsEc2 = haskellPackages.callPackage ./nixpkgs/aws-ec2.nix {};
     vkPosixPty = haskellPackages.callPackage ./nixpkgs/vk-posix-pty.nix {};
-    optparseApplicative = haskellPackages.callPackage ./nixpkgs/optparse-applicative.nix {};
   };
 }
