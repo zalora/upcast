@@ -1,6 +1,7 @@
 name:                upcast
 version:             0.1.0.0
 license-file:        LICENSE
+license:             MIT
 author:              Vladimir Kirillov
 maintainer:          vlad.ki@zalora.com
 copyright:           2014 Zalora
