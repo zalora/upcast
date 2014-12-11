@@ -18,6 +18,8 @@ usage() {
 	exit 1
 }
 
+{ # protect against ^C and starbucks wi-fi
+
 [ $# -lt 2 -o $# -gt 5 ] && usage
 [ ! -f $vdi ] && usage "vdi: $vdi: file not found"
 [ ! -f $pubkey ] && usage "pubkey: $pubkey: file not found"
@@ -53,3 +55,5 @@ Host ${name}
 	HostName localhost
 	Port ${sshport}
 EOF
+
+}
