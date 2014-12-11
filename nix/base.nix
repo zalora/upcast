@@ -113,6 +113,8 @@ in {
         pkgs.runCommand "${k}.vdi.gz" { preferLocalBuild = true; } ''
           ${pkgs.gzip}/bin/gzip < ${v.system.build.virtualBoxImage}/disk.vdi > $out
           '') nixMachines;
+
+      system = lib.mapAttrs (k: v: v.system.build.toplevel) nixMachines;
     };
   };
 }
