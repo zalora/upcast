@@ -94,20 +94,18 @@ in {
         ) (removeAttrs deployment.resources [ "machines" "defaults" ]);
       };
 
-      machines = { names ? (lib.attrNames nixMachines) }:
-        let machines = lib.filterAttrs (n: v: lib.elem n names) nixMachines; in
+      machines =
         pkgs.runCommand "upcast-machines" { preferLocalBuild = true; } ''
           mkdir -p $out
           ${toString (lib.attrValues (lib.mapAttrs (n: v: ''
             ln -s ${v.system.build.toplevel} $out/${n}
-          '') machines))}
+          '') nixMachines))}
         '';
 
-      remoteMachines = { names ? (lib.attrNames nixMachines) }:
-        let machines = lib.filterAttrs (n: v: lib.elem n names) nixMachines;
-            nativePkgs = import pkgs.path { system = "x86_64-linux"; }; in
+      remoteMachines =
+        let nativePkgs = import pkgs.path { system = "x86_64-linux"; }; in
         nativePkgs.writeText "upcast-machines-remote"
-        (builtins.toJSON (lib.mapAttrs (n: v: ''${v.system.build.toplevel}'') machines));
+        (builtins.toJSON (lib.mapAttrs (n: v: ''${v.system.build.toplevel}'') nixMachines));
 
       vbox = lib.mapAttrs (k: v:
         pkgs.runCommand "${k}.vdi.gz" { preferLocalBuild = true; } ''
