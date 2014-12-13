@@ -31,7 +31,7 @@ executable upcast
                      , optparse-applicative >= 0.11.0.1
                      , vk-aws-route53 > 0.1.1
                      , aws-ec2 >= 0.2.2
-                     , vk-posix-pty
+                     , vk-posix-pty >= 0.2.1
 
   hs-source-dirs:      src
   ghc-options:         -static -rtsopts -threaded
@@ -52,7 +52,7 @@ executable fgrun
                      , resourcet
                      , template-haskell
                      , time
-                     , vk-posix-pty
+                     , vk-posix-pty >= 0.2.1
 
   hs-source-dirs:      src
   ghc-options:         -static -rtsopts -threaded
