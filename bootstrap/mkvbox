@@ -2,18 +2,15 @@
 
 set -e
 
-VM_HOME=$HOME/vm
-
 name=${1:-nixos}
 vdi=${2:-/nix/store/ddjff980pc276iblz6hrx2zda3xpcj6d-zalora-virtualbox-nixops.vdi}
 pubkey=${3:-$HOME/.ssh/id_rsa.pub}
 sshport=${4:-2222}
-vmdata=${5:-$VM_HOME/$name}
 
 usage() {
 	echo "$1" >&2
-	echo "usage: $0 name vdi [pubkey] [sshport] [vmdata]" >&2
-	echo "defaults: pubkey=$pubkey sshport=${sshport} vmdata=$vmdata" >&2
+	echo "usage: $0 name vdi [pubkey] [sshport]" >&2
+	echo "defaults: pubkey=$pubkey sshport=${sshport}" >&2
 	echo >&2
 	exit 1
 }
@@ -25,13 +22,14 @@ usage() {
 [ ! -f $pubkey ] && usage "pubkey: $pubkey: file not found"
 
 echo >&2
-echo "mkvbox: name=$name vdi=$vdi pubkey=$pubkey sshport=${sshport} vmdata=$vmdata" >&2
+echo "mkvbox: name=$name vdi=$vdi pubkey=$pubkey sshport=${sshport}" >&2
 echo >&2
 
 set -x
 
-mkdir -p "$vmdata"
 VBoxManage createvm --name "$name" --ostype Linux26_64 --register
+vmdata="$(VBoxManage showvminfo "$name" | awk -F: '/^Snapshot folder:/ {print $2}' | sed 's%^ *%%; s%/Snapshots$%%')"
+mkdir -p "$vmdata"
 VBoxManage clonehd "$vdi" "$vmdata"/disk1.vdi
 VBoxManage storagectl "$name" --name SATA --add sata --portcount 30 --hostiocache on --bootable on
 VBoxManage storageattach "$name" --storagectl SATA --port 0 --device 0 --type hdd --medium "$vmdata"/disk1.vdi
