@@ -29,7 +29,9 @@ let
 in
 { system ? builtins.currentSystem
 , pkgs ? import nixpkgs { inherit system; }
-, shell ? shell-fn
+, shell ? (if builtins.currentSystem == "x86_64-darwin"
+           then shell-fn
+           else k: v: pkgs.runCommand k { preferLocalBuild = true; } v)
 , name ? "upcast"
 , src ? builtins.filterSource (path: type: let base = baseNameOf path; in
     type != "unknown" &&
