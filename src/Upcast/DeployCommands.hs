@@ -97,7 +97,7 @@ nixRealise drv = Cmd Local [n|nix-store --realise #{drv}|] "realise"
 
 nixCopyClosureTo :: String -> FilePath -> Command Local
 nixCopyClosureTo host path =
-    Cmd Local [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to root@#{host} #{path} --gzip|] $ mconcat [host, ":copyto"]
+    Cmd Local [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to #{host} #{path} --gzip|] $ mconcat [host, ":copyto"]
 
 nixCopyClosureToI :: Install -> Command Local
 nixCopyClosureToI Install{ i_remote = (Remote _ host), i_closure = path } =
@@ -138,11 +138,11 @@ sshPrepKnownHost known Install{i_remote = r@(Remote _ host)} =
 
 sshA :: Text -> Command Remote -> Command Local
 sshA sshAuthSock (Cmd (Remote _ host) cmd desc) =
-    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
+    Cmd Local [n|env SSH_AUTH_SOCK=#{sshAuthSock} ssh #{sshBaseOptions} #{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
 
 ssh :: Command Remote -> Command Local
 ssh (Cmd (Remote _ host) cmd desc) =
-    Cmd Local [n|ssh #{sshBaseOptions} root@#{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
+    Cmd Local [n|ssh #{sshBaseOptions} #{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
 
 forward :: Remote -> Command Local -> Command Remote
 forward to (Cmd Local comm desc) = Cmd to comm desc
