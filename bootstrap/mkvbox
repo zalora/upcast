@@ -17,7 +17,7 @@ usage() {
 
 { # protect against ^C and starbucks wi-fi
 
-[ $# -lt 2 -o $# -gt 5 ] && usage
+[ $# -lt 2 -o $# -gt 4 ] && usage
 [ ! -f $vdi ] && usage "vdi: $vdi: file not found"
 [ ! -f $pubkey ] && usage "pubkey: $pubkey: file not found"
 
