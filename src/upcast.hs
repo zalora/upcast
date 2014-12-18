@@ -15,6 +15,7 @@ import qualified Data.Text as T
 import Data.Text (Text(..))
 import Data.Maybe (catMaybes, isJust)
 import qualified Data.Map as Map
+import qualified Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as B8
 
 import Upcast.Types
@@ -74,28 +75,33 @@ buildThenInstall ctx dm machines = do
   installMachines dm (readSymbolicLink . (closuresPath </>) . T.unpack) machines
 
 build :: FilePath -> IO ()
-build = nixContext >=>
-  expect ExitSuccess "build failed" .  fgrun . flip nixBuildMachines Nothing
+build = nixContext >=> doBuild (Left ()) Nothing >=> B8.putStrLn
+
+doBuild :: Either () (Maybe String) -> Maybe Remote -> NixContext -> IO B8.ByteString
+doBuild eitherNixBuild maybeRemote ctx@NixContext{..} = do
+  drv <- case eitherNixBuild of
+             Left () -> instantiateTmp ctx
+             Right attr -> fgtmp $ nixInstantiate nix_args attr nix_expressionFile
+  let query = case eitherNixBuild of
+                Left _ -> [n|cat $(nix-store -qu #{drv})|]
+                Right _ -> [n|nix-store -qu #{drv}|]
+  case maybeRemote of
+      Nothing -> do
+        srsly "realise failed" . fgrun $ nixRealise drv
+        fgconsume_ $ Cmd Local query "query"
+      Just remote@(Remote _ host) -> do
+        srsly "nix-copy-closure failed" . fgrun $ nixCopyClosureTo host drv
+        srsly "realise failed" . fgrun . ssh . forward remote $ nixRealise drv
+        fgconsume_ . ssh $ Cmd remote query "query"
 
 buildRemote :: BuildRemoteCli -> IO ()
-buildRemote BuildRemoteCli{..} = do
-  let remote = Remote Nothing brc_builder
-      nixBuild = brc_nixBuild || isJust brc_attribute
-  drv <-
-    case nixBuild of
-      False ->
-        nixContext brc_expressionFile >>= instantiateTmp
-      True -> do
-        args <- getEnvDefault "UPCAST_NIX_FLAGS" ""
-        fgtmp $ nixInstantiate args brc_attribute brc_expressionFile
-
-  srsly "nix-copy-closure failed" . fgrun $ nixCopyClosureTo brc_builder drv
-  srsly "realise failed" . fgrun . ssh . forward remote $ nixRealise drv
-  let query = case nixBuild of
-                False -> [n|cat $(nix-store -qu #{drv})|]
-                True -> [n|nix-store -qu #{drv}|]
-  p <- fgconsume_ . ssh $ Cmd remote query "query"
-  B8.putStrLn p
+buildRemote BuildRemoteCli{..} =
+  nixContext brc_expressionFile >>= doBuild eitherNixBuild remote >>= B8.putStrLn
+  where
+    remote = Just (Remote Nothing brc_builder)
+    eitherNixBuild = case brc_nixBuild || isJust brc_attribute of
+                         False -> Left ()
+                         True -> Right brc_attribute
 
 instantiate :: FilePath -> IO ()
 instantiate = nixContext >=> instantiateTmp >=> putStrLn

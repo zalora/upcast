@@ -4,6 +4,7 @@ module Upcast.DeployCommands where
 
 import Data.Text (Text)
 import Data.Monoid (mconcat)
+import Data.String (IsString)
 
 import qualified Data.ByteString.Char8 as C8
 import Data.ByteString.Char8 (intercalate, split)
@@ -77,7 +78,8 @@ nixInstantiateMachines NixContext{..} root =
       -A remoteMachines
     |] "instantiate"
 
-nixInstantiate :: String -> Maybe String -> FilePath -> FilePath -> Command Local
+nixInstantiate :: (IsString a, Show a) =>
+                  a -> Maybe String -> FilePath -> FilePath -> Command Local
 nixInstantiate nix_args attr exprFile root =
     Cmd Local [n|
       nix-instantiate #{nix_args}
