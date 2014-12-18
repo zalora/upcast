@@ -98,6 +98,8 @@ nixRealise :: FilePath -> Command Local
 nixRealise drv = Cmd Local [n|nix-store --realise #{drv}|] "realise"
 
 nixCopyClosureTo :: String -> FilePath -> Command Local
+nixCopyClosureTo "localhost" path =
+    Cmd Local [n|ls -ld -- #{path}|] "copyto"
 nixCopyClosureTo host path =
     Cmd Local [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to #{host} #{path} --gzip|] $ mconcat [host, ":copyto"]
 
