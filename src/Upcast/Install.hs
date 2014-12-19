@@ -38,7 +38,7 @@ installMachines :: DeliveryMode -> (Hostname -> IO StorePath) -> [Machine] -> IO
 installMachines dm resolveClosure machines = do
     installs <- mapM installP machines
     results <- mapConcurrently (try . go fgc dm) installs :: IO [Either SomeException ()]
-    case [i{i_closure="<stripped>"} | (e, i) <- zip results installs, isLeft e] of
+    case [i{i_paths=["<stripped>"]} | (e, i) <- zip results installs, isLeft e] of
         [] -> return $ Right ()
         failures -> do
           warn ["installs failed: ", show failures]
