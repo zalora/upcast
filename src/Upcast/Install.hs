@@ -24,19 +24,27 @@ import Upcast.Command
 import Upcast.DeployCommands
 import Upcast.Environment
 
-fgrun' :: Command Local -> IO ()
-fgrun' = expect ExitSuccess "install step failed" . fgrun
+data FgCommands =
+  FgCommands { fgrun' :: Command Local -> IO ()
+             , fgssh :: Command Remote -> IO ()
+             }
 
-fgssh :: Command Remote -> IO ()
-fgssh = fgrun' . ssh
+fgCommands fgrun = FgCommands{..}
+  where
+    fgrun' = expect ExitSuccess "install step failed" . fgrun
+    fgssh = fgrun' . ssh
 
 installMachines :: DeliveryMode -> (Hostname -> IO StorePath) -> [Machine] -> IO ()
 installMachines dm resolveClosure machines = do
     installs <- mapM installP machines
-    results <- mapConcurrently (try . go dm) installs :: IO [Either SomeException ()]
+    results <- mapConcurrently (try . go fgc dm) installs :: IO [Either SomeException ()]
     warn ["installs failed: ", show [i | (e, i) <- zip results installs, isLeft e]]
     return ()
   where
+    fgc = case machines of
+              [x] -> fgCommands fgrunDirect
+              _ -> fgCommands fgrunProxy
+
     isLeft :: Either a b -> Bool
     isLeft (Left _) = True
     isLeft _ = False
@@ -51,16 +59,16 @@ installMachines dm resolveClosure machines = do
         i_remote = Remote (T.unpack <$> m_keyFile) (T.unpack m_publicIp)
         i_profile = nixSystemProfile
   
-install :: InstallCli -> IO ()
-install args@InstallCli{..} = do
+install :: (Command Local -> IO ExitCode) -> InstallCli -> IO ()
+install fgrun args@InstallCli{..} = do
   let i_closure = ic_closure
       i_remote = Remote Nothing ic_target
       i_paths = []
       i_profile = maybe nixSystemProfile id ic_profile
-  go (toDelivery ic_pullFrom) Install{..}
+  go (fgCommands fgrun) (toDelivery ic_pullFrom) Install{..}
 
-go :: DeliveryMode -> Install -> IO ()
-go dm install@Install{i_paths} = do
+go :: FgCommands -> DeliveryMode -> Install -> IO ()
+go FgCommands{..} dm install@Install{i_paths} = do
   nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
   case nixSSHClosureCache of
       Just cache -> do

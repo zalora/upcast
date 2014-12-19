@@ -38,8 +38,8 @@ setupAgentF :: (FilePath -> a -> Command Local) -> [a] -> IO FilePath
 setupAgentF liftKey keyvals = do
     agentSocket <- randomTempFileName "ssh-agent.sock."
     spawn $ sshAgent agentSocket
-    mapM_ (fgrun . liftKey agentSocket) $ keyvals
-    fgrun $ sshListKeys agentSocket
+    mapM_ (fgrunDirect . liftKey agentSocket) $ keyvals
+    fgrunDirect $ sshListKeys agentSocket
     return agentSocket
 
 nixDeploymentInfo :: NixContext -> Command Local

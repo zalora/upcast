@@ -69,7 +69,7 @@ buildThenInstall ctx dm machines = do
   closuresPath <- randomTempFileName "machines."
 
   expect ExitSuccess "nix build of machine closures failed" $
-    fgrun $ nixBuildMachines ctx $ Just closuresPath
+    fgrunDirect $ nixBuildMachines ctx $ Just closuresPath
 
   prepAuth $ catMaybes $ fmap m_keyFile machines
   installMachines dm (readSymbolicLink . (closuresPath </>) . T.unpack) machines
@@ -87,11 +87,11 @@ doBuild eitherNixBuild maybeRemote ctx@NixContext{..} = do
                 Right _ -> [n|nix-store -qu #{drv}|]
   case maybeRemote of
       Nothing -> do
-        srsly "realise failed" . fgrun $ nixRealise drv
+        srsly "realise failed" . fgrunDirect $ nixRealise drv
         fgconsume_ $ Cmd Local query "query"
       Just remote@(Remote _ host) -> do
-        srsly "nix-copy-closure failed" . fgrun $ nixCopyClosureTo host drv
-        srsly "realise failed" . fgrun . ssh . forward remote $ nixRealise drv
+        srsly "nix-copy-closure failed" . fgrunDirect $ nixCopyClosureTo host drv
+        srsly "realise failed" . fgrunDirect . ssh . forward remote $ nixRealise drv
         fgconsume_ . ssh $ Cmd remote query "query"
 
 buildRemote :: BuildRemoteCli -> IO ()
@@ -144,7 +144,7 @@ fgtmp :: (FilePath -> Command Local) -> IO FilePath
 fgtmp f = do
   tmp <- randomTempFileName "fgtmp."
   let cmd@(Cmd _ _ tag) = f tmp
-  expect ExitSuccess (tag <> " failed") $ fgrun cmd
+  expect ExitSuccess (tag <> " failed") $ fgrunDirect cmd
   dest <- readSymbolicLink tmp
   removeFile tmp
   return dest
@@ -199,7 +199,7 @@ main = do
             progDesc "print effective path to upcast nix expressions")
 
         <> command "install"
-           (install <$> installCli `info`
+           ((install fgrunDirect) <$> installCli `info`
             progDesc "install nix environment-like closure over ssh")
 
     installCli = InstallCli

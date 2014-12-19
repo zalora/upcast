@@ -6,9 +6,10 @@ module Upcast.Command (
 , Command(..)
 , ExitCode(..)
 , measure
-, fgrun
+, fgrunProxy
 , fgrunPipe
 , fgrunPty
+, fgrunDirect
 , fgconsume
 , fgconsume_
 , spawn
@@ -67,8 +68,8 @@ measure action = do
     then' <- getCurrentTime
     return (diffUTCTime then' now, result)
 
-fgrun :: Command Local -> IO ExitCode
-fgrun cmd = do
+fgrunProxy :: Command Local -> IO ExitCode
+fgrunProxy cmd = do
   mPty <- getEnv "UPCAST_NO_PTY"
   let f = maybe runPty (const run) mPty
   fgrun1 f cmd
@@ -91,6 +92,25 @@ fgrun1 runner c@(Cmd _ _ desc) = do
     output ref (Flush code) = writeIORef ref code
     output ref (Chunk s) = warn8 [ (B8.pack $ applyColor IO.Magenta desc)
                                  , "> ", s ]
+
+fgrunDirect :: Command Local -> IO ExitCode
+fgrunDirect c@(Cmd Local comm _) = do
+    print' Run c
+    (_, _, _, phandle) <- createProcess cproc
+    (time, code) <- measure $ waitForProcess phandle
+    printExit Run c code time
+    return code
+  where
+    cproc = CreateProcess { cmdspec = ShellCommand comm
+                          , cwd = Nothing
+                          , env = Nothing
+                          , std_in = Inherit
+                          , std_out = Inherit
+                          , std_err = Inherit
+                          , close_fds = True
+                          , create_group = False
+                          , delegate_ctlc = True
+                          }
 
 fgconsume :: Command Local -> IO (Either BS.ByteString BS.ByteString)
 fgconsume c@(Cmd Local s _) = do
