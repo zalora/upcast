@@ -57,14 +57,18 @@ run RunCli{..} = do
       dm = toDelivery rc_pullFrom
   when (null machines) $ oops "no Nix instances, plan complete"
 
-  case rc_closureSubstitutes of
+  status <-
+    case rc_closureSubstitutes of
       Nothing ->
         buildThenInstall nix dm machines
       Just s ->
         installMachines dm
         (maybe (error "closure not found") return . flip Map.lookup s) machines
+  case status of
+      Left _ -> oops "some installs failed"
+      Right _ -> return ()
 
-buildThenInstall :: NixContext -> DeliveryMode -> [Machine] -> IO ()
+buildThenInstall :: NixContext -> DeliveryMode -> [Machine] -> IO (Either [Install] ())
 buildThenInstall ctx dm machines = do
   closuresPath <- randomTempFileName "machines."
 

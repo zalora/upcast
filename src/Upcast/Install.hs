@@ -34,12 +34,15 @@ fgCommands fgrun = FgCommands{..}
     fgrun' = expect ExitSuccess "install step failed" . fgrun
     fgssh = fgrun' . ssh
 
-installMachines :: DeliveryMode -> (Hostname -> IO StorePath) -> [Machine] -> IO ()
+installMachines :: DeliveryMode -> (Hostname -> IO StorePath) -> [Machine] -> IO (Either [Install] ())
 installMachines dm resolveClosure machines = do
     installs <- mapM installP machines
     results <- mapConcurrently (try . go fgc dm) installs :: IO [Either SomeException ()]
-    warn ["installs failed: ", show [i | (e, i) <- zip results installs, isLeft e]]
-    return ()
+    case [i{i_closure="<stripped>"} | (e, i) <- zip results installs, isLeft e] of
+        [] -> return $ Right ()
+        failures -> do
+          warn ["installs failed: ", show failures]
+          return $ Left failures
   where
     fgc = case machines of
               [x] -> fgCommands fgrunDirect
