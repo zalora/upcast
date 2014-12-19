@@ -43,8 +43,6 @@ import qualified Data.ByteString.Char8 as B8
 import Data.Conduit hiding (Flush(..))
 import qualified Data.Conduit.List as CL
 
-import Upcast.Interpolate (n)
-
 data Flush a = Chunk a | Flush ExitCode
 type ProcessSource i m = ConduitM i (Flush ByteString) m ()
 type Key = FilePath
