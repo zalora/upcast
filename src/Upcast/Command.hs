@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RankNTypes #-}
 
 module Upcast.Command (
   Local(..)
@@ -7,6 +7,8 @@ module Upcast.Command (
 , ExitCode(..)
 , measure
 , fgrun
+, fgrunPipe
+, fgrunPty
 , fgconsume
 , fgconsume_
 , spawn
@@ -15,6 +17,8 @@ module Upcast.Command (
 import Upcast.Monad
 import qualified Upcast.IO as IO
 import Upcast.IO (openFile, warn, warn8, applyColor)
+
+import Control.Monad.Trans.Resource
 
 import System.FilePath (FilePath)
 import System.Process (createProcess, waitForProcess, interruptProcessGroupOf,
@@ -25,6 +29,7 @@ import GHC.IO.Handle (hClose, Handle)
 import System.IO.Error (tryIOError)
 import System.Posix.IO (createPipe, fdToHandle)
 import System.Posix.Pty (spawnWithPty, readPty, Pty)
+import System.Posix.Env (getEnv)
 import qualified Data.List as L
 import Data.Monoid
 import Data.Time.Clock
@@ -63,10 +68,22 @@ measure action = do
     return (diffUTCTime then' now, result)
 
 fgrun :: Command Local -> IO ExitCode
-fgrun c@(Cmd _ _ desc) = do
+fgrun cmd = do
+  mPty <- getEnv "UPCAST_NO_PTY"
+  let f = maybe runPty (const run) mPty
+  fgrun1 f cmd
+
+fgrunPipe :: Command Local -> IO ExitCode
+fgrunPipe = fgrun1 run
+
+fgrunPty :: Command Local -> IO ExitCode
+fgrunPty = fgrun1 runPty
+
+fgrun1 :: (Command Local -> ProcessSource () (ResourceT IO)) -> Command Local -> IO ExitCode
+fgrun1 runner c@(Cmd _ _ desc) = do
     print' Run c
     ref <- newIORef mempty
-    (time, _) <- measure $ runResourceT $ runPty c $$ awaitForever $ liftIO . output ref
+    (time, _) <- measure $ runResourceT $ runner c $$ awaitForever $ liftIO . output ref
     code <- readIORef ref
     printExit Run c code time
     return code
