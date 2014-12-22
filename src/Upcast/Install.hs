@@ -65,7 +65,7 @@ installMachines dm resolveClosure machines = do
 install :: (Command Local -> IO ExitCode) -> InstallCli -> IO ()
 install fgrun args@InstallCli{..} = do
   let i_closure = ic_closure
-      i_remote = Remote Nothing $ "root@" ++ ic_target
+      i_remote = Remote Nothing ic_target
       i_paths = []
       i_profile = maybe nixSystemProfile id ic_profile
   go (fgCommands fgrun) (toDelivery ic_pullFrom) Install{..}
