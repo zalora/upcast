@@ -2,14 +2,13 @@
 
 set -e
 
-name=${1:-nixos}
-vdi=${2:-/nix/store/ddjff980pc276iblz6hrx2zda3xpcj6d-zalora-virtualbox-nixops.vdi}
-pubkey=${3:-$HOME/.ssh/id_rsa.pub}
-sshport=${4:-2222}
+vdi=${vdi:-${1:-""}}
+pubkey=${pubkey:-${2:-$HOME/.ssh/id_rsa.pub}}
+sshport=${sshport:-${3:-2222}}
 
 usage() {
 	echo "$1" >&2
-	echo "usage: $0 name vdi [pubkey] [sshport]" >&2
+	echo "usage: $0 vdi [pubkey] [sshport]" >&2
 	echo "defaults: pubkey=$pubkey sshport=${sshport}" >&2
 	echo >&2
 	exit 1
@@ -17,15 +16,36 @@ usage() {
 
 { # protect against ^C and starbucks wi-fi
 
-[ $# -lt 2 -o $# -gt 4 ] && usage
 [ ! -f $vdi ] && usage "vdi: $vdi: file not found"
 [ ! -f $pubkey ] && usage "pubkey: $pubkey: file not found"
+
+name=${name:-$(basename "$vdi" .vdi)}
 
 echo >&2
 echo "mkvbox: name=$name vdi=$vdi pubkey=$pubkey sshport=${sshport}" >&2
 echo >&2
 
 set -x
+
+hostonlyifs="$(VBoxManage list hostonlyifs | grep Name: | wc -l)"
+hostonlycmd=modify
+if [ $hostonlyifs -eq 0 ]; then
+	VBoxManage hostonlyif create
+	hostonlycmd=add
+fi
+
+VBoxManage dhcpserver $hostonlycmd $(VBoxManage list hostonlyifs | awk -F: '
+	/^Name/ {print "--ifname", $2}
+	/^IPAddress/ {
+		print "--ip", $2;
+		split($2, ip, ".");
+		print "--lowerip", sprintf("%d.%d.%d.%d", ip[1], ip[2], ip[3], 100),
+			"--upperip", sprintf("%d.%d.%d.%d", ip[1], ip[2], ip[3], 200);
+		mask=1
+	}
+	/^NetworkMask/ && mask {print "--netmask", $2; mask=0}
+	/^$/ { exit; }
+	') --enable
 
 VBoxManage createvm --name "$name" --ostype Linux26_64 --register
 vmdata="$(VBoxManage showvminfo "$name" | awk -F: '/^Snapshot folder:/ {print $2}' | sed 's%^ *%%; s%/Snapshots$%%')"
@@ -37,7 +57,10 @@ VBoxManage createhd --filename "$vmdata"/db.vdi --size 61440
 VBoxManage storageattach "$name" --storagectl SATA --port 1 --device 0 --type hdd --medium "$vmdata"/db.vdi
 VBoxManage guestproperty set "$name" /VirtualBox/GuestInfo/Charon/ClientPublicKey "$(cat $pubkey)"
 VBoxManage modifyvm "$name" --memory 4096
-VBoxManage modifyvm "$name" --natpf1 "SSH,tcp,,${sshport},,22"
+VBoxManage modifyvm "$name" --nic1 hostonly
+VBoxManage modifyvm "$name" --hostonlyadapter1 "$(VBoxManage list hostonlyifs | awk -F: '/^Name:/ {print $2; exit; }' | sed 's%^ *%%')"
+VBoxManage modifyvm "$name" --nic2 nat
+VBoxManage modifyvm "$name" --natpf2 "SSH,tcp,,${sshport},,22"
 VBoxManage startvm "$name" --type headless
 
 VBoxManage showvminfo "$name" | head >&2
