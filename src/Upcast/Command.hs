@@ -119,7 +119,7 @@ fgconsume c@(Cmd Local s _) = do
         ExitSuccess -> return $ Right output
         _ -> return $ Left output
     where
-      proc = bracketP (openFile "/dev/stderr" IO.WriteMode) (hClose) $ \wh -> roProcessSource (cmd s) Nothing (Just wh)
+      proc = roProcessSource (cmd s) Nothing (Just IO.stderr)
       concat = L.foldl' mappend (Just ExitSuccess, BS.empty) . fmap chunk
       chunk (Chunk a) = (Just ExitSuccess, a)
       chunk (Flush code) = (Just code, BS.empty)
