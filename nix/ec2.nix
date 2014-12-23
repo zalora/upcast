@@ -111,7 +111,7 @@ in
       type = types.str;
       description = ''
         EC2 identifier of the AMI disk image used in the virtual
-        machine.  This must be a NixOS image providing SSH access.
+        machine.
       '';
     };
 

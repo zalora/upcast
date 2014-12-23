@@ -80,6 +80,7 @@ in
 {
   imports = [
     <nixpkgs/nixos/modules/virtualisation/amazon-config.nix>
+    ./nixos-defaults.nix
   ];
 
   options = {
@@ -96,20 +97,7 @@ in
   };
 
   config = {
-    ec2.metadata = cloudDefault true;
-
-    # usually covered by security groups
-    networking.firewall.enable = cloudDefault false;
-
-    # likely not needed on a cloud box
-    services.nixosManual.enable = cloudDefault false;
-    services.openssh.passwordAuthentication = cloudDefault false;
-    services.openssh.challengeResponseAuthentication = cloudDefault false;
-    services.udisks2.enable = cloudDefault false;
-    security.polkit.enable = cloudDefault false;
-    environment.noXlibs = cloudDefault true;
-    time.timeZone = cloudDefault "UTC";
-    i18n.supportedLocales = cloudDefault ["en_US.UTF-8/UTF-8"];
+    ec2.metadata = mkOverride 999 true;
 
     system.activationScripts.ec2-apply-hostname = hostname-script + run-register-hostnames;
 

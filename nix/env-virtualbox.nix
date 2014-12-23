@@ -1,15 +1,14 @@
 # used to be nixops/nix/virtualbox-image-nixops.nix
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 let
-
   clientKeyPath = "/root/.vbox-nixops-client-key";
-
 in
-
-{ require = [ <nixpkgs/nixos/modules/virtualisation/virtualbox-image.nix> ];
-
-  services.openssh.enable = true;
+{
+  require = [
+    <nixpkgs/nixos/modules/virtualisation/virtualbox-image.nix>
+    ./nixos-defaults.nix
+  ];
 
   jobs."get-vbox-nixops-client-key" =
     { description = "Get NixOps SSH Key";
