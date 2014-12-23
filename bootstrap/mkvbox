@@ -59,6 +59,7 @@ VBoxManage guestproperty set "$name" /VirtualBox/GuestInfo/Charon/ClientPublicKe
 VBoxManage modifyvm "$name" --memory 4096
 VBoxManage modifyvm "$name" --nic1 hostonly
 VBoxManage modifyvm "$name" --hostonlyadapter1 "$(VBoxManage list hostonlyifs | awk -F: '/^Name:/ {print $2; exit; }' | sed 's%^ *%%')"
+VBoxManage modifyvm "$name" --nicpromisc1 allow-all
 VBoxManage modifyvm "$name" --nic2 nat
 VBoxManage modifyvm "$name" --natpf2 "SSH,tcp,,${sshport},,22"
 VBoxManage startvm "$name" --type headless
