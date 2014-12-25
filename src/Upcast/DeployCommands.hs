@@ -68,7 +68,6 @@ nixInstantiateMachines :: NixContext -> FilePath -> Command Local
 nixInstantiateMachines NixContext{..} root =
     Cmd Local [n|
       nix-instantiate #{nix_args}
-      --show-trace
       --read-write-mode
       --argstr system x86_64-linux
       --argstr networkExprs '#{nix_expressionFile}'
@@ -83,7 +82,6 @@ nixInstantiate :: (IsString a, Show a) =>
 nixInstantiate nix_args attr exprFile root =
     Cmd Local [n|
       nix-instantiate #{nix_args}
-      --show-trace
       --read-write-mode
       --argstr system x86_64-linux
       --add-root '#{root}'
