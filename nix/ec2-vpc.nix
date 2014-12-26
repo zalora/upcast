@@ -2,7 +2,7 @@
 
 with lib;
 
-let inherit (import ./lib.nix { inherit lib; }) union infra; in
+let inherit (import ./option-types.nix { inherit lib; }) union infra; in
 
 {
 

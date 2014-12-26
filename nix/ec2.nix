@@ -5,7 +5,7 @@ with lib;
 let
   cfg = config.ec2;
 
-  inherit (import ./lib.nix { inherit lib; }) union infra;
+  inherit (import ./option-types.nix { inherit lib; }) union infra;
 
   defaultEbsOptimized =
     let props = config.ec2.physicalProperties;

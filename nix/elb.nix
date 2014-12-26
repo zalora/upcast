@@ -1,7 +1,7 @@
 { config, pkgs, name, lib ? pkgs.lib, ... }:
 
 with lib;
-let inherit (import ./lib.nix { inherit lib; }) union infra ec2-instance; in
+let inherit (import ./option-types.nix { inherit lib; }) union infra ec2-instance; in
 {
 
   options = {

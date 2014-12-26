@@ -3,7 +3,6 @@
 with lib;
 
 {
-
   options = {
 
     name = mkOption {
@@ -31,5 +30,4 @@ with lib;
   };
 
   config._type = "ec2-keypair";
-
 }

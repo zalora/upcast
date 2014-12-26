@@ -1,10 +1,9 @@
 { config, pkgs, name, lib ? pkgs.lib, ... }:
 
 with lib;
-let inherit (import ./lib.nix { inherit lib; }) union infra; in
+let inherit (import ./option-types.nix { inherit lib; }) union infra; in
 
 {
-
   options = {
 
     name = mkOption {
@@ -14,7 +13,7 @@ let inherit (import ./lib.nix { inherit lib; }) union infra; in
     };
 
     description = mkOption {
-      default = "NixOps-provisioned group ${name}";
+      default = "${name}";
       type = types.str;
       description = "Informational description of the security group.";
     };
@@ -35,12 +34,6 @@ let inherit (import ./lib.nix { inherit lib; }) union infra; in
       type = types.nullOr (union types.str (infra "ec2-vpc"));
       apply = x: if x == null then null else if builtins.isString x then x else x._name;
       description = "If specified, the security group is created under this VPC.";
-    };
-
-    groupId = mkOption {
-      default = null;
-      type = types.uniq (types.nullOr types.str);
-      description = "The security group ID. This is set by NixOps.";
     };
 
     rules = mkOption {
@@ -102,5 +95,4 @@ let inherit (import ./lib.nix { inherit lib; }) union infra; in
   };
 
   config._type = "ec2-security-group";
-
 }

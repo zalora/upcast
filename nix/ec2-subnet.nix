@@ -1,10 +1,9 @@
 { config, pkgs, name, lib ? pkgs.lib, ... }:
 
 with lib;
-let inherit (import ./lib.nix { inherit lib; }) union infra; in
+let inherit (import ./option-types.nix { inherit lib; }) union infra; in
 
 {
-
   options = {
 
     region = mkOption {
@@ -38,5 +37,4 @@ let inherit (import ./lib.nix { inherit lib; }) union infra; in
   };
 
   config._type = "ec2-subnet";
-
 }

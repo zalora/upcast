@@ -10,12 +10,11 @@ let
       inherit region zone accessKeyId;
       inherit instanceType;
       inherit keyPair;
-#      securityGroups = [ infra.ec2SecurityGroups.default ];
-#      subnet = infra.subnets.default;
+      securityGroups = [ infra.ec2SecurityGroups.default ];
+      subnet = infra.subnets.default;
       instanceProfileARN = "arn:aws:iam::555555555555:instance-profile/yay";
     };
   };
-
 in
 {
   infra.vpc.default = {
@@ -26,9 +25,7 @@ in
   infra.subnets.default = { infra, ... }: {
     inherit region zone accessKeyId;
     cidrBlock = "10.15.0.0/24";
-    vpc = builtins.trace (attrNames infra) infra.vpc.default;
-#    vpc = builtins.trace (attrNames infra.vpc.default) "000000000=========>";
-#    vpc = "12830128301273091283901283";
+    vpc = infra.vpc.default;
   };
 
   infra.ebsVolumes.mysql-master = {
@@ -39,13 +36,12 @@ in
 
   infra.ec2SecurityGroups.default = { infra, ... }: {
     inherit region accessKeyId;
-#    vpc = infra.vpc.default;
-    vpc = "undef";
+    vpc = infra.vpc.default;
     rules = [
       { protocol = "icmp";              sourceIp = "0.0.0.0/0"; }
       { fromPort = 22;  toPort = 22;    sourceIp = "0.0.0.0/0"; }
       { fromPort = 443; toPort = 443;   sourceIp = "0.0.0.0/0"; }
-#      { fromPort = 0;   toPort = 65535; sourceIp = infra.subnets.default.cidrBlock; }
+      { fromPort = 0;   toPort = 65535; sourceIp = infra.subnets.default.cidrBlock; }
     ];
   };
 
@@ -57,10 +53,9 @@ in
   infra.elbs.web = { infra, lib, ... }: with lib; {
     inherit region accessKeyId;
 
-    subnets = []; securityGroups = []; instances = [];
-#    subnets = [ infra.subnets.default ];
-#    securityGroups = [ infra.ec2SecurityGroups.default ];
-#    instances = with infra.instances; [ web1 web2 ];
+    subnets = [ infra.subnets.default ];
+    securityGroups = [ infra.ec2SecurityGroups.default ];
+    instances = with infra.instances; [ web1 web2 ];
 
     listeners =
       let
