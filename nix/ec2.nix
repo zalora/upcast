@@ -1,25 +1,21 @@
-# Configuration specific to the EC2/Nova/Eucalyptus backend.
+{ config, pkgs, lib ? pkgs.lib, ... }:
 
-{ config, pkgs, utils, lib ? pkgs.lib, ... }:
-
-with utils;
 with lib;
 
 let
-  cfg = config.deployment.ec2;
+  cfg = config.ec2;
 
-  inherit (import ./lib.nix { inherit config pkgs utils lib; }) union resource;
+  inherit (import ./lib.nix { inherit lib; }) union infra;
 
   defaultEbsOptimized =
-    let props = config.deployment.ec2.physicalProperties;
+    let props = config.ec2.physicalProperties;
     in if props == null then false else (props.allowsEbsOptimized or false);
-
     ec2DiskOptions = { config, ... }: {
       options = {
         disk = mkOption {
           default = "";
           example = "vol-d04895b8";
-          type = union types.str (resource "ebs-volume");
+          type = union types.str (infra "ebs-volume");
           apply = x: if builtins.isString x then x else "res-" + x._name;
           description = ''
             EC2 identifier of the disk to be mounted.  This can be an
@@ -27,7 +23,7 @@ let
             snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
             volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
             empty to create an EBS volume automatically.  It can also be
-            an EBS resource (e.g. <literal>resources.ebsVolumes.big-disk</literal>).
+            an EBS infra (e.g. <literal>infras.ebsVolumes.big-disk</literal>).
             '';
         };
 
@@ -76,7 +72,7 @@ in
 {
   options = {
 
-    deployment.ec2.accessKeyId = mkOption {
+    ec2.accessKeyId = mkOption {
       default = "";
       example = "AKIAIEMEJZVMPOHZWKZQ";
       type = types.str;
@@ -85,18 +81,18 @@ in
       '';
     };
 
-    deployment.ec2.region = mkOption {
+    ec2.region = mkOption {
       default = "";
       example = "us-east-1";
       type = types.str;
       description = ''
         Amazon EC2 region in which the instance is to be deployed.
         This option only applies when using EC2.  It implicitly sets
-        <option>deployment.ec2.ami</option>.
+        <option>ec2.ami</option>.
       '';
     };
 
-    deployment.ec2.zone = mkOption {
+    ec2.zone = mkOption {
       default = "";
       example = "us-east-1c";
       type = types.str;
@@ -106,7 +102,7 @@ in
       '';
     };
 
-    deployment.ec2.ami = mkOption {
+    ec2.ami = mkOption {
       example = "ami-ecb49e98";
       type = types.str;
       description = ''
@@ -115,7 +111,7 @@ in
       '';
     };
 
-    deployment.ec2.ebsBoot = mkOption {
+    ec2.ebsBoot = mkOption {
       default = true;
       type = types.bool;
       description = ''
@@ -123,11 +119,11 @@ in
         EBS-backed instances can be stopped and restarted, and attach
         other EBS volumes at boot time.  This option determines the
         selection of the default AMI; if you explicitly specify
-        <option>deployment.ec2.ami</option>, it has no effect.
+        <option>ec2.ami</option>, it has no effect.
       '';
     };
 
-    deployment.ec2.instanceType = mkOption {
+    ec2.instanceType = mkOption {
       default = "m1.small";
       example = "m1.large";
       type = types.str;
@@ -138,7 +134,7 @@ in
       '';
     };
 
-    deployment.ec2.instanceProfileARN = mkOption {
+    ec2.instanceProfileARN = mkOption {
       default = "";
       example = "arn:aws:iam::123456789012:instance-profile/S3-Permissions";
       type = types.str;
@@ -148,9 +144,9 @@ in
       '';
     };
 
-    deployment.ec2.keyPair = mkOption {
+    ec2.keyPair = mkOption {
       example = "my-keypair";
-      type = union types.str (resource "ec2-keypair");
+      type = union types.str (infra "ec2-keypair");
       apply = x: if builtins.isString x then x else x.name;
       description = ''
         Name of the SSH key pair to be used to communicate securely
@@ -159,10 +155,10 @@ in
       '';
     };
 
-    deployment.ec2.securityGroups = mkOption {
+    ec2.securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
-      type = types.listOf (union types.str (resource "ec2-security-group"));
+      type = types.listOf (union types.str (infra "ec2-security-group"));
       apply = map (x: if builtins.isString x then x else x._name);
       description = ''
         Security groups for the instance.  These determine the
@@ -170,7 +166,7 @@ in
       '';
     };
 
-    deployment.ec2.blockDeviceMapping = mkOption {
+    ec2.blockDeviceMapping = mkOption {
       default = { };
       example = { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdg".disk = "vol-d04895b8"; };
       type = types.attrsOf types.optionSet;
@@ -180,7 +176,7 @@ in
       '';
     };
 
-    deployment.ec2.physicalProperties = mkOption {
+    ec2.physicalProperties = mkOption {
       default = {};
       example = { cores = 4; memory = 14985; };
       description = ''
@@ -189,7 +185,7 @@ in
       '';
     };
 
-    deployment.ec2.ebsOptimized = mkOption {
+    ec2.ebsOptimized = mkOption {
       default = defaultEbsOptimized;
       type = types.bool;
       description = ''
@@ -198,8 +194,8 @@ in
       '';
     };
 
-    deployment.ec2.subnet = mkOption {
-      type = types.nullOr (union types.str (resource "ec2-subnet"));
+    ec2.subnet = mkOption {
+      type = types.nullOr (union types.str (infra "ec2-subnet"));
       default = null;
       apply = x: if x == null then null else if builtins.isString x then x else x._name;
       description = ''
@@ -207,7 +203,7 @@ in
       '';
     };
 
-    deployment.ec2.userData = mkOption {
+    ec2.userData = mkOption {
       default = {};
       type = types.attrsOf types.path;
       example = { host-aes-key = "./secrets/aes-key"; };
@@ -225,7 +221,7 @@ in
           description = ''
             EC2 disk to be attached to this mount point.  This is
             shorthand for defining a separate
-            <option>deployment.ec2.blockDeviceMapping</option>
+            <option>ec2.blockDeviceMapping</option>
             attribute.
           '';
         };
@@ -235,11 +231,7 @@ in
   };
 
   config = {
-    nixpkgs.system = mkOverride 900 "x86_64-linux";
-
-    boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm ( mkOverride 10 "root (hd0,0)" );
-
-    deployment.ec2.ami = mkDefault (
+    ec2.ami = mkDefault (
       let
         type = if isEc2Hvm then "hvm" else if cfg.ebsBoot then "ebs" else "s3";
       in
@@ -256,16 +248,16 @@ in
     # Workaround: the evaluation of blockDeviceMapping requires fileSystems to be defined.
     fileSystems = {};
 
-    deployment.ec2.blockDeviceMapping = mkFixStrictness (listToAttrs
+    ec2.blockDeviceMapping = mkFixStrictness (listToAttrs
       (map (fs: nameValuePair (resolveDevice fs.device fs.ec2.blockDeviceMappingName)
         { inherit (fs.ec2) disk;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
        (filter (fs: fs.ec2 != null) (attrValues config.fileSystems))));
 
-    deployment.ec2.physicalProperties =
+    ec2.physicalProperties =
       let
-        type = config.deployment.ec2.instanceType or "unknown";
+        type = config.ec2.instanceType or "unknown";
         mapping = {
           "t1.micro"    = { cores = 1;  memory = 595;    allowsEbsOptimized = false; };
           "m1.small"    = { cores = 1;  memory = 1658;   allowsEbsOptimized = false; };

@@ -1,4 +1,4 @@
-{ config, pkgs, uuid, name, lib ? pkgs.lib, ... }:
+{ config, pkgs, name, lib ? pkgs.lib, ... }:
 
 with lib;
 
@@ -7,7 +7,7 @@ with lib;
   options = {
 
     name = mkOption {
-      default = "charon-${uuid}-${name}";
+      default = "charon-${name}";
       type = types.str;
       description = "Name of the EC2 key pair.";
     };

@@ -1,8 +1,7 @@
-{ config, pkgs, uuid, name, lib ? pkgs.lib, ... }:
+{ config, pkgs, name, lib ? pkgs.lib, ... }:
 
 with lib;
-
-let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource; in
+let inherit (import ./lib.nix { inherit lib; }) union infra; in
 
 {
 
@@ -31,7 +30,7 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource; in
     };
 
     vpc = mkOption {
-      type = union types.str (resource "ec2-vpc");
+      type = union types.str (infra "ec2-vpc");
       apply = x: if builtins.isString x then x else x._name;
       description = "VPC which contains the subnet.";
     };

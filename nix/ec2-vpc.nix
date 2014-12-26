@@ -1,8 +1,8 @@
-{ config, pkgs, uuid, name, lib ? pkgs.lib, ... }:
+{ config, pkgs, name, lib ? pkgs.lib, ... }:
 
 with lib;
 
-let inherit (import ./lib.nix) union resource; in
+let inherit (import ./lib.nix { inherit lib; }) union infra; in
 
 {
 

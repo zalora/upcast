@@ -3,7 +3,7 @@ let
   inherit (import <nixpkgs/lib>) mkDefault evalModules isList;
 
   pkgs-mod = rec {
-    _file = ./eval-nixos.nix;
+    _file = ./default.nix;
     key = _file;
     config = {
       nixpkgs.system = mkDefault "x86_64-linux";
@@ -18,5 +18,4 @@ let
   };
 in {
   inherit (eval) config options;
-  inherit (eval.config.__internal.args) pkgs;
 }

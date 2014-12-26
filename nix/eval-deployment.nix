@@ -1,32 +1,33 @@
-{ system ? builtins.currentSystem
-, networkExprs
-, checkConfigurationOptions ? false
-, uuid ? "new-upcast-deployment"
-, args ? {}
-, internal ? {}
-}:
+{ exprs }:
 
 let
   lib = import <nixpkgs/lib>;
 
-  eval = lib.evalModules {
-    modules = [ ./base.nix rec {
-      _file = ./eval-deployment.nix;
+  base = { config, ... }: rec {
+    _file = ./eval-deployment.nix;
+    key = _file;
 
-      key = _file;
-
-      config = {
-        __internal = {
-          args = lib.mapAttrs (n: lib.mkDefault) args;
-          check = lib.mkDefault checkConfigurationOptions;
-        } // internal;
-
-        inherit uuid;
-
-        resources.defaults.machines = [ {
-          nixpkgs.system = lib.mkDefault system;
-        } ];
-      };
-    } ] ++ (if lib.isList networkExprs then networkExprs else [ networkExprs ]);
+    options = {
+      infra =
+        let
+          topref = { ... }: {
+            config.__internal.args = { inherit (config) infra; };
+          };
+          mkInfraOption = { name, baseModules, ... }: lib.mkOption {
+            default = {};
+            type = lib.types.attrsOf (lib.types.submodule (baseModules ++ [ topref ]));
+          };
+          to = name: value: mkInfraOption ({ inherit name; } // value);
+        in lib.mapAttrs to (import ./infra-types.nix);
+    };
   };
-in eval.config.toplevel // { inherit eval; inherit __nixPath; }
+
+  eval = lib.evalModules {
+    check = false;
+    modules =
+      [ base ] ++
+      (if lib.isList exprs then exprs else [ exprs ]);
+  };
+in {
+#  inherit __nixPath;
+} // (lib.mapAttrs (n: lib.mapAttrs (n: v: removeAttrs v [ "__internal" ])) eval.config.infra)

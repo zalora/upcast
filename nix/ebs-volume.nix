@@ -1,11 +1,9 @@
-{ config, pkgs, uuid, name, lib ? pkgs.lib, ... }:
+{ config, pkgs, name, lib ? pkgs.lib, ... }:
 
 with lib;
 
 {
-
   options = {
-
     name = mkOption {
       example = "My Big Fat Disk";
       default = name;

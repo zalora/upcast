@@ -7,7 +7,7 @@ in
 {
   require = [
     <nixpkgs/nixos/modules/virtualisation/virtualbox-image.nix>
-    ./nixos-defaults.nix
+    ./default-config.nix
   ];
 
   jobs."get-vbox-nixops-client-key" =

@@ -1,15 +1,14 @@
-{ config, pkgs, uuid, name, lib ? pkgs.lib, ... }:
+{ config, pkgs, name, lib ? pkgs.lib, ... }:
 
 with lib;
-
-let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource; in
+let inherit (import ./lib.nix { inherit lib; }) union infra; in
 
 {
 
   options = {
 
     name = mkOption {
-      default = "charon-${uuid}-${name}";
+      default = "charon-${name}";
       type = types.str;
       description = "Name of the security group.";
     };
@@ -33,7 +32,7 @@ let inherit (import ./lib.nix { inherit config pkgs lib; }) union resource; in
 
     vpc = mkOption {
       default = null;
-      type = types.nullOr (union types.str (resource "ec2-vpc"));
+      type = types.nullOr (union types.str (infra "ec2-vpc"));
       apply = x: if x == null then null else if builtins.isString x then x else x._name;
       description = "If specified, the security group is created under this VPC.";
     };

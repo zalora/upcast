@@ -80,7 +80,7 @@ in
 {
   imports = [
     <nixpkgs/nixos/modules/virtualisation/amazon-config.nix>
-    ./nixos-defaults.nix
+    ./default-config.nix
   ];
 
   options = {
@@ -97,6 +97,10 @@ in
   };
 
   config = {
+    nixpkgs.system = mkOverride 900 "x86_64-linux";
+
+    #boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm ( mkOverride 10 "root (hd0,0)" );
+
     ec2.metadata = mkOverride 999 true;
 
     system.activationScripts.ec2-apply-hostname = hostname-script + run-register-hostnames;
