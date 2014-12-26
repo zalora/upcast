@@ -2,7 +2,7 @@
 
 with lib;
 
-let inherit (import ./option-types.nix { inherit lib; }) union infra; in
+let inherit (import <upcast/option-types.nix> { inherit lib; }) union infra; in
 
 {
 

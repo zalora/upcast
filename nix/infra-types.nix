@@ -2,42 +2,42 @@
   instances = {
     pluralDisplayName = "EC2 Instances";
 
-    baseModules = [ ./ec2.nix ./infra.nix ];
+    baseModules = [ ./aws/ec2-instance.nix ./infra-base.nix ];
   };
 
   vpc = {
     pluralDisplayName = "EC2 VPCs";
 
-    baseModules = [ ./ec2-vpc.nix ./infra.nix ];
+    baseModules = [ ./aws/ec2-vpc.nix ./infra-base.nix ];
   };
 
   subnets = {
     pluralDisplayName = "EC2 VPC Subnets";
 
-    baseModules = [ ./ec2-subnet.nix ./infra.nix ];
+    baseModules = [ ./aws/ec2-subnet.nix ./infra-base.nix ];
   };
 
   ec2KeyPairs = {
     pluralDisplayName = "EC2 keypairs";
 
-    baseModules = [ ./ec2-keypair.nix ./infra.nix ];
+    baseModules = [ ./aws/ec2-keypair.nix ./infra-base.nix ];
   };
 
   ec2SecurityGroups = {
     pluralDisplayName = "EC2 security groups";
 
-    baseModules = [ ./ec2-security-group.nix ./infra.nix ];
+    baseModules = [ ./aws/ec2-security-group.nix ./infra-base.nix ];
   };
 
   ebsVolumes = {
     pluralDisplayName = "EBS volumes";
 
-    baseModules = [ ./ebs-volume.nix ./infra.nix ];
+    baseModules = [ ./aws/ebs-volume.nix ./infra-base.nix ];
   };
 
   elbs = {
     pluralDisplayName = "Elastic load balancers";
 
-    baseModules = [ ./elb.nix ./infra.nix ];
+    baseModules = [ ./aws/elb.nix ./infra-base.nix ];
   };
 }

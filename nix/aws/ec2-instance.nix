@@ -1,11 +1,7 @@
-{ config, lib, ... }:
-
-with lib;
+{ config, lib, ... }: with lib;
 
 let
-  cfg = config.ec2;
-
-  inherit (import ./option-types.nix { inherit lib; }) union infra;
+  inherit (import <upcast/option-types.nix> { inherit lib; }) union infra;
 
   ec2DiskOptions = { config, ... }: {
     options = {
@@ -49,7 +45,7 @@ in
 {
   options = {
 
-    ec2.accessKeyId = mkOption {
+    accessKeyId = mkOption {
       default = "";
       example = "AKIAIEMEJZVMPOHZWKZQ";
       type = types.str;
@@ -58,18 +54,18 @@ in
       '';
     };
 
-    ec2.region = mkOption {
+    region = mkOption {
       default = "";
       example = "us-east-1";
       type = types.str;
       description = ''
         Amazon EC2 region in which the instance is to be deployed.
         This option only applies when using EC2.  It implicitly sets
-        <option>ec2.ami</option>.
+        <option>ami</option>.
       '';
     };
 
-    ec2.zone = mkOption {
+    zone = mkOption {
       default = "";
       example = "us-east-1c";
       type = types.str;
@@ -79,7 +75,7 @@ in
       '';
     };
 
-    ec2.ami = mkOption {
+    ami = mkOption {
       example = "ami-ecb49e98";
       type = types.str;
       description = ''
@@ -88,7 +84,7 @@ in
       '';
     };
 
-    ec2.ebsBoot = mkOption {
+    ebsBoot = mkOption {
       default = true;
       type = types.bool;
       description = ''
@@ -96,11 +92,11 @@ in
         EBS-backed instances can be stopped and restarted, and attach
         other EBS volumes at boot time.  This option determines the
         selection of the default AMI; if you explicitly specify
-        <option>ec2.ami</option>, it has no effect.
+        <option>ami</option>, it has no effect.
       '';
     };
 
-    ec2.instanceType = mkOption {
+    instanceType = mkOption {
       default = "m1.small";
       example = "m1.large";
       type = types.str;
@@ -111,7 +107,7 @@ in
       '';
     };
 
-    ec2.instanceProfileARN = mkOption {
+    instanceProfileARN = mkOption {
       default = "";
       example = "arn:aws:iam::123456789012:instance-profile/S3-Permissions";
       type = types.str;
@@ -121,7 +117,7 @@ in
       '';
     };
 
-    ec2.keyPair = mkOption {
+    keyPair = mkOption {
       example = "my-keypair";
       type = union types.str (infra "ec2-keypair");
       apply = x: if builtins.isString x then x else x.name;
@@ -132,7 +128,7 @@ in
       '';
     };
 
-    ec2.securityGroups = mkOption {
+    securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
       type = types.listOf (union types.str (infra "ec2-security-group"));
@@ -143,7 +139,7 @@ in
       '';
     };
 
-    ec2.blockDeviceMapping = mkOption {
+    blockDeviceMapping = mkOption {
       default = { };
       example = { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdg".disk = "vol-d04895b8"; };
       type = types.attrsOf types.optionSet;
@@ -153,7 +149,7 @@ in
       '';
     };
 
-    ec2.ebsOptimized = mkOption {
+    ebsOptimized = mkOption {
       default = false;
       type = types.bool;
       description = ''
@@ -162,7 +158,7 @@ in
       '';
     };
 
-    ec2.subnet = mkOption {
+    subnet = mkOption {
       type = types.nullOr (union types.str (infra "ec2-subnet"));
       default = null;
       apply = x: if x == null then null else if builtins.isString x then x else x._name;
@@ -174,8 +170,10 @@ in
   };
 
   config = {
-    ec2.ami = mkDefault (
+    ami = mkDefault (
       let
+        cfg = config;
+
         isEc2Hvm =
             cfg.instanceType == "cc1.4xlarge"
          || cfg.instanceType == "cc2.8xlarge"
@@ -198,5 +196,7 @@ in
         else
           ""
       );
+
+    _type = "ec2-instance";
   };
 }

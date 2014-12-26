@@ -6,14 +6,12 @@ let
   keyPair = "keypair";
 
   instance = instanceType: { infra, lib, ... }: with lib; {
-    ec2 = {
-      inherit region zone accessKeyId;
-      inherit instanceType;
-      inherit keyPair;
-      securityGroups = [ infra.ec2SecurityGroups.default ];
-      subnet = infra.subnets.default;
-      instanceProfileARN = "arn:aws:iam::555555555555:instance-profile/yay";
-    };
+    inherit region zone accessKeyId;
+    inherit instanceType;
+    inherit keyPair;
+    securityGroups = [ infra.ec2SecurityGroups.default ];
+    subnet = infra.subnets.default;
+    instanceProfileARN = "arn:aws:iam::555555555555:instance-profile/yay";
   };
 in
 {
