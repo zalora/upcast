@@ -45,17 +45,6 @@ let
     };
   };
 
-  isEc2Hvm =
-      cfg.instanceType == "cc1.4xlarge"
-   || cfg.instanceType == "cc2.8xlarge"
-   || cfg.instanceType == "hs1.8xlarge"
-   || cfg.instanceType == "cr1.8xlarge"
-   || builtins.substring 0 2 cfg.instanceType == "i2"
-   || builtins.substring 0 2 cfg.instanceType == "c3"
-   || builtins.substring 0 2 cfg.instanceType == "r3"
-   || builtins.substring 0 2 cfg.instanceType == "m3"
-   || builtins.substring 0 2 cfg.instanceType == "t2";
-
 in
 {
   options = {
@@ -182,20 +171,22 @@ in
       '';
     };
 
-    ec2.userData = mkOption {
-      default = {};
-      type = types.attrsOf types.path;
-      example = { host-aes-key = "./secrets/aes-key"; };
-      description = ''
-        Attribute set containing mappings to files that will be passed in as user data.
-      '';
-    };
-
   };
 
   config = {
     ec2.ami = mkDefault (
       let
+        isEc2Hvm =
+            cfg.instanceType == "cc1.4xlarge"
+         || cfg.instanceType == "cc2.8xlarge"
+         || cfg.instanceType == "hs1.8xlarge"
+         || cfg.instanceType == "cr1.8xlarge"
+         || builtins.substring 0 2 cfg.instanceType == "i2"
+         || builtins.substring 0 2 cfg.instanceType == "c3"
+         || builtins.substring 0 2 cfg.instanceType == "r3"
+         || builtins.substring 0 2 cfg.instanceType == "m3"
+         || builtins.substring 0 2 cfg.instanceType == "t2";
+
         type = if isEc2Hvm then "hvm" else if cfg.ebsBoot then "ebs" else "s3";
         amis = import ./ec2-amis.nix;
         amis' = amis."14.04"; # default to 14.04 images
