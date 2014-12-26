@@ -1,10 +1,12 @@
 { config, name, lib, ... }:
 
 with lib;
-let inherit (import <upcast/option-types.nix> { inherit lib; }) union infra; in
-
+let
+  common = import ./common.nix { inherit lib; };
+in
 {
   options = {
+    inherit (common) accessKeyId region;
 
     name = mkOption {
       default = "charon-${name}";
@@ -18,23 +20,7 @@ let inherit (import <upcast/option-types.nix> { inherit lib; }) union infra; in
       description = "Informational description of the security group.";
     };
 
-    region = mkOption {
-      type = types.str;
-      description = "Amazon EC2 region.";
-    };
-
-    accessKeyId = mkOption {
-      default = "";
-      type = types.str;
-      description = "The AWS Access Key ID.";
-    };
-
-    vpc = mkOption {
-      default = null;
-      type = types.nullOr (union types.str (infra "ec2-vpc"));
-      apply = x: if x == null then null else if builtins.isString x then x else x._name;
-      description = "If specified, the security group is created under this VPC.";
-    };
+    vpc = common.nullOr common.vpc;
 
     rules = mkOption {
       type = types.listOf types.optionSet;
@@ -94,5 +80,5 @@ let inherit (import <upcast/option-types.nix> { inherit lib; }) union infra; in
     };
   };
 
-  config._type = "ec2-security-group";
+  config._type = "ec2-sg";
 }

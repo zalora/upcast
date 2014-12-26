@@ -1,8 +1,12 @@
 { config, name, lib, ... }:
 with lib;
-let inherit (import <upcast/option-types.nix> { inherit lib; }) union infra ec2-instance; in
+let
+  common = import ./common.nix { inherit lib; };
+  inherit (common) infra;
+in
 {
   options = {
+    inherit (common) accessKeyId region;
 
     name = mkOption {
       example = "the-best-elb";
@@ -11,25 +15,14 @@ let inherit (import <upcast/option-types.nix> { inherit lib; }) union infra ec2-
       description = "Unique name of the ELB.";
     };
 
-    accessKeyId = mkOption {
-      type = types.str;
-      description = "The AWS Access Key ID.";
-    };
-
-    region = mkOption {
-      example = "us-east-1";
-      type = types.str;
-      description = "Amazon EC2 region.";
-    };
-
     subnets = mkOption {
-      type = types.listOf (union types.str (infra "ec2-subnet"));
+      type = types.listOf (infra "ec2-subnet");
       default = [];
       apply = map (x: if builtins.isString x then x else x._name);
     };
 
     instances = mkOption {
-      type = types.listOf (union types.str ec2-instance);
+      type = types.listOf (infra "ec2-instance");
       default = [];
       apply = map (x: if builtins.isString x then x else x._name);
     };
@@ -52,7 +45,7 @@ let inherit (import <upcast/option-types.nix> { inherit lib; }) union infra ec2-
 
     securityGroups = mkOption {
       example = [ "my-group" "my-other-group" ];
-      type = types.listOf (union types.str (infra "ec2-security-group"));
+      type = types.listOf (infra "ec2-sg");
       apply = map (x: if builtins.isString x then x else x._name);
       description = "Security groups for the ELB withing its VPC";
       default = [];

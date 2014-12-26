@@ -1,14 +1,15 @@
 { config, lib, ... }: with lib;
 
 let
-  inherit (import <upcast/option-types.nix> { inherit lib; }) union infra;
+  common = import ./common.nix { inherit lib; };
+  inherit (common) infra;
 
   ec2DiskOptions = { config, ... }: {
     options = {
       disk = mkOption {
         default = "";
         example = "vol-d04895b8";
-        type = union types.str (infra "ebs-volume");
+        type = infra "ebs-volume";
         apply = x: if builtins.isString x then x else "res-" + x._name;
         description = ''
           EC2 identifier of the disk to be mounted.  This can be an
@@ -44,36 +45,9 @@ let
 in
 {
   options = {
+    inherit (import ./common.nix { inherit lib; }) accessKeyId region zone;
 
-    accessKeyId = mkOption {
-      default = "";
-      example = "AKIAIEMEJZVMPOHZWKZQ";
-      type = types.str;
-      description = ''
-        This option is (yet) ignored by Upcast.
-      '';
-    };
-
-    region = mkOption {
-      default = "";
-      example = "us-east-1";
-      type = types.str;
-      description = ''
-        Amazon EC2 region in which the instance is to be deployed.
-        This option only applies when using EC2.  It implicitly sets
-        <option>ami</option>.
-      '';
-    };
-
-    zone = mkOption {
-      default = "";
-      example = "us-east-1c";
-      type = types.str;
-      description = ''
-        The EC2 availability zone in which the instance should be
-        created.  If not specified, a zone is selected automatically.
-      '';
-    };
+    subnet = common.nullOr common.subnet;
 
     ami = mkOption {
       example = "ami-ecb49e98";
@@ -119,7 +93,7 @@ in
 
     keyPair = mkOption {
       example = "my-keypair";
-      type = union types.str (infra "ec2-keypair");
+      type = infra "ec2-keypair";
       apply = x: if builtins.isString x then x else x.name;
       description = ''
         Name of the SSH key pair to be used to communicate securely
@@ -131,7 +105,7 @@ in
     securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
-      type = types.listOf (union types.str (infra "ec2-security-group"));
+      type = types.listOf (infra "ec2-sg");
       apply = map (x: if builtins.isString x then x else x._name);
       description = ''
         Security groups for the instance.  These determine the
@@ -158,15 +132,14 @@ in
       '';
     };
 
-    subnet = mkOption {
-      type = types.nullOr (union types.str (infra "ec2-subnet"));
-      default = null;
-      apply = x: if x == null then null else if builtins.isString x then x else x._name;
+    userData = mkOption {
+      default = {};
+      type = types.attrsOf types.path;
+      example = { host-aes-key = "./secrets/aes-key"; };
       description = ''
-        EC2 VPC subnet id
+        Attribute set containing mappings to files that will be passed in as user data.
       '';
     };
-
   };
 
   config = {
