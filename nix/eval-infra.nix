@@ -10,9 +10,10 @@ let
 
   eval-infra = 
     let
+      wrap = m: { _file = expr; imports = [ m ]; };
       eval1 = name: module: type: (evalModules {
         check = false;
-        modules = type.baseModules ++ [ module ];
+        modules = type.baseModules ++ [ (wrap module) ];
         args = {
           inherit name;
           inherit lib;

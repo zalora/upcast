@@ -1,9 +1,7 @@
 { config, name, lib, ... }:
-
 with lib;
 let inherit (import <upcast/option-types.nix> { inherit lib; }) union infra ec2-instance; in
 {
-
   options = {
 
     name = mkOption {
