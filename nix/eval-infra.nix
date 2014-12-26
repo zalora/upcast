@@ -2,7 +2,7 @@
 
 let
 
-  lib = import <nixpkgs/lib>;
+  lib = import ./lib;
   inherit (lib) mapAttrs getAttr evalModules;
 
   types = import ./infra-types.nix;
