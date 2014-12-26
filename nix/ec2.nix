@@ -7,46 +7,43 @@ let
 
   inherit (import ./option-types.nix { inherit lib; }) union infra;
 
-  defaultEbsOptimized =
-    let props = config.ec2.physicalProperties;
-    in if props == null then false else (props.allowsEbsOptimized or false);
-    ec2DiskOptions = { config, ... }: {
-      options = {
-        disk = mkOption {
-          default = "";
-          example = "vol-d04895b8";
-          type = union types.str (infra "ebs-volume");
-          apply = x: if builtins.isString x then x else "res-" + x._name;
-          description = ''
-            EC2 identifier of the disk to be mounted.  This can be an
-            ephemeral disk (e.g. <literal>ephemeral0</literal>), a
-            snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
-            volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
-            empty to create an EBS volume automatically.  It can also be
-            an EBS infra (e.g. <literal>infras.ebsVolumes.big-disk</literal>).
-            '';
-        };
-
-        blockDeviceMappingName = mkOption {
-          default = "";
-          type = types.str;
-          example = "/dev/sdb";
-          description = ''
-            The name of the block device that's accepted by AWS' RunInstances.
-            Must properly map to <literal>fileSystems.device</literal> option.
-            Leave blank for defaults.
+  ec2DiskOptions = { config, ... }: {
+    options = {
+      disk = mkOption {
+        default = "";
+        example = "vol-d04895b8";
+        type = union types.str (infra "ebs-volume");
+        apply = x: if builtins.isString x then x else "res-" + x._name;
+        description = ''
+          EC2 identifier of the disk to be mounted.  This can be an
+          ephemeral disk (e.g. <literal>ephemeral0</literal>), a
+          snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
+          volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
+          empty to create an EBS volume automatically.  It can also be
+          an EBS infra (e.g. <literal>infras.ebsVolumes.big-disk</literal>).
           '';
-        };
+      };
 
-        fsType = mkOption {
-          default = "ext4"; # FIXME: this default doesn't work
-          type = types.str;
-          description = ''
-            Filesystem type for automatically created EBS volumes.
-          '';
-        };
+      blockDeviceMappingName = mkOption {
+        default = "";
+        type = types.str;
+        example = "/dev/sdb";
+        description = ''
+          The name of the block device that's accepted by AWS' RunInstances.
+          Must properly map to <literal>fileSystems.device</literal> option.
+          Leave blank for defaults.
+        '';
+      };
+
+      fsType = mkOption {
+        default = "ext4"; # FIXME: this default doesn't work
+        type = types.str;
+        description = ''
+          Filesystem type for automatically created EBS volumes.
+        '';
       };
     };
+  };
 
   isEc2Hvm =
       cfg.instanceType == "cc1.4xlarge"
@@ -59,15 +56,6 @@ let
    || builtins.substring 0 2 cfg.instanceType == "m3"
    || builtins.substring 0 2 cfg.instanceType == "t2";
 
-  resolveDevice = base: override: dmToDevice (if override == "" then base else override);
-
-  # Map "/dev/mapper/xvdX" to "/dev/xvdX".
-  dmToDevice = dev:
-    if builtins.substring 0 12 dev == "/dev/mapper/"
-    then "/dev/" + builtins.substring 12 100 dev
-    else dev;
-
-  amis = import ./ec2-amis.nix;
 in
 {
   options = {
@@ -176,17 +164,8 @@ in
       '';
     };
 
-    ec2.physicalProperties = mkOption {
-      default = {};
-      example = { cores = 4; memory = 14985; };
-      description = ''
-        Attribute set containing number of CPUs and memory available to
-        the machine.
-      '';
-    };
-
     ec2.ebsOptimized = mkOption {
-      default = defaultEbsOptimized;
+      default = false;
       type = types.bool;
       description = ''
         Whether the EC2 instance should be created as an EBS Optimized instance.
@@ -212,70 +191,21 @@ in
       '';
     };
 
-    fileSystems = mkOption {
-      options = {
-        ec2 = mkOption {
-          default = null;
-          type = types.uniq (types.nullOr types.optionSet);
-          options = ec2DiskOptions;
-          description = ''
-            EC2 disk to be attached to this mount point.  This is
-            shorthand for defining a separate
-            <option>ec2.blockDeviceMapping</option>
-            attribute.
-          '';
-        };
-      };
-    };
-
   };
 
   config = {
     ec2.ami = mkDefault (
       let
         type = if isEc2Hvm then "hvm" else if cfg.ebsBoot then "ebs" else "s3";
+        amis = import ./ec2-amis.nix;
+        amis' = amis."14.04"; # default to 14.04 images
       in
         with builtins;
-        if hasAttr cfg.region amis then
-          let r = getAttr cfg.region amis;
-          in if hasAttr type r then getAttr type r else ""
+        if hasAttr cfg.region amis' then
+          let r = amis'."${cfg.region}";
+          in if hasAttr type r then r."${type}" else ""
         else
-          # !!! Doesn't work, not lazy enough.
-          #throw "I don't know an AMI for region ‘${cfg.region}’ and platform type ‘${config.nixpkgs.system}’"
           ""
       );
-
-    # Workaround: the evaluation of blockDeviceMapping requires fileSystems to be defined.
-    fileSystems = {};
-
-    ec2.blockDeviceMapping = mkFixStrictness (listToAttrs
-      (map (fs: nameValuePair (resolveDevice fs.device fs.ec2.blockDeviceMappingName)
-        { inherit (fs.ec2) disk;
-          fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
-        })
-       (filter (fs: fs.ec2 != null) (attrValues config.fileSystems))));
-
-    ec2.physicalProperties =
-      let
-        type = config.ec2.instanceType or "unknown";
-        mapping = {
-          "t1.micro"    = { cores = 1;  memory = 595;    allowsEbsOptimized = false; };
-          "m1.small"    = { cores = 1;  memory = 1658;   allowsEbsOptimized = false; };
-          "m1.medium"   = { cores = 1;  memory = 3755;   allowsEbsOptimized = false; };
-          "m1.large"    = { cores = 2;  memory = 7455;   allowsEbsOptimized = true;  };
-          "m1.xlarge"   = { cores = 4;  memory = 14985;  allowsEbsOptimized = true;  };
-          "m2.xlarge"   = { cores = 2;  memory = 17084;  allowsEbsOptimized = false; };
-          "m2.2xlarge"  = { cores = 4;  memory = 34241;  allowsEbsOptimized = true;  };
-          "m2.4xlarge"  = { cores = 8;  memory = 68557;  allowsEbsOptimized = true;  };
-          "m3.xlarge"   = { cores = 4;  memory = 14985;  allowsEbsOptimized = true;  };
-          "m3.2xlarge"  = { cores = 8;  memory = 30044;  allowsEbsOptimized = true;  };
-          "c1.medium"   = { cores = 2;  memory = 1697;   allowsEbsOptimized = false; };
-          "c1.xlarge"   = { cores = 8;  memory = 6953;   allowsEbsOptimized = true;  };
-          "cc1.4xlarge" = { cores = 16; memory = 21542;  allowsEbsOptimized = false; };
-          "cc2.8xlarge" = { cores = 32; memory = 59930;  allowsEbsOptimized = false; };
-          "hi1.4xlarge" = { cores = 16; memory = 60711;  allowsEbsOptimized = false; };
-          "cr1.8xlarge" = { cores = 32; memory = 245756; allowsEbsOptimized = false; };
-        };
-      in attrByPath [ type ] null mapping;
   };
 }
