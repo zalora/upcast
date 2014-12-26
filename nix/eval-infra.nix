@@ -15,7 +15,6 @@ let
         modules = type.baseModules ++ [ module ];
         args = {
           inherit name;
-          pkgs = {};
           inherit lib;
           infra = eval-infra;
         };

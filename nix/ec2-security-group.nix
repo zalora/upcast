@@ -1,4 +1,4 @@
-{ config, pkgs, name, lib ? pkgs.lib, ... }:
+{ config, name, lib, ... }:
 
 with lib;
 let inherit (import ./option-types.nix { inherit lib; }) union infra; in

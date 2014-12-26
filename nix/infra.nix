@@ -1,12 +1,9 @@
-{ config, pkgs, name, lib ? pkgs.lib, ... }:
+{ name, lib, ... }:
 
 with lib;
 
-
 {
-
   options = {
-
     # Pass-through of the infra name.
     _name = mkOption {
       default = name;
@@ -20,8 +17,6 @@ with lib;
       visible = false;
       description = "Type of the infra.";
     };
-
   };
-
 }
 
