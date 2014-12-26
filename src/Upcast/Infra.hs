@@ -199,9 +199,8 @@ findRegions acc _ = acc
 -- | read files mentioned in userData for each instance
 preReadUserData :: Value -> IO UserDataA
 preReadUserData info =
-    fmap mconcat $ forM (alistFromObject "machines" info) $ \inst -> do
-        let (name, dataA) = parse inst $ \(name, Object obj) -> do
-              Object ec2 <- obj .: "ec2"
+    fmap mconcat $ forM (alistFromObject "ec2-instance" info) $ \inst -> do
+        let (name, dataA) = parse inst $ \(name, Object ec2) -> do
               dataA :: HashMap Text Text <- ec2 .: "userData"
               return (name, dataA)
         readA <- sequence $ fmap (T.readFile . T.unpack) dataA
@@ -210,7 +209,7 @@ preReadUserData info =
 -- | pre-calculate EC2.ImportKeyPair values while we can do IO
 prepareKeyPairs :: Value -> IO [(Text, EC2.ImportKeyPair)]
 prepareKeyPairs info =
-    fmap mconcat $ forM (mcast "resources.ec2KeyPairs" info :: [Value]) $ \keypair -> do
+    fmap mconcat $ forM (mcast "ec2-keypair" info :: [Value]) $ \keypair -> do
         let (kName, kPK) = parse keypair $ \(Object obj) -> do
                               kName <- obj .: "name" :: A.Parser Text
                               kPK <- obj .: "privateKeyFile" :: A.Parser Text
@@ -236,8 +235,8 @@ debugEvalInfra InfraContext{..} = do
     userDataA <- preReadUserData inc_data
 
     instances <- do
-      awsConf <- liftIO $ Aws.dbgConfiguration
-      let context = EvalContext undefined awsConf (QueryAPIConfiguration $ T.encodeUtf8 region) R53.route53
+      let qapi = QueryAPIConfiguration $ T.encodeUtf8 region
+          context = EvalContext undefined undefined qapi R53.route53
           action = debugPlan emptyStore (ec2plan name (snd <$> keypairs) inc_data userDataA)
           in runReaderT action context
 

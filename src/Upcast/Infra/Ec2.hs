@@ -137,8 +137,7 @@ createEBS volumes defTags = do
 
 createInstances instances subnetA sgA defTags userDataA = do
     (instanceA :: InstanceA) <- fmap mconcat $ forM instances $ \inst -> do
-        let (name, blockDevs, cinst) = parse inst $ \(name, Object obj) -> do
-              Object ec2 <- obj .: "ec2" :: A.Parser Value
+        let (name, blockDevs, cinst) = parse inst $ \(name, Object ec2 :: Value) -> do
               securityGroupNames <- ec2 .: "securityGroups"
               subnet <- ec2 .: "subnet"
               let blockDevs = scast "blockDeviceMapping" (Object ec2) :: Maybe (Map Text Value)
@@ -211,7 +210,7 @@ attachEBS instanceA volumeA = do
 
 
 ec2plan :: (MonadFree InfraF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> UserDataA -> m [(Text, Value, Value)]
-ec2plan expressionName keypairs info userDataA = do
+ec2plan expressionName keypairs spec userDataA = do
     mapM_ (\k -> aws1 k "keyFingerprint") keypairs
 
     vpcA <- createVPC vpcs defTags
@@ -240,14 +239,14 @@ ec2plan expressionName keypairs info userDataA = do
         in return $ zip3 orderedInstanceNames orderedReportedInfos orderedInstanceInfos
   where
     cast :: FromJSON a => Text -> [a]
-    cast = (`mcast` info)
+    cast = (`mcast` spec)
 
     defTags = [("created-using", "upcast"), ("expression", expressionName)]
 
-    vpcs = cast "resources.vpc" :: [Value]
-    subnets = cast "resources.subnets" :: [Value]
-    secGroups = cast "resources.ec2SecurityGroups" :: [Value]
-    volumes = cast "resources.ebsVolumes" :: [Value]
-    instances = alistFromObject "machines" info
-    elbs = cast "resources.elbs" :: [Value]
+    vpcs = cast "ec2-vpc" :: [Value]
+    subnets = cast "ec2-subnet" :: [Value]
+    secGroups = cast "ec2-sg" :: [Value]
+    volumes = cast "ebs" :: [Value]
+    instances = alistFromObject "ec2-instance" spec
+    elbs = cast "elb" :: [Value]
 

@@ -42,14 +42,13 @@ setupAgentF liftKey keyvals = do
     fgrunDirect $ sshListKeys agentSocket
     return agentSocket
 
-nixDeploymentInfo :: NixContext -> Command Local
-nixDeploymentInfo NixContext{..} =
+nixInfraInfo :: NixContext -> Command Local
+nixInfraInfo NixContext{..} =
     Cmd Local [n|
       nix-instantiate #{nix_args}
-      --argstr networkExprs '#{nix_expressionFile}'
-      '<upcast/eval-deployment.nix>'
+      --argstr expr '#{nix_expressionFile}'
+      '<upcast/eval-infra.nix>'
       --eval-only --strict --read-write-mode
-      -A info
     |] "info"
 
 nixBuildMachines :: NixContext -> Maybe FilePath -> Command Local
