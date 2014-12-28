@@ -79,7 +79,7 @@ let
 in
 {
   imports = [
-    <nixpkgs/nixos/modules/virtualisation/amazon-image.nix>
+    ./amazon-image.nix
     ./default-config.nix
   ];
 
