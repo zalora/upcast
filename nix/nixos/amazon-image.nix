@@ -102,7 +102,7 @@ in
 
     fileSystems."/".device = "/dev/disk/by-label/nixos";
 
-    boot.initrd.kernelModules = [ "xen-blkfront" ];
+    boot.initrd.kernelModules = [ "xen-blkfront" "xen-fbfront" "xen-blkback" ];
     boot.kernelModules = [ "xen-netfront" ];
 
     # Generate a GRUB menu.  Amazon's pv-grub uses this to boot our kernel/initrd.
