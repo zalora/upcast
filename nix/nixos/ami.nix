@@ -16,7 +16,7 @@ rec {
       ec2.hvm = true; # pv is almost past
     };
 
-  image = (import ./. hvm-config).config.system.build.amazonImage;
+  image = (import <nixpkgs/nixos> { configuration = hvm-config; }).config.system.build.amazonImage;
 
   getEnvs = xs: listToAttrs (map (x: nameValuePair x (builtins.getEnv x)) xs);
 
