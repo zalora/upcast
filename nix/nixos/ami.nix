@@ -40,12 +40,12 @@ let
       };
     in (import ./. { configuration = vbox-config; }).config.system.build.virtualBoxImage;
 
+  image = nixos-hvm.config.system.build.amazonImage;
   image-name = "$(basename ${image})";
 in
 rec {
-  image = nixos-hvm.config.system.build.amazonImage;
   inherit (nixos-hvm) vm vmWithBootLoader;
-  inherit vbox;
+  inherit image vbox;
 
   bundle = pkgs.runCommand "ami-ec2-bundle-image" env ''
     mkdir -p $out
