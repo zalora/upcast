@@ -40,7 +40,7 @@ in
 rec {
   inherit image;
 
-  bundle = pkgs.runCommand "ec2-bundle-image" env ''
+  bundle = pkgs.runCommand "ami-ec2-bundle-image" env ''
     mkdir -p $out
 
     ${ec2-bundle-image} \
@@ -48,7 +48,7 @@ rec {
       -i "${image}/nixos.img" --arch x86_64 -d $out
   '';
 
-  upload = pkgs.runCommand "ec2-upload-image" env ''
+  upload = pkgs.runCommand "ami-ec2-upload-image" env ''
     export PATH=${pkgs.curl}/bin:$PATH
     export CURL_CA_BUNDLE=${pkgs.cacert}/etc/ca-bundle.crt
 
@@ -60,7 +60,7 @@ rec {
     echo "${context.bucket}/${image-name}/nixos.img.manifest.xml" > $out
   '';
 
-  register = pkgs.runCommand "ec2-register-image" env ''
+  register = pkgs.runCommand "ami-ec2-register-image" env ''
     set -o pipefail
 
     ${awscli} ec2 register-image \
