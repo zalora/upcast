@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> { system = "x86_64-linux"; }
+{ pkgs ? import <nixpkgs> { system = "x86_64-linux"; config.allowUnfree = true; }
 , lib ? pkgs.lib
 
 , aws-env ? {}
@@ -16,7 +16,7 @@ rec {
       ec2.hvm = true; # pv is almost past
     };
 
-  image =  (import ./. hvm-config).config.system.build.amazonImage;
+  image = (import ./. hvm-config).config.system.build.amazonImage;
 
   getEnvs = xs: listToAttrs (map (x: nameValuePair x (builtins.getEnv x)) xs);
 
