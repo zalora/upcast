@@ -31,7 +31,7 @@ in
       DefaultLimitCORE=1048576
     '';
 
-    boot.kernelPackages.kernel = cleanLinux config.boot.kernelPackages.kernel;
+    boot.kernelPackages.kernel = cleanLinux pkgs.linux;
 
     boot.kernel.sysctl = {
       # allows control of core dumps with systemd-coredumpctl
