@@ -1,4 +1,7 @@
 # based on: <nixpkgs/nixos/modules/virtualisation/amazon-image.nix>
+# - does not install configuration.nix
+# - does not use unionfs on instance-store instances
+# - does not add extra software
 { config, lib, pkgs, ... }:
 
 with lib;
@@ -87,10 +90,6 @@ in
             # `switch-to-configuration' requires a /bin/sh
             mkdir -p /mnt/bin
             ln -s ${config.system.build.binsh}/bin/sh /mnt/bin/sh
-
-            # Install a configuration.nix.
-            mkdir -p /mnt/etc/nixos
-            cp ${./amazon-config.nix} /mnt/etc/nixos/configuration.nix
 
             # Generate the GRUB menu.
             ln -s vda /dev/xvda
