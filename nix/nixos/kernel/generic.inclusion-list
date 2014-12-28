@@ -172,3 +172,13 @@ fs/jbd2/jbd2.ko
 fs/mbcache.ko
 net/packet/*
 net/unix/*
+drivers/block/xen-blkfront.ko
+drivers/video/console/bitblit.ko
+drivers/video/console/fbcon.ko
+drivers/video/console/softcursor.ko
+drivers/video/console/tileblit.ko
+drivers/video/fb_sys_fops.ko
+drivers/video/syscopyarea.ko
+drivers/video/sysfillrect.ko
+drivers/video/sysimgblt.ko
+drivers/video/xen-fbfront.ko
