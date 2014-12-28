@@ -27,18 +27,25 @@ let
   ec2-upload-bundle = "${pkgs.ec2_ami_tools}/bin/ec2-upload-bundle";
   awscli = "${pkgs.awscli}/bin/aws";
 
-  image =
-    let
+  nixos-hvm = let
       hvm-config = { config, ... }: {
           imports = [ ./env-ec2.nix ];
           ec2.hvm = true; # pv is almost past
       };
-    in (import <nixpkgs/nixos> { configuration = hvm-config; }).config.system.build.amazonImage;
+    in (import ./. { configuration = hvm-config; });
+
+  vbox = let
+      vbox-config = { config, ... }: {
+          imports = [ ./env-virtualbox.nix ];
+      };
+    in (import ./. { configuration = vbox-config; }).config.system.build.virtualBoxImage;
 
   image-name = "$(basename ${image})";
 in
 rec {
-  inherit image;
+  image = nixos-hvm.config.system.build.amazonImage;
+  inherit (nixos-hvm) vm vmWithBootLoader;
+  inherit vbox;
 
   bundle = pkgs.runCommand "ami-ec2-bundle-image" env ''
     mkdir -p $out

@@ -20,7 +20,7 @@ Date:   Mon Dec 15 12:35:27 2014 -0800
 ```bash
 cp debian.master/control.d/generic.inclusion-list ./
 
-sed 's/mv/cp/g' debian/scripts/module-inclusion > ./module-inclusion
+sed 's/mv/cp -r/g' debian/scripts/module-inclusion > ./module-inclusion
 
 for modtype in $(grep -v nfs ./debian.master/d-i/exclude-modules.amd64-virtual); do \
     cat ./debian.master/d-i/modules/$modtype; \
@@ -44,5 +44,7 @@ drivers/video/syscopyarea.ko
 drivers/video/sysfillrect.ko
 drivers/video/sysimgblt.ko
 drivers/video/xen-fbfront.ko
+drivers/virtio/*
+drivers/char/hw_random/rng-core.ko
 EOF
 ```

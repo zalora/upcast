@@ -29,7 +29,7 @@ if  [ "$master" -eq 1 ]; then
 	while read f
 	do
 		mkdir -p ${NROOT}/`dirname $f`
-		cp ${ROOT}/$f ${NROOT}/$f
+		cp -r ${ROOT}/$f ${NROOT}/$f
 	done
 fi
 
@@ -43,13 +43,13 @@ do
 		(cd ${ROOT}; eval find "${i}" -name "*.ko") |while read f
 		do
 			mkdir -p ${NROOT}/`dirname $f`
-			cp ${ROOT}/$f ${NROOT}/$f
+			cp -r ${ROOT}/$f ${NROOT}/$f
 		done
 	else
 		if [ -f "${ROOT}/$i" ]
 		then
 			mkdir -p ${NROOT}/`dirname $i`
-			cp ${ROOT}/$i ${NROOT}/$i
+			cp -r ${ROOT}/$i ${NROOT}/$i
 		else
 			echo Warning: Could not find ${ROOT}/$i
 		fi
