@@ -3,7 +3,10 @@ rec {
   cleanLinux =
     kernel:
     let
-      args.buildInputs = with pkgs; [findutils gawk bash];
+      args = {
+        buildInputs = with pkgs; [findutils gawk bash];
+        features = "";
+      };
       mod = "lib/modules/${kernel.version}";
     in
     pkgs.runCommand "upcast-cloud-linux-${kernel.version}" args ''
