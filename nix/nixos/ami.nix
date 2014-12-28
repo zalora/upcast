@@ -55,7 +55,7 @@ rec {
     ${ec2-upload-bundle} \
       -b "${context.bucket}/${image-name}" \
       -d ${bundle} -m ${bundle}/nixos.img.manifest.xml \
-      -a "$AWS_ACCESS_KEY" -s "$AWS_SECRET_KEY" --location ${context.region}
+      -a "$AWS_ACCESS_KEY" -s "$AWS_SECRET_KEY" --region ${context.region}
 
     echo "${context.bucket}/${image-name}/nixos.img.manifest.xml" > $out
   '';
