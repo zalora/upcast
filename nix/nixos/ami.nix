@@ -69,5 +69,6 @@ rec {
       --description "${image-name}" \
       --image-location "$(cat ${upload})" \
       --virtualization-type "hvm" | ${pkgs.jq}/bin/jq -r .ImageId > $out || rm -f $out
+    cat $out
   '';
 }
