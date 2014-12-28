@@ -1,6 +1,7 @@
 { config, pkgs, lib, ... }: with lib;
 let
   cloudDefault = mkOverride 999;
+  inherit (import ./kernel.nix { inherit pkgs; }) cleanLinux;
 in
 {
     # usually covered by things like security groups
@@ -29,6 +30,8 @@ in
     systemd.extraConfig = ''
       DefaultLimitCORE=1048576
     '';
+
+    boot.kernelPackages.kernel = cleanLinux config.boot.kernelPackages.kernel;
 
     boot.kernel.sysctl = {
       # allows control of core dumps with systemd-coredumpctl
