@@ -10,18 +10,11 @@
 , ... }:
 with lib;
 
-rec {
-  hvm-config = { config, ... }: {
-      imports = [ ./env-ec2.nix ];
-      ec2.hvm = true; # pv is almost past
-    };
-
-  image = (import <nixpkgs/nixos> { configuration = hvm-config; }).config.system.build.amazonImage;
-
-  getEnvs = xs: listToAttrs (map (x: nameValuePair x (builtins.getEnv x)) xs);
-
+let
   env =
     let
+      getEnvs = xs: listToAttrs (map (x: nameValuePair x (builtins.getEnv x)) xs);
+
       base1 = getEnvs [ "AWS_ACCOUNT_ID" "AWS_X509_CERT" "AWS_X509_KEY" ];
       base2 = getEnvs [ "AWS_ACCESS_KEY" "AWS_SECRET_KEY" ];
       more = {
@@ -34,6 +27,19 @@ rec {
   ec2-upload-bundle = "${pkgs.ec2_ami_tools}/bin/ec2-upload-bundle";
   awscli = "${pkgs.awscli}/bin/aws";
 
+  image =
+    let
+      hvm-config = { config, ... }: {
+          imports = [ ./env-ec2.nix ];
+          ec2.hvm = true; # pv is almost past
+      };
+    in (import <nixpkgs/nixos> { configuration = hvm-config; }).config.system.build.amazonImage;
+
+  image-name = "$(basename ${image})";
+in
+rec {
+  inherit image;
+
   bundle = pkgs.runCommand "ec2-bundle-image" env ''
     mkdir -p $out
 
@@ -41,8 +47,6 @@ rec {
       -c "$AWS_X509_CERT" -k "$AWS_X509_KEY" -u "$AWS_ACCOUNT_ID" \
       -i "${image}/nixos.img" --arch x86_64 -d $out
   '';
-
-  image-name = "$(basename ${image})";
 
   upload = pkgs.runCommand "ec2-upload-image" env ''
     export PATH=${pkgs.curl}/bin:$PATH
