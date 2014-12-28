@@ -160,7 +160,7 @@ in
 
         type = if isEc2Hvm then "hvm" else if cfg.ebsBoot then "ebs" else "s3";
         amis = import ./ec2-amis.nix;
-        amis' = amis."14.04"; # default to 14.04 images
+        amis' = amis."14.10"; # default to 14.10 images
       in
         with builtins;
         if hasAttr cfg.region amis' then
