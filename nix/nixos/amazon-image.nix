@@ -104,6 +104,7 @@ in
 
     boot.initrd.kernelModules = [ "xen-blkfront" "xen-fbfront" "xen-blkback" ];
     boot.kernelModules = [ "xen-netfront" ];
+    boot.kernelParams = [ "console=ttyS0" "earlyprintk=ttyS0" ];
 
     # Generate a GRUB menu.  Amazon's pv-grub uses this to boot our kernel/initrd.
     boot.loader.grub.version = if cfg.hvm then 2 else 1;
