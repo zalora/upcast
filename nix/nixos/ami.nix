@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> { system = "x86_64-linux"; config.allowUnfree = true; }
+{ pkgs ? import <nixpkgs-tools> { system = "x86_64-linux"; config.allowUnfree = true; }
 , lib ? pkgs.lib
 
 , aws-env ? {}
