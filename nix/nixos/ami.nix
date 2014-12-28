@@ -41,7 +41,7 @@ let
     in (import ./. { configuration = vbox-config; }).config.system.build.virtualBoxImage;
 
   image = nixos-hvm.config.system.build.amazonImage;
-  image-name = "$(basename ${image})";
+  image-name = "$(basename ${image})-nixos-upcast";
 in
 rec {
   inherit (nixos-hvm) vm vmWithBootLoader;
