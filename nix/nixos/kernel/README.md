@@ -1,9 +1,11 @@
 ### Origin
 
-```
+```console
+% git remote -v
 origin	git://kernel.ubuntu.com/ubuntu/ubuntu-utopic.git (fetch)
 origin	git://kernel.ubuntu.com/ubuntu/ubuntu-utopic.git (push)
 
+% git log -1
 commit 904d58943bc81685931fcef005bb04dcd5b2430d
 Author: Kamal Mostafa <kamal@canonical.com>
 Date:   Mon Dec 15 12:35:27 2014 -0800
