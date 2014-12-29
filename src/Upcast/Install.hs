@@ -1,8 +1,7 @@
 {-# LANGUAGE TemplateHaskell, OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
 
 module Upcast.Install (
-  installMachines
-, install
+  install
 ) where
 
 import Control.Exception.Base (SomeException, try)
@@ -34,34 +33,6 @@ fgCommands fgrun = FgCommands{..}
     fgrun' = expect ExitSuccess "install step failed" . fgrun
     fgssh = fgrun' . ssh
 
-installMachines :: DeliveryMode -> (Hostname -> IO StorePath) -> [Machine] -> IO (Either [Install] ())
-installMachines dm resolveClosure machines = do
-    installs <- mapM installP machines
-    results <- mapConcurrently (try . go fgc dm) installs :: IO [Either SomeException ()]
-    case [i{i_paths=["<stripped>"]} | (e, i) <- zip results installs, isLeft e] of
-        [] -> return $ Right ()
-        failures -> do
-          warn ["installs failed: ", show failures]
-          return $ Left failures
-  where
-    fgc = case machines of
-              [x] -> fgCommands fgrunDirect
-              _ -> fgCommands fgrunProxy
-
-    isLeft :: Either a b -> Bool
-    isLeft (Left _) = True
-    isLeft _ = False
-
-    installP :: Machine -> IO Install
-    installP Machine{..} = do
-        nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
-        i_closure <- resolveClosure m_hostname
-        i_paths <- (fmap (split '\n') . fgconsume_ . nixClosure) $ i_closure
-        return Install{..}
-      where
-        i_remote = Remote (T.unpack <$> m_keyFile) ("root@" ++ T.unpack m_publicIp)
-        i_profile = nixSystemProfile
-  
 install :: (Command Local -> IO ExitCode) -> InstallCli -> IO ()
 install fgrun args@InstallCli{..} = do
   let i_closure = ic_closure

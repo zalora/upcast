@@ -49,46 +49,10 @@ infraDump = icontext >=> pprint . inc_data
 infraDebug :: FilePath -> IO ()
 infraDebug = icontext >=> debugEvalInfra >=> const (return ())
 
-run :: RunCli -> IO ()
-run RunCli{..} = do
-  nix <- nixContext rc_expressionFile
-  machines' <- evalInfra =<< evalInfraContext nix
-  let machines = [m | m@Machine{..} <- machines', m_nix]
-      dm = toDelivery rc_pullFrom
-  when (null machines) $ oops "no Nix instances, plan complete"
-
-  status <-
-    case rc_closureSubstitutes of
-      Nothing ->
-        buildThenInstall nix dm machines
-      Just s ->
-        installMachines dm
-        (maybe (error "closure not found") return . flip Map.lookup s) machines
-  case status of
-      Left _ -> oops "some installs failed"
-      Right _ -> return ()
-
-buildThenInstall :: NixContext -> DeliveryMode -> [Machine] -> IO (Either [Install] ())
-buildThenInstall ctx dm machines = do
-  closuresPath <- randomTempFileName "machines."
-
-  expect ExitSuccess "nix build of machine closures failed" $
-    fgrunDirect $ nixBuildMachines ctx $ Just closuresPath
-
-  prepAuth $ catMaybes $ fmap m_keyFile machines
-  installMachines dm (readSymbolicLink . (closuresPath </>) . T.unpack) machines
-
-build :: FilePath -> IO ()
-build = nixContext >=> doBuild (Left ()) Nothing >=> B8.putStrLn
-
-doBuild :: Either () (Maybe String) -> Maybe Remote -> NixContext -> IO B8.ByteString
-doBuild eitherNixBuild maybeRemote ctx@NixContext{..} = do
-  drv <- case eitherNixBuild of
-             Left () -> instantiateTmp ctx
-             Right attr -> fgtmp $ nixInstantiate nix_args attr nix_expressionFile
-  let query = case eitherNixBuild of
-                Left _ -> [n|cat $(nix-store -qu #{drv})|]
-                Right _ -> [n|nix-store -qu #{drv}|]
+doBuild :: Maybe String -> Maybe Remote -> NixContext -> IO B8.ByteString
+doBuild attr maybeRemote ctx@NixContext{..} = do
+  drv <- fgtmp $ nixInstantiate nix_args attr nix_expressionFile
+  let query = [n|nix-store -qu #{drv}|]
   case maybeRemote of
       Nothing -> do
         srsly "realise failed" . fgrunDirect $ nixRealise drv
@@ -100,18 +64,9 @@ doBuild eitherNixBuild maybeRemote ctx@NixContext{..} = do
 
 buildRemote :: BuildRemoteCli -> IO ()
 buildRemote BuildRemoteCli{..} =
-  nixContext brc_expressionFile >>= doBuild eitherNixBuild remote >>= B8.putStrLn
+  nixContext brc_expressionFile >>= doBuild brc_attribute remote >>= B8.putStrLn
   where
     remote = Just (Remote Nothing brc_builder)
-    eitherNixBuild = case brc_nixBuild || isJust brc_attribute of
-                         False -> Left ()
-                         True -> Right brc_attribute
-
-instantiate :: FilePath -> IO ()
-instantiate = nixContext >=> instantiateTmp >=> putStrLn
-
-instantiateTmp :: NixContext -> IO FilePath
-instantiateTmp ctx = fgtmp $ nixInstantiateMachines ctx
 
 sshConfig :: FilePath -> IO ()
 sshConfig = infra >=> out . intercalate "\n" . fmap config
@@ -170,11 +125,7 @@ main = do
 
     opts = (subparser cmds) `info` header "upcast - infrastructure orchestratrion"
 
-    cmds = command "run"
-           (run <$> runCli `info`
-            progDesc "evaluate infrastructure, run builds and deploy")
-
-        <> command "infra"
+    cmds = command "infra"
            (args sshConfig `info`
             progDesc "evaluate infrastructure and output ssh_config(5)")
 
@@ -186,17 +137,9 @@ main = do
            (args infraDebug `info`
             progDesc "evaluate infrastructure in debug mode")
 
-        <> command "instantiate"
-           (args instantiate `info`
-            progDesc "nix-instantiate all NixOS closures")
-
-        <> command "build"
-           (args build `info`
-            progDesc "nix-build all NixOS closures")
-
         <> command "build-remote"
            (buildRemote <$> buildRemoteCli `info`
-            progDesc "nix-build all NixOS closures remotely")
+            progDesc "forward nix-build to a remote host")
 
         <> command "nix-path"
            (pure printNixPath `info`
@@ -204,7 +147,7 @@ main = do
 
         <> command "install"
            ((install fgrunDirect) <$> installCli `info`
-            progDesc "install nix environment-like closure over ssh")
+            progDesc "install a nix environment closure into a host's profile")
 
     installCli = InstallCli
       <$> strOption (long "target"
@@ -226,7 +169,5 @@ main = do
                     <> help "SSH-accessible host with Nix")
       <*> optional (strOption (short 'A'
                      <> metavar "ATTRIBUTE"
-                     <> help "build a specific attribute in the expression file \
-                             \(`nix-build'-like behaviour)"))
-      <*> switch (short 'n' <> help "just run nix-build remotely")
+                     <> help "build a specific attribute in the expression file"))
       <*> argument str exp

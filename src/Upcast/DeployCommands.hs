@@ -51,38 +51,12 @@ nixInfraInfo NixContext{..} =
       --eval-only --strict --read-write-mode
     |] "info"
 
-nixBuildMachines :: NixContext -> Maybe FilePath -> Command Local
-nixBuildMachines NixContext{..} closuresPath =
-    Cmd Local [n|
-      nix-build #{nix_args}
-      --argstr networkExprs '#{nix_expressionFile}'
-      '<upcast/eval-deployment.nix>' #{outLink}
-    |] "build"
-  where
-    outLink = case closuresPath of
-                  Nothing -> [n|-A remoteMachines --no-out-link|]
-                  Just o -> [n|-A machines -o #{o}|]
-
-nixInstantiateMachines :: NixContext -> FilePath -> Command Local
-nixInstantiateMachines NixContext{..} root =
-    Cmd Local [n|
-      nix-instantiate #{nix_args}
-      --read-write-mode
-      --argstr system x86_64-linux
-      --argstr networkExprs '#{nix_expressionFile}'
-      --add-root '#{root}'
-      --indirect
-      '<upcast/eval-deployment.nix>'
-      -A remoteMachines
-    |] "instantiate"
-
 nixInstantiate :: (IsString a, Show a) =>
                   a -> Maybe String -> FilePath -> FilePath -> Command Local
 nixInstantiate nix_args attr exprFile root =
     Cmd Local [n|
       nix-instantiate #{nix_args}
       --read-write-mode
-      --argstr system x86_64-linux
       --add-root '#{root}'
       --indirect #{attrString} '#{exprFile}'
     |] "instantiate"
