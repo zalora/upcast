@@ -7,7 +7,7 @@ maintainer:          vlad.ki@zalora.com
 copyright:           2014 Zalora
 build-type:          Simple
 cabal-version:       >=1.10
-data-files:          nix/*.nix
+data-files:          nix/*.nix, nix/aws/*.nix, nix/lib/*.nix, nix/nixos/*.nix
 
 
 executable upcast
