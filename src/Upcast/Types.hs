@@ -54,8 +54,8 @@ toDelivery = maybe Push Pull
 data InstallCli = InstallCli
                 { ic_target :: String
                 , ic_profile :: Maybe FilePath
-                , ic_pullFrom :: Maybe String
                 , ic_sshConfig :: Maybe FilePath
+                , ic_pullFrom :: Maybe String
                 , ic_closure :: FilePath
                 } deriving (Show)
 
