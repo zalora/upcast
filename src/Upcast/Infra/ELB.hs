@@ -114,6 +114,7 @@ elbPlan instanceA sgA subnetA elbs = do
                                     <*> (hc .: "interval")
                                     <*> (hc .: "timeout")
 
+              -- XXX: emptiness check?
               instanceRefs :: [Text] <- obj .: "instances"
 
               Object aliases <- obj .: "route53Aliases"
