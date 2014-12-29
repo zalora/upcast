@@ -49,24 +49,25 @@ infraDump = icontext >=> pprint . inc_data
 infraDebug :: FilePath -> IO ()
 infraDebug = icontext >=> debugEvalInfra >=> const (return ())
 
-doBuild :: Maybe String -> Maybe Remote -> NixContext -> IO B8.ByteString
-doBuild attr maybeRemote ctx@NixContext{..} = do
-  drv <- fgtmp $ nixInstantiate nix_args attr nix_expressionFile
-  let query = [n|nix-store -qu #{drv}|]
-  case maybeRemote of
-      Nothing -> do
-        srsly "realise failed" . fgrunDirect $ nixRealise drv
-        fgconsume_ $ Cmd Local query "query"
-      Just remote@(Remote _ host) -> do
-        srsly "nix-copy-closure failed" . fgrunDirect $ nixCopyClosureTo host drv
-        srsly "realise failed" . fgrunDirect . ssh . forward remote $ nixRealise drv
-        fgconsume_ . ssh $ Cmd remote query "query"
-
 buildRemote :: BuildRemoteCli -> IO ()
 buildRemote BuildRemoteCli{..} =
-  nixContext brc_expressionFile >>= doBuild brc_attribute remote >>= B8.putStrLn
+  nixContext brc_expressionFile >>= go >>= B8.putStrLn
   where
-    remote = Just (Remote Nothing brc_builder)
+    remote = Remote Nothing brc_builder
+
+    go :: NixContext -> IO B8.ByteString
+    go NixContext{..} = do
+      drv <- fgtmp $ nixInstantiate nix_args brc_attribute nix_expressionFile
+
+      let query = [n|nix-store -qu #{drv}|]
+
+      srsly "nix-copy-closure failed" . fgrunDirect $ nixCopyClosureTo brc_builder drv
+      srsly "realise failed" . fgrunDirect . ssh . forward remote $ nixRealise drv
+      t <- fgconsume_ . ssh $ Cmd remote query "query"
+      when brc_cat $ do
+        fgrunDirect . ssh $ Cmd remote [n|cat #{t}|] "cat"
+        return ()
+      return t
 
 sshConfig :: FilePath -> IO ()
 sshConfig = infra >=> out . intercalate "\n" . fmap config
@@ -175,4 +176,5 @@ main = do
       <*> optional (strOption (short 'A'
                      <> metavar "ATTRIBUTE"
                      <> help "build a specific attribute in the expression file"))
+      <*> switch (long "print" <> short 'p' <> help "cat the derivation output file after build")
       <*> argument str exp
