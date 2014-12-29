@@ -12,7 +12,7 @@ let
     let
       wrap = m: { _file = expr; imports = [ m ]; };
       eval1 = name: module: type: (evalModules {
-        check = false;
+        check = true;
         modules = type.baseModules ++ [ (wrap module) ];
         args = {
           inherit name;
@@ -21,6 +21,7 @@ let
         };
       }).config;
       eval = nset: type: mapAttrs (k: v: eval1 k v type) nset;
-    in mapAttrs (k: nset: eval nset (getAttr k types)) spec.infra;
+      stubs = mapAttrs (k: v: {}) types;
+    in stubs // mapAttrs (k: nset: eval nset (getAttr k types)) spec.infra;
 
 in eval-infra
