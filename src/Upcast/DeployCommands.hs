@@ -112,10 +112,16 @@ sshPrepKnownHost known Install{i_remote = r@(Remote _ host)} =
                     _ -> error "ssh closure cache must look like `user@hostname'."
 
 ssh :: Command Remote -> Command Local
-ssh (Cmd (Remote _ "localhost") cmd desc) =
+ssh = sshWithConfig Nothing
+
+sshWithConfig :: Maybe FilePath -> Command Remote -> Command Local
+sshWithConfig _ (Cmd (Remote _ "localhost") cmd desc) =
     Cmd Local cmd desc
-ssh (Cmd (Remote _ host) cmd desc) =
+sshWithConfig (Just x) (Cmd (Remote _ host) cmd desc) =
+    Cmd Local [n|ssh -F #{x} #{sshBaseOptions} #{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
+sshWithConfig Nothing (Cmd (Remote _ host) cmd desc) =
     Cmd Local [n|ssh #{sshBaseOptions} #{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
+
 
 forward :: Remote -> Command Local -> Command Remote
 forward to (Cmd Local comm desc) = Cmd to comm desc

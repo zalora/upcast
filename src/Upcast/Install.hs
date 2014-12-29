@@ -28,10 +28,10 @@ data FgCommands =
              , fgssh :: Command Remote -> IO ()
              }
 
-fgCommands fgrun = FgCommands{..}
+fgCommands fgrun ic_sshConfig = FgCommands{..}
   where
     fgrun' = expect ExitSuccess "install step failed" . fgrun
-    fgssh = fgrun' . ssh
+    fgssh = fgrun' . sshWithConfig ic_sshConfig
 
 install :: (Command Local -> IO ExitCode) -> InstallCli -> IO ()
 install fgrun args@InstallCli{..} = do
@@ -39,7 +39,7 @@ install fgrun args@InstallCli{..} = do
       i_remote = Remote Nothing ic_target
       i_paths = []
       i_profile = maybe nixSystemProfile id ic_profile
-  go (fgCommands fgrun) (toDelivery ic_pullFrom) Install{..}
+  go (fgCommands fgrun ic_sshConfig) (toDelivery ic_pullFrom) Install{..}
 
 go :: FgCommands -> DeliveryMode -> Install -> IO ()
 go FgCommands{..} dm install@Install{i_paths} = do

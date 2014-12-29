@@ -159,6 +159,11 @@ main = do
                      <> short 'p'
                      <> metavar "PROFILE"
                      <> help "attach CLOSURE to PROFILE (otherwise system)"))
+      <*> optional (strOption
+                    (long "ssh-config"
+                     <> short 'F'
+                     <> metavar "FILE"
+                     <> help "use FILE as ssh_config(5)"))
       <*> pullOption
       <*> argument str (metavar "CLOSURE")
 
