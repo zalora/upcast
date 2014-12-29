@@ -48,22 +48,6 @@ parseSubstitutesMap s =
       Left e -> readerError e
       Right v -> return v
 
-pullOption = optional (strOption
-                        (long "pull"
-                        <> short 'f'
-                        <> metavar "FROM"
-                        <> help "pull closures from host"))
-
-runCli :: Parser RunCli
-runCli = RunCli
-    <$> optional (option (str >>= parseSubstitutesMap)
-               (long "closures-map"
-                <> short 'm'
-                <> metavar "JSON OBJECT"
-                <> help "json mapping from hostnames to nixos closures (see `instantiate' or `build')"))
-    <*> pullOption
-    <*> argument str (metavar "<expression>")
-
 prepAuth :: [Text] -> IO ()
 prepAuth keyFiles = do
     userAuthSock <- getEnv "UPCAST_SSH_AUTH_SOCK"
