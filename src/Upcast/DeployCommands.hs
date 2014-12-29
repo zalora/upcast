@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
+{-# LANGUAGE ImplicitParams #-}
 
 module Upcast.DeployCommands where
 
@@ -16,8 +17,13 @@ import Upcast.Types
 import Upcast.Command
 import Upcast.Temp (randomTempFileName)
 
-sshBaseOptions :: String
-sshBaseOptions = [n|-A -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
+sshBaseOptions :: (?sshConfig :: Maybe FilePath) => String
+sshBaseOptions = [n|#{conf}#{base}|]
+  where
+    base = [n|-A -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o PreferredAuthentications=publickey -x|]
+    conf = case ?sshConfig of
+               Nothing -> ""
+               Just x -> [n|-F #{x} |]
 
 sshAgent :: FilePath -> Command Local
 sshAgent socket = Cmd Local [n|ssh-agent -a #{socket}|] "agent"
@@ -68,17 +74,17 @@ nixInstantiate nix_args attr exprFile root =
 nixRealise :: FilePath -> Command Local
 nixRealise drv = Cmd Local [n|nix-store --realise #{drv}|] "realise"
 
-nixCopyClosureTo :: String -> FilePath -> Command Local
+nixCopyClosureTo :: (?sshConfig :: Maybe FilePath) => String -> FilePath -> Command Local
 nixCopyClosureTo "localhost" path =
     Cmd Local [n|ls -ld -- #{path}|] "copyto"
 nixCopyClosureTo host path =
     Cmd Local [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to #{host} #{path} --gzip|] $ mconcat [host, ":copyto"]
 
-nixCopyClosureToI :: Install -> Command Local
+nixCopyClosureToI :: (?sshConfig :: Maybe FilePath) => Install -> Command Local
 nixCopyClosureToI Install{ i_remote = (Remote _ host), i_closure = path } =
     nixCopyClosureTo host path
 
-nixCopyClosureFrom :: String -> Install -> Command Remote
+nixCopyClosureFrom :: (?sshConfig :: Maybe FilePath) => String -> Install -> Command Remote
 nixCopyClosureFrom from  Install{i_remote, i_closure} =
     Cmd i_remote [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --from #{from} #{i_closure} --gzip|] $ "copyfrom"
 
@@ -111,15 +117,10 @@ sshPrepKnownHost known Install{i_remote = r@(Remote _ host)} =
                     [_, a] -> a
                     _ -> error "ssh closure cache must look like `user@hostname'."
 
-ssh :: Command Remote -> Command Local
-ssh = sshWithConfig Nothing
-
-sshWithConfig :: Maybe FilePath -> Command Remote -> Command Local
-sshWithConfig _ (Cmd (Remote _ "localhost") cmd desc) =
+ssh :: (?sshConfig :: Maybe FilePath) => Command Remote -> Command Local
+ssh (Cmd (Remote _ "localhost") cmd desc) =
     Cmd Local cmd desc
-sshWithConfig (Just x) (Cmd (Remote _ host) cmd desc) =
-    Cmd Local [n|ssh -F #{x} #{sshBaseOptions} #{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
-sshWithConfig Nothing (Cmd (Remote _ host) cmd desc) =
+ssh (Cmd (Remote _ host) cmd desc) =
     Cmd Local [n|ssh #{sshBaseOptions} #{host} -- '#{cmd}'|] $ mconcat [host, ":", desc]
 
 

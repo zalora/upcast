@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
+{-# LANGUAGE ImplicitParams #-}
 
 module Main where
 
@@ -60,6 +61,7 @@ buildRemote BuildRemoteCli{..} =
       drv <- fgtmp $ nixInstantiate nix_args brc_attribute nix_expressionFile
 
       let query = [n|nix-store -qu #{drv}|]
+      let ?sshConfig = Nothing
 
       srsly "nix-copy-closure failed" . fgrunDirect $ nixCopyClosureTo brc_builder drv
       srsly "realise failed" . fgrunDirect . ssh . forward remote $ nixRealise drv

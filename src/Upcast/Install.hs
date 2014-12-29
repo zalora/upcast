@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell, OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
+{-# LANGUAGE ImplicitParams #-}
 
 module Upcast.Install (
   install
@@ -28,10 +29,10 @@ data FgCommands =
              , fgssh :: Command Remote -> IO ()
              }
 
-fgCommands fgrun ic_sshConfig = FgCommands{..}
+fgCommands fgrun = FgCommands{..}
   where
     fgrun' = expect ExitSuccess "install step failed" . fgrun
-    fgssh = fgrun' . sshWithConfig ic_sshConfig
+    fgssh = fgrun' . ssh
 
 install :: (Command Local -> IO ExitCode) -> InstallCli -> IO ()
 install fgrun args@InstallCli{..} = do
@@ -39,9 +40,10 @@ install fgrun args@InstallCli{..} = do
       i_remote = Remote Nothing ic_target
       i_paths = []
       i_profile = maybe nixSystemProfile id ic_profile
-  go (fgCommands fgrun ic_sshConfig) (toDelivery ic_pullFrom) Install{..}
+  let ?sshConfig = ic_sshConfig
+  go (fgCommands fgrun) (toDelivery ic_pullFrom) Install{..}
 
-go :: FgCommands -> DeliveryMode -> Install -> IO ()
+go :: (?sshConfig :: Maybe FilePath) => FgCommands -> DeliveryMode -> Install -> IO ()
 go FgCommands{..} dm install@Install{i_paths} = do
   nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
   case nixSSHClosureCache of
