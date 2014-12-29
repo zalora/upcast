@@ -56,20 +56,27 @@ buildRemote BuildRemoteCli{..} =
   where
     remote = Remote Nothing brc_builder
 
+    ssh_ = let ?sshConfig = Nothing in ssh
+    fwd = fgrunDirect . ssh_ . forward remote
+    copy = let ?sshConfig = Nothing in nixCopyClosureTo
+
     go :: NixContext -> IO B8.ByteString
     go NixContext{..} = do
       drv <- fgtmp $ nixInstantiate nix_args brc_attribute nix_expressionFile
 
       let query = [n|nix-store -qu #{drv}|]
-      let ?sshConfig = Nothing
 
-      srsly "nix-copy-closure failed" . fgrunDirect $ nixCopyClosureTo brc_builder drv
-      srsly "realise failed" . fgrunDirect . ssh . forward remote $ nixRealise drv
-      t <- fgconsume_ . ssh $ Cmd remote query "query"
+      srsly "nix-copy-closure failed" . fgrunDirect $ copy brc_builder drv
+      srsly "realise failed" . fwd $ nixRealise drv
+      out <- fgconsume_ . ssh_ $ Cmd remote query "query"
       when brc_cat $ do
-        fgrunDirect . ssh $ Cmd remote [n|cat #{t}|] "cat"
+        fwd $ Cmd Local [n|cat #{out}|] "cat"
         return ()
-      return t
+      when (brc_installProfile /= Nothing) $ do
+        let Just prof = brc_installProfile
+        fwd $ nixSetProfile prof (B8.unpack out)
+        return ()
+      return out
 
 sshConfig :: FilePath -> IO ()
 sshConfig = infra >=> out . intercalate "\n" . fmap config
@@ -183,4 +190,7 @@ main = do
                      <> metavar "ATTRIBUTE"
                      <> help "build a specific attribute in the expression file"))
       <*> switch (long "print" <> short 'p' <> help "cat the derivation output file after build")
+      <*> optional (strOption (short 'i'
+                     <> metavar "PROFILE"
+                     <> help "set the output closure to PROFILE on the target"))
       <*> argument str exp

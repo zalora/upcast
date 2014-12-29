@@ -56,7 +56,7 @@ go FgCommands{..} dm install@Install{i_paths} = do
       Push -> fgrun' . nixCopyClosureToI $ install
       Pull from -> fgssh . nixCopyClosureFrom from $ install
 
-  fgssh . nixSetProfile $ install
+  fgssh $ nixSetProfileI install
   when (i_profile install == nixSystemProfile) $ do
     fgssh . nixSwitchToConfiguration $ install
 
