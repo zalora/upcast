@@ -11,12 +11,9 @@ upcast - infrastructure orchestratrion
 Usage: <interactive> COMMAND
 
 Available commands:
-  run                      evaluate infrastructure, run builds and deploy
   infra                    evaluate infrastructure and output ssh_config(5)
   infra-tree               dump infrastructure tree in json format
   infra-debug              evaluate infrastructure in debug mode
-  instantiate              nix-instantiate all NixOS closures
-  build                    nix-build all NixOS closures
   build-remote             nix-build all NixOS closures remotely
   nix-path                 print effective path to upcast nix expressions
   install                  install nix environment-like closure over ssh
