@@ -3,8 +3,6 @@
 
 let
   clientKeyPath = "/root/.vbox-nixops-client-key";
-  inherit (import ./kernel.nix { inherit pkgs; }) cleanLinux;
-  cloudKernel = pkgs.linuxPackages_3_14 // { kernel = cleanLinux pkgs.linux_3_14 false; };
 in
 {
   require = [
@@ -38,8 +36,6 @@ in
   boot.vesa = false;
 
   boot.loader.grub.timeout = 1;
-
-  boot.kernelPackages = cloudKernel;
 
   # VirtualBox doesn't seem to lease IP addresses persistently, so we
   # may get a different IP address if dhcpcd is restarted.  So don't
