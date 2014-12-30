@@ -9,7 +9,7 @@ rec {
       };
       mod = "lib/modules/${kernel.version}";
     in
-    pkgs.runCommand "upcast-cloud-linux-${kernel.version}" args ''
+    pkgs.runCommand "upcast-cloud-linux-${kernel.version}" args (''
       mkdir -p $out
 
       cp -v ${kernel}/{bzImage,System.map} $out
@@ -30,5 +30,5 @@ rec {
           rm[$1] = $1;
         }
         ' ${./kernel/exclude.amd64-virtual} - | xargs -t rm
-  '';
+  '');
 }
