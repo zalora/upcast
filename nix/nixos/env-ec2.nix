@@ -3,6 +3,9 @@ with lib;
 let
   cloudDefault = mkOverride 999;
 
+  inherit (import ./kernel.nix { inherit pkgs; }) cleanLinux;
+  cloudKernel = pkgs.linuxPackages_3_14 // { kernel = cleanLinux pkgs.linux_3_14 true; };
+
   base64 = "${pkgs.coreutils}/bin/base64";
   jq = "/usr/bin/env LD_LIBRARY_PATH=${pkgs.jq}/lib ${pkgs.jq}/bin/jq";
   curl = "${pkgs.curl}/bin/curl -s --retry 3 --retry-delay 0 --fail";
@@ -98,6 +101,7 @@ in
 
   config = {
     nixpkgs.system = mkOverride 900 "x86_64-linux";
+    boot.kernelPackages = cloudKernel;
 
     #boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm ( mkOverride 10 "root (hd0,0)" );
 

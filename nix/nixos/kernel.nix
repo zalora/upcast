@@ -1,7 +1,7 @@
 { pkgs }:
 rec {
   cleanLinux =
-    kernel:
+    kernel: exclude:
     let
       args = {
         buildInputs = with pkgs; [findutils gawk bash];
@@ -18,7 +18,7 @@ rec {
 
       # include modules selected by ubuntu guys
       bash ${./kernel/module-inclusion} {${kernel},$out}/${mod}/kernel ${./kernel/generic.inclusion-list}
-
+    '' + pkgs.lib.optionalString exclude ''
       # exclude virtual-flavor modules selected by ubuntu guys
       find $out/${mod} -type f | awk '
         FILENAME=="-" {
