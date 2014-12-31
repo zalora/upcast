@@ -67,6 +67,7 @@ Here they are used to build NixOS closures and install them on `node1`.
 
 Same example without `build-remote`:
 
+```console
 % nix-build -I upcast=$(upcast nix-path) -A some-image -A some-image infra.nix
 % upcast install -c ssh_config -t node1 $(readlink ./result)
 ```
