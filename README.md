@@ -1,44 +1,63 @@
-Upcast is a declarative cloud infrastructure orchestration tool that leverages [Nix](http://nixos.org/nix/).
-Its nix codebase (and, by extension, its interface) was started off by copying files from [nixops](https://github.com/nixos/nixops).
+Upcast is a tool that provisions cloud infrastructure based on a declarative spec (*infra spec*)
+in [Nix](http://nixos.org/nix/) expression language.
+Upcast also includes a [opinionated base NixOS configuration](https://github.com/zalora/upcast/tree/master/nix/nixos)
+suitable for cloud deployments.
+Upcast is inspired by NixOps.
 
 [![Build Status](https://travis-ci.org/zalora/upcast.svg?branch=master)](https://travis-ci.org/zalora/upcast)
 
 ### Quick start
 
 ```console
-upcast - infrastructure orchestratrion
+% cabal install
 
-Usage: <interactive> COMMAND
+% cat > infra.nix << __EOF
+{ lib ? import <upcast/lib> }:
+let
+  ec2-args = {
+    accessKeyId = "default";
+    region = "eu-west-1";
+    zone = "eu-west-1a";
+    securityGroups = [ "sg-bbbbbbbb" ];
+    subnet = "subnet-ffffffff";
+    keyPair = "my-keypair";
+  };
+  instance = instanceType: ec2-args // { inherit instanceType; };
+in
+{
+  infra = {
+    ec2-instance = {
+      node1 = instance "m3.large";
+      node2 = instance "m3.large";
+    };
+  };
 
-Available commands:
-  infra                    evaluate infrastructure and output ssh_config(5)
-  infra-tree               dump infrastructure tree in json format
-  infra-debug              evaluate infrastructure in debug mode
-  build-remote             nix-build all NixOS closures remotely
-  nix-path                 print effective path to upcast nix expressions
-  install                  install nix environment-like closure over ssh
+  # you need <nixpkgs> in your $NIX_PATH to build this
+  # <upcast/nixos> is a drop-in replacement for <nixpkgs/nixos>
+  some-image = (import <upcast/nixos> {
+    configuration = { config, pkgs, lib, ... }: {
+      config.services.nginx.enable = true;
+    };
+  }).system;
+}
+__EOF
+
+% upcast infra-tree infra.nix | jq -r .
+# dumps the full json configuration of what's going to be provisioned
+# note that upcast only evaluates the top level `infra' attribute
+
+% upcast infra infra.nix > ssh_config
+
+% upcast build-remote -t hydra -A some-image infra.nix \
+    | xargs -tn1 upcast install -c ssh_config -f hydra -t node1 
+
+or locally :
+
+% nix-build -I upcast=$(upcast nix-path) -A some-image -A some-image infra.nix
+% upcast install -c ssh_config -t node1 $(readlink ./result)
 ```
 
-
-```console
-## see https://github.com/zalora/nixpkgs
-$ export NIX_PATH=nixpkgs=/path/to/zalora/nixpkgs:$NIX_PATH
-
-## prepare credentials
-$ awk 'NR==1 {print "default", $1, $2}' ~/.ec2-keys > ~/.aws-keys # assuming you used nixops
-
-## build upcast
-$ cabal install
-
-## fill in your ec2 vpc account information (look into other examples/ files to provision a VPC)
-$ cp examples/ec2-info.nix{.example,}
-$ vim examples/ec2-info.nix
-
-## execute the deployment
-$ upcast run examples/vpc-nix-instance.nix
-```
-
-For more examples see [nix-adhoc](https://github.com/proger/nix-adhoc).
+For more examples see [nix-adhoc](https://github.com/proger/nix-adhoc) and upcast [tests](https://github.com/zalora/upcast/tree/master/test).
 
 ### Goals
 
@@ -48,21 +67,17 @@ For more examples see [nix-adhoc](https://github.com/proger/nix-adhoc).
 - pleasant user experience and network performance (see below);
 - support for running day-to-day operations on infrastructure, services and machines.
 
-### Notable differences from NixOps
+### Notable features
 
-#### Expression files
+- the infrastructure spec is evaluated separately from NixOS system closures
+  (installation must also be handled separately and is outside of `upcast` cli tool);
+- state is kept in a text file that you can commit into your VCS.
+- Upcast includes opinionated default NixOS configuration for
+  [EC2 instance-store instances](https://github.com/zalora/upcast/blob/master/nix/nixos/env-ec2.nix)
+  (see also the [list of AMIs](https://github.com/zalora/upcast/blob/master/nix/aws/ec2-amis.nix))
+  and [VirtualBox](https://github.com/zalora/upcast/blob/master/nix/nixos/env-virtualbox.nix).
 
-- You can no longer specify the machine environment using `deployment.targetEnv`, now you need to explicitly include a module instead (currently available: `<upcast/env-ec2.nix>`).
-- You can deploy an EC2 instance that does not use nix in its base AMI by using `deployment.nix = false;` (you won't be able to deploy a nix closure to such machine)>
-
-#### Operation modes
-
-- The only supported command is `run` (so far). No `create`, `modify`, `clone`, `set-args`, `send-keys`.
-- NixOps SQLite state files are abandoned, separate text files ([json dict for state](https://github.com/zalora/upcast/blob/master/src/Upcast/TermSubstitution.hs) and a private key file) are used instead;
-- Physical specs are removed
-  - Identical machines get identical machine closures, they are no longer parametric by things like hostnames (these are configured at runtime).
-
-#### Infrastructure services
+### Infrastructure services
 
 (this is what used to be called `resources` in NixOps)
 
@@ -77,7 +92,32 @@ For more examples see [nix-adhoc](https://github.com/proger/nix-adhoc).
 
 ![motivation](http://i.imgur.com/HY2Gtk5.png)
 
-### Cookbook
+
+### Achieving productivity
+
+
+> tl;dr: do all of these steps if you're using a Mac and/or like visiting Starbucks
+
+#### Remote builds
+
+Unlike [Nix distributed builds](http://nixos.org/nix/manual/#chap-distributed-builds)
+packages are not copied back and forth between the instance and your local machine.
+
+```bash
+upcast build-remote -t hydra.com -A something default.nix
+```
+
+If you want to update your existing systems as part of your CI workflow, you can do something like this:
+
+```bash
+upcast infra examples/vpc-nix-instance.nix > ssh_config
+
+awk '/^Host/{print $2}' ssh_config | \
+    xargs -I% -P4 -n1 -t ssh -F ssh_config % nix-collect-garbage -d
+
+awk '/^Host/{print $2}' ssh_config | \
+    xargs -I% -P4 -n1 -t upcast install -t % $(upcast build-remote -A some-system blah.nix)
+```
 
 #### Nix-profile uploads
 
@@ -90,53 +130,10 @@ Install a system closure to any NixOS system (i.e. update `system` profile) and 
 upcast install -t ec2-55-99-44-111.eu-central-1.compute.amazonaws.com /nix/store/72q9sd9an61h0h1pa4ydz7qa1cdpf0mj-nixos-14.10pre-git
 ```
 
-Install a [buildEnv](https://github.com/NixOS/nixpkgs/blob/d232390d5dc3dcf912e76ea160aea62f049918e1/pkgs/build-support/buildenv/default.nix) package into `per-user/my-scripts` profile (note how handy `build-remote -A` hack is):
+Install a [buildEnv](https://github.com/NixOS/nixpkgs/blob/d232390d5dc3dcf912e76ea160aea62f049918e1/pkgs/build-support/buildenv/default.nix) package into `per-user/my-scripts` profile:
 
 ```bash
-env UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com \
- upcast install -p /nix/var/nix/profiles/per-user/my-scripts -t nixos.megabrain.com $(upcast build-remote -A my-env scripts.nix)
-```
-
-### Achieving productivity
-
-> tl;dr: do all of these steps if you're using a Mac and/or like visiting Starbucks
-
-#### Remote builds and remote deployments
-
-Unlike [Nix distributed builds](http://nixos.org/nix/manual/#chap-distributed-builds)
-packages are not copied back and forth between the instance and your local machine.
-
-```bash
-upcast build-remote -t hydra.com examples/vpc-nix-instance.nix
-```
-
-The former is roughly equivalent to:
-
-```bash
-builder=user@hydra.com
-upcast instantiate examples/vpc-nix-instance.nix | {
-  read drv;
-  nix-copy-closure --to $builder $drv 2>/dev/null &&
-    ssh $builder "nix-store --realise $drv 2>/dev/null && cat $(nix-store -qu $drv)"
-}
-```
-
-This outputs a json string that looks like `{"node":"/nix/store/72q9sd9an61h0h1pa4ydz7qa1cdpf0mj-nixos-14.10pre-git"}`, you can use it as a part of your deployment without having to upload packages from your local store using `run -f`:
-
-```bash
-upcast run -m '{"node":"/nix/store/72q9sd9an61h0h1pa4ydz7qa1cdpf0mj-nixos-14.10pre-git"}' -f user@hydra.com examples/vpc-nix-instance.nix
-```
-
-If you want to update your existing systems as part of your CI workflow without having to talk to infrastructure services, you can cook something like this:
-
-```bash
-upcast infra examples/vpc-nix-instance.nix > ssh_config
-
-awk '/^Host/{print $2}' ssh_config | \
-    xargs -I% -P4 -n1 -t ssh -F ssh_config % nix-collect-garbage -d
-
-awk '/^Host/{print $2}' ssh_config | \
-    xargs -I% -P4 -n1 -t upcast install -t % $(upcast build-remote -A some-system blah.nix)
+upcast build-remote -t hydra -A my-env default.nix | xargs -n1t upcast install -f hydra -p /nix/var/nix/profiles/per-user/my-scripts -t target-instance
 ```
 
 #### Making instances download packages from a different host over ssh (a closure cache)
@@ -167,11 +164,9 @@ Host *
 
 ### Known issues
 
-- you have to use [zalora's fork of nixpkgs with upcast](https://github.com/zalora/nixpkgs)
 - state files are not garbage collected, have to be often cleaned up manually;
 - altering infra state is not supported properly (you need to remove using aws cli, cleanup the state file and try again);
 - word "aterm" is naming a completely different thing;
-- i hardcoded `x86_64-linux` in some places :angel:
 
 Note: the app is currently in HEAVY development (and is already being used to power production cloud instances)
 so interfaces may break without notice.
