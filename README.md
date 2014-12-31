@@ -6,12 +6,14 @@ Upcast is inspired by NixOps.
 
 [![Build Status](https://travis-ci.org/zalora/upcast.svg?branch=master)](https://travis-ci.org/zalora/upcast)
 
-### Quick start
+### Upcast tour
 
 ```console
 % cabal install
+```
 
-% cat > infra.nix << __EOF
+Contents of `infra.nix`:
+```nix
 { lib ? import <upcast/lib> }:
 let
   ec2-args = {
@@ -40,18 +42,30 @@ in
     };
   }).system;
 }
-__EOF
+```
 
+`upcast infra-tree` dumps the full json configuration of what's going to be provisioned,
+note that upcast only evaluates the top level `infra` attribute.
+
+`upcast infra` actually provisions all resources and outputs the `ssh_config(5)` for all compute
+nodes in the spec.
+
+```console
 % upcast infra-tree infra.nix | jq -r .
-# dumps the full json configuration of what's going to be provisioned
-# note that upcast only evaluates the top level `infra' attribute
 
 % upcast infra infra.nix > ssh_config
+```
 
+`upcast build-remote` and `upcast install` are wrappers over Nix/NixOS toolchain
+that hugely [boost productivity](#achieving-productivity).
+Here they are used to build NixOS closures and install them on `node1`.
+
+```console
 % upcast build-remote -t hydra -A some-image infra.nix \
     | xargs -tn1 upcast install -c ssh_config -f hydra -t node1 
+```
 
-or locally :
+Same example without `build-remote`:
 
 % nix-build -I upcast=$(upcast nix-path) -A some-image -A some-image infra.nix
 % upcast install -c ssh_config -t node1 $(readlink ./result)
