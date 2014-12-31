@@ -31,6 +31,10 @@ in
     ec2-instance = {
       node1 = instance "m3.large";
       node2 = instance "m3.large";
+      ubuntu = instance "m3.large" // {
+        # http://cloud-images.ubuntu.com/locator/ec2/
+        ami = "ami-befc43c9";
+      };
     };
   };
 
