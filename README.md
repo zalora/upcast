@@ -1,6 +1,6 @@
 Upcast is a tool that provisions cloud infrastructure based on a declarative spec (*infra spec*)
 in [Nix](http://nixos.org/nix/) expression language.
-Upcast also includes a [opinionated base NixOS configuration](https://github.com/zalora/upcast/tree/master/nix/nixos)
+Upcast also includes an [opinionated base NixOS configuration](https://github.com/zalora/upcast/tree/master/nix/nixos)
 suitable for cloud deployments.
 Upcast is inspired by NixOps.
 
