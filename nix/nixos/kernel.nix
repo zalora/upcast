@@ -7,7 +7,7 @@ rec {
         buildInputs = with pkgs; [findutils gawk bash];
         features = "";
       };
-      mod = "lib/modules/${kernel.version}";
+      mod = "lib/modules/${kernel.modDirVersion}";
     in
     pkgs.runCommand "upcast-cloud-linux-${kernel.version}" args (''
       mkdir -p $out
