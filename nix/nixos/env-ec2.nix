@@ -4,7 +4,7 @@ let
   cloudDefault = mkOverride 999;
 
   inherit (import ./kernel.nix { inherit pkgs; }) cleanLinux;
-  cloudKernel = pkgs.linuxPackages_3_14 // { kernel = cleanLinux pkgs.linux_3_14 true; };
+  cloudKernel = pkgs.linuxPackages_3_18 // { kernel = cleanLinux pkgs.linux_3_18 true; };
 
   base64 = "${pkgs.coreutils}/bin/base64";
   jq = "/usr/bin/env LD_LIBRARY_PATH=${pkgs.jq}/lib ${pkgs.jq}/bin/jq";
