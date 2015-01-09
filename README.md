@@ -8,7 +8,7 @@ It consists of (see [Features](#features) for details):
   (see also the [list of AMIs](nix/aws/ec2-amis.nix))
   and [VirtualBox](nix/nixos/env-virtualbox.nix) for development/testing
 - nix-based tools for PaaS-style software deployment and build support - `build-remote` and `install`
-- tools to bootstrap Nix on non-NixOS systems
+- tools to bootstrap Nix on non-NixOS Linux distros
 
 The ultimate goal of Upcast is to make you stop thinking about deployments and focus on your apps instead.
 Upcast's CLI interface is designed to be composed with other tools.
