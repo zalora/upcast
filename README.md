@@ -2,18 +2,20 @@ Upcast is a set of nix-based linux deployment platform tools and cloud infrastru
 
 [![Build Status](https://travis-ci.org/zalora/upcast.svg?branch=master)](https://travis-ci.org/zalora/upcast)
 
-It consists of:
+It consists of (see [Features](#features) for details):
 - `infra` - AWS infrastructure based on a [declarative spec](test/big-network.nix) in [Nix](http://nixos.org/nix/) expression language
 - [opinionated base NixOS configuration](nix/nixos) suitable for cloud deployments based on [EC2 instance-store instances](nix/nixos/env-ec2.nix)
   (see also the [list of AMIs](nix/aws/ec2-amis.nix))
-  and [VirtualBox](nix/nixos/env-virtualbox.nix) for development/testing.
+  and [VirtualBox](nix/nixos/env-virtualbox.nix) for development/testing
 - [nix-based](http://nixos.org/nix/) tools for PaaS-style software deployment and build support - `build-remote` and `install`
 - tools to bootstrap Nix on non-NixOS systems
 
 The ultimate goal of Upcast is to make you stop thinking about deployments and focus on your apps instead.
 Upcast's CLI interface is designed to be composed with other tools.
 
-### Deploying NixOS on Upcast-provisioned AWS infrastructure
+### Features
+
+#### Deploying NixOS on Upcast-provisioned AWS infrastructure
 
 ```console
 % cabal install
@@ -88,7 +90,7 @@ Same example without `build-remote`:
 
 For other examples see [nix-adhoc](https://github.com/proger/nix-adhoc) and upcast [tests](test).
 
-### Remote builds
+#### Remote builds
 
 > tl;dr: you really *need* to do this if you're using a Mac and/or like visiting Starbucks
 
