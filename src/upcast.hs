@@ -168,7 +168,7 @@ main = do
                     (long "profile"
                      <> short 'p'
                      <> metavar "PROFILE"
-                     <> help "set STORE PATH to PROFILE (otherwise system)"))
+                     <> help "set STORE_PATH to PROFILE (otherwise system)"))
       <*> optional (strOption
                     (long "ssh-config"
                      <> short 'c'
@@ -179,7 +179,7 @@ main = do
                      <> short 'f'
                      <> metavar "FROM"
                      <> help "pull store paths from host"))
-      <*> argument str (metavar "STORE PATH")
+      <*> argument str (metavar "STORE_PATH")
 
     buildRemoteCli = BuildRemoteCli
       <$> strOption (long "target"
