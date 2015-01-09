@@ -166,7 +166,7 @@ Inherently, you should also propagate ssh keys of your instances to
 that ssh-agent in this case.
 
 ```bash
-export UPCAST_SSH_CLOSURE_CACHE=nix-ssh@hydra.com
+export UPCAST_SSH_STORE_CACHE=nix-ssh@hydra.com
 ```
 
 #### SSH shared connections

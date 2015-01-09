@@ -45,7 +45,7 @@ install fgrun args@InstallCli{..} = do
 
 go :: (?sshConfig :: Maybe FilePath) => FgCommands -> DeliveryMode -> Install -> IO ()
 go FgCommands{..} dm install@Install{i_paths} = do
-  nixSSHClosureCache <- getEnv "UPCAST_SSH_CLOSURE_CACHE"
+  nixSSHClosureCache <- getEnv "UPCAST_SSH_STORE_CACHE"
   case nixSSHClosureCache of
       Just cache -> do
         fgssh $ sshPrepKnownHost cache install

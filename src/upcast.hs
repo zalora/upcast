@@ -157,7 +157,7 @@ main = do
 
         <> command "install"
            ((install fgrunDirect) <$> installCli `info`
-            progDesc "install a nix environment closure into a host's profile")
+            progDesc "copy a store path closure and set it to a profile")
 
     installCli = InstallCli
       <$> strOption (long "target"
@@ -168,7 +168,7 @@ main = do
                     (long "profile"
                      <> short 'p'
                      <> metavar "PROFILE"
-                     <> help "attach CLOSURE to PROFILE (otherwise system)"))
+                     <> help "set STORE PATH to PROFILE (otherwise system)"))
       <*> optional (strOption
                     (long "ssh-config"
                      <> short 'c'
@@ -178,8 +178,8 @@ main = do
                     (long "pull"
                      <> short 'f'
                      <> metavar "FROM"
-                     <> help "pull closures from host"))
-      <*> argument str (metavar "CLOSURE")
+                     <> help "pull store paths from host"))
+      <*> argument str (metavar "STORE PATH")
 
     buildRemoteCli = BuildRemoteCli
       <$> strOption (long "target"
@@ -192,5 +192,5 @@ main = do
       <*> switch (long "print" <> short 'p' <> help "cat the derivation output file after build")
       <*> optional (strOption (short 'i'
                      <> metavar "PROFILE"
-                     <> help "set the output closure to PROFILE on the target"))
+                     <> help "set the output store path to PROFILE on the target"))
       <*> argument str exp
