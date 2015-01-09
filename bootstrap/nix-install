@@ -1,0 +1,59 @@
+#!/bin/sh
+
+# customized version of https://nixos.org/nix/install
+# tested on CentOS 6.5 and Ubuntu 14.04
+
+{ # Prevent execution if this script was only partially downloaded
+
+unpack=nix-binary-tarball-unpack
+
+require_util() {
+    type "$1" > /dev/null 2>&1 || which "$1" > /dev/null 2>&1 ||
+        oops "you do not have \`$1' installed, which i need to $2"
+}
+
+oops() {
+    echo "$0: $@" >&2
+    #rm -rf "$unpack" # XXX: to speed up subsequent install attempts
+    echo leftovers: $unpack >&2
+    exit 1
+}
+
+system=x86_64-linux
+# see https://hydra.nixos.org/job/nix/master/binaryTarball.x86_64-linux#tabs-status
+url="http://hydra.nixos.org/build/17897595/download/1/nix-1.8-x86_64-linux.tar.bz2"
+
+require_util curl "download the binary tarball"
+require_util bzcat "decompress the binary tarball"
+require_util tar "unpack the binary tarball"
+
+echo "unpacking Nix binary tarball for $system from \`$url'..."
+if [ ! -d $unpack ]; then
+    mkdir "$unpack" || oops "failed to create \`$unpack' directory"
+    curl -O -L "$url" || oops "could not download \`$url'"
+    tar xjf $(basename "$url") -C "$unpack" || oops "failed to unpack \`$url'"
+fi
+
+[ -e "$unpack"/*/install ] ||
+    oops "installation script is missing from the binary tarball!"
+
+sudo install -d /etc/nix
+cat > /etc/nix/nix.conf << EOF
+build-users-group =
+EOF
+
+sudo install -m 755 -o $USER -d /nix
+"$unpack"/*/install
+if [ $? -eq 0 ]; then
+    rm -rf "$unpack"
+
+    echo patching your default environment...
+    echo 'export PATH=/nix/var/nix/profiles/default/bin:$PATH' | sudo tee /etc/profile.d/nix-adhoc.sh
+    # ubuntu needs /etc/environment (see sshd pam policies):
+    echo PATH="/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" | sudo tee /etc/environment
+    sudo chmod +x /etc/profile.d/nix-adhoc.sh
+fi
+
+} # End of wrapping
+
+# vim: ts=4 sts=4 sw=4 et
