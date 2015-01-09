@@ -36,7 +36,7 @@ fgCommands fgrun = FgCommands{..}
 
 install :: (Command Local -> IO ExitCode) -> InstallCli -> IO ()
 install fgrun args@InstallCli{..} = do
-  let i_closure = ic_closure
+  let i_storepath = ic_storepath
       i_remote = Remote Nothing ic_target
       i_paths = []
       i_profile = maybe nixSystemProfile id ic_profile
@@ -45,8 +45,8 @@ install fgrun args@InstallCli{..} = do
 
 go :: (?sshConfig :: Maybe FilePath) => FgCommands -> DeliveryMode -> Install -> IO ()
 go FgCommands{..} dm install@Install{i_paths} = do
-  nixSSHClosureCache <- getEnv "UPCAST_SSH_STORE_CACHE"
-  case nixSSHClosureCache of
+  maybeCache <- getEnv "UPCAST_SSH_STORE_CACHE"
+  case maybeCache of
       Just cache -> do
         fgssh $ sshPrepKnownHost cache install
         unless (null i_paths) $ fgssh . nixTrySubstitutes cache $ install

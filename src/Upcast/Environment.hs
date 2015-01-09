@@ -38,7 +38,7 @@ nixContext file = do
     nixArgs <- T.pack <$> getEnvDefault "UPCAST_NIX_FLAGS" ""
     let nix_args = " -I upcast=" <> upcastPath <> " " <> nixArgs <> " --show-trace "
 
-    nix_sshClosureCache <- getEnv "UPCAST_SSH_STORE_CACHE"
+    nix_sshStoreCache <- getEnv "UPCAST_SSH_STORE_CACHE"
 
     return NixContext{..}
 

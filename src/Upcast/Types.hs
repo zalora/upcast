@@ -18,7 +18,7 @@ type Hostname = Text
 data NixContext = NixContext
                   { nix_expressionFile :: FilePath
                   , nix_args :: Text
-                  , nix_sshClosureCache :: Maybe String
+                  , nix_sshStoreCache :: Maybe String
                   } deriving (Show)
 
 data InfraContext = InfraContext
@@ -40,8 +40,8 @@ data Machine = Machine
 -- | Per-machine Nix closure install context used in some of 'DeployCommands'.
 data Install = Install
              { i_remote :: Remote
-             , i_closure :: StorePath
-             , i_paths :: [StorePathBS] -- ^ all deps of 'i_closure' (for 'nixTrySubstitutes')
+             , i_storepath :: StorePath
+             , i_paths :: [StorePathBS] -- ^ all deps of 'i_storepath' (for 'nixTrySubstitutes')
              , i_profile :: FilePath
              } deriving (Show)
 
@@ -56,15 +56,8 @@ data InstallCli = InstallCli
                 , ic_profile :: Maybe FilePath
                 , ic_sshConfig :: Maybe FilePath
                 , ic_pullFrom :: Maybe String
-                , ic_closure :: FilePath
+                , ic_storepath :: FilePath
                 } deriving (Show)
-
--- | CLI arguments to 'run'.
-data RunCli = RunCli
-            { rc_closureSubstitutes :: Maybe (Map Hostname StorePath)
-            , rc_pullFrom :: Maybe String
-            , rc_expressionFile :: FilePath
-            }
 
 -- | CLI arguments to 'buildRemote'.
 data BuildRemoteCli = BuildRemoteCli

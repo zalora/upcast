@@ -81,20 +81,20 @@ nixCopyClosureTo host path =
     Cmd Local [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --to #{host} #{path} --gzip|] $ mconcat [host, ":copyto"]
 
 nixCopyClosureToI :: (?sshConfig :: Maybe FilePath) => Install -> Command Local
-nixCopyClosureToI Install{ i_remote = (Remote _ host), i_closure = path } =
+nixCopyClosureToI Install{ i_remote = (Remote _ host), i_storepath = path } =
     nixCopyClosureTo host path
 
 nixCopyClosureFrom :: (?sshConfig :: Maybe FilePath) => String -> Install -> Command Remote
-nixCopyClosureFrom from  Install{i_remote, i_closure} =
-    Cmd i_remote [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --from #{from} #{i_closure} --gzip|] $ "copyfrom"
+nixCopyClosureFrom from  Install{i_remote, i_storepath} =
+    Cmd i_remote [n|env NIX_SSHOPTS="#{sshBaseOptions}" nix-copy-closure --from #{from} #{i_storepath} --gzip|] $ "copyfrom"
 
 nixSetProfileI :: Install -> Command Remote
 nixSetProfileI Install{..} =
-    forward i_remote $ nixSetProfile i_profile i_closure
+    forward i_remote $ nixSetProfile i_profile i_storepath
 
 nixSetProfile :: FilePath -> StorePath -> Command Local
-nixSetProfile i_profile i_closure =
-    Cmd Local [n|nix-env -p #{i_profile} --set "#{i_closure}"|] "set-profile"
+nixSetProfile i_profile i_storepath =
+    Cmd Local [n|nix-env -p #{i_profile} --set "#{i_storepath}"|] "set-profile"
 
 nixSystemProfile :: FilePath
 nixSystemProfile = "/nix/var/nix/profiles/system"
@@ -108,10 +108,10 @@ nixClosure path =
     Cmd Local [n|nix-store -qR #{path}|] "closure"
 
 nixTrySubstitutes :: String -> Install -> Command Remote
-nixTrySubstitutes cache Install{i_remote = r@(Remote _ host), i_closure} =
+nixTrySubstitutes cache Install{i_remote = r@(Remote _ host), i_storepath} =
     Cmd r [n|nix-store -j4 -r --ignore-unknown
              --option use-ssh-substituter true
-             --option ssh-substituter-hosts #{cache} #{i_closure}|] "try-substitutes"
+             --option ssh-substituter-hosts #{cache} #{i_storepath}|] "try-substitutes"
 
 sshPrepKnownHost :: String -> Install -> Command Remote
 sshPrepKnownHost known Install{i_remote = r@(Remote _ host)} =
