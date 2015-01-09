@@ -12,6 +12,7 @@ It consists of (see [Features](#features) for details):
 
 The ultimate goal of Upcast is to make you stop thinking about deployments and focus on your apps instead.
 Upcast's CLI interface is designed to be composed with other tools.
+Every Upcast feature so far has appeared from the need to improve day-to-day operations.
 
 ### Features
 
