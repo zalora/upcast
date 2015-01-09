@@ -7,7 +7,7 @@ It consists of (see [Features](#features) for details):
 - [opinionated base NixOS configuration](nix/nixos) suitable for cloud deployments based on [EC2 instance-store instances](nix/nixos/env-ec2.nix)
   (see also the [list of AMIs](nix/aws/ec2-amis.nix))
   and [VirtualBox](nix/nixos/env-virtualbox.nix) for development/testing
-- [nix-based](http://nixos.org/nix/) tools for PaaS-style software deployment and build support - `build-remote` and `install`
+- nix-based tools for PaaS-style software deployment and build support - `build-remote` and `install`
 - tools to bootstrap Nix on non-NixOS systems
 
 The ultimate goal of Upcast is to make you stop thinking about deployments and focus on your apps instead.
