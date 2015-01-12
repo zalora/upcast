@@ -39,38 +39,40 @@ in
     ) ./.
 , haskellPackages ? pkgs.haskellPackages_ghc783
 }:
-with pkgs.lib;
 
 let
-  # Build a cabal package given a local .cabal file
-  buildLocalCabalWithArgs = { src
-                            , name
-                            , args ? {}
-                            , cabalDrvArgs ? { jailbreak = true; }
-                            # for import-from-derivation, want to use current system
-                            , nativePkgs ? import pkgs.path {}
-                            }: let
+  upcast =
+    { cabal, aeson, aesonPretty, async, attoparsec, aws, awsEc2
+    , base64Bytestring, conduit, conduitExtra, filepath, free
+    , haskellSrcMeta, httpConduit, httpTypes, liftedBase, mtl
+    , optparseApplicative, prettyShow, random, resourcet, scientific
+    , text, time, unorderedContainers, vector, vkAwsRoute53, vkPosixPty
+    }:
 
-    cabalExpr = shell "${name}.nix" ''
-      export HOME="$TMPDIR"
-      ${let c2n = builtins.getEnv "OVERRIDE_cabal2nix";
-        in if c2n != "" then c2n
-           else "${nativePkgs.haskellPackages.cabal2nix}/bin/cabal2nix"} \
-        ${src + "/${name}.cabal"} --sha256=FILTERME \
-          | grep -v FILTERME | sed \
-            -e 's/{ cabal/{ cabal, cabalInstall, cabalDrvArgs ? {}, src/' \
-            -e 's/cabal.mkDerivation (self: {/cabal.mkDerivation (self: cabalDrvArgs \/\/ {/' \
-            -e 's/buildDepends = \[/buildDepends = \[ cabalInstall/' \
-            -e 's/pname = \([^$]*\)/pname = \1  inherit src;/'  > $out
-    '';
-  in haskellPackages.callPackage cabalExpr ({ inherit src cabalDrvArgs; } // args);
+    cabal.mkDerivation (self: {
+      pname = "upcast";
+      inherit src;
+      version = "0.1.0.0";
+      isLibrary = false;
+      isExecutable = true;
+      jailbreak = true;
+      buildDepends = [
+        aeson aesonPretty async attoparsec aws base64Bytestring
+        conduit conduitExtra filepath free haskellSrcMeta httpConduit
+        httpTypes liftedBase mtl optparseApplicative prettyShow random
+        resourcet scientific text time unorderedContainers vector
+
+        awsEc2 vkAwsRoute53 vkPosixPty
+      ];
+      meta = {
+        license = self.stdenv.lib.licenses.mit;
+        platforms = self.ghc.meta.platforms;
+      };
+    });
 in
 
-buildLocalCabalWithArgs {
-  inherit src name;
-  args = rec {
-    vkAwsRoute53 = haskellPackages.callPackage ./nixpkgs/vk-aws-route53.nix {};
-    awsEc2 = haskellPackages.callPackage ./nixpkgs/aws-ec2.nix {};
-    vkPosixPty = haskellPackages.callPackage ./nixpkgs/vk-posix-pty.nix {};
-  };
+haskellPackages.callPackage upcast {
+  vkAwsRoute53 = haskellPackages.callPackage ./nixpkgs/vk-aws-route53.nix {};
+  awsEc2 = haskellPackages.callPackage ./nixpkgs/aws-ec2.nix {};
+  vkPosixPty = haskellPackages.callPackage ./nixpkgs/vk-posix-pty.nix {};
 }
