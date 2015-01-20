@@ -34,7 +34,6 @@ data Machine = Machine
              , m_privateIp :: Text
              , m_instanceId :: Text
              , m_keyFile :: Maybe Text
-             , m_nix :: Bool
              } deriving (Show)
 
 -- | Per-machine Nix closure install context used in some of 'DeployCommands'.

@@ -222,7 +222,6 @@ toMachine k (h, reportedInfo, infraInfo) = Machine h
                                 (cast "instancesSet.privateIpAddress" :: Text)
                                 (cast "instancesSet.instanceId" :: Text)
                                 k
-                                (acast "nix" infraInfo :: Bool)
   where
     cast :: FromJSON a => Text -> a
     cast = (`acast` reportedInfo)
