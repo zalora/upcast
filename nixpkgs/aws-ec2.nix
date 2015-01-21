@@ -1,7 +1,7 @@
 { cabal, aeson, aws, base16Bytestring, base64Bytestring
 , blazeBuilder, byteable, conduitExtra, cryptohash, httpConduit
 , httpTypes, mtl, optparseApplicative, resourcet, scientific, text
-, time, unorderedContainers, vector, xmlConduit
+, time, unorderedContainers, vector, xmlConduit, yaml
 }:
 
 cabal.mkDerivation (self: {
@@ -14,7 +14,7 @@ cabal.mkDerivation (self: {
     aeson aws base16Bytestring base64Bytestring blazeBuilder byteable
     conduitExtra cryptohash httpConduit httpTypes mtl
     optparseApplicative resourcet scientific text time
-    unorderedContainers vector xmlConduit
+    unorderedContainers vector xmlConduit yaml
   ];
   meta = {
     homepage = "https://github.com/zalora/aws-ec2";
