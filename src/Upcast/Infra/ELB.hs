@@ -13,6 +13,7 @@ import Control.Monad
 import Control.Monad.Free
 
 import Data.Monoid
+import Data.Char
 import Data.Maybe (catMaybes)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -55,7 +56,7 @@ instance FromJSON StickinessPolicy where
   parseJSON _ = mzero
 
 stickinessPolicyName :: StickinessPolicy -> Text
-stickinessPolicyName (App x) = T.append "app-" x
+stickinessPolicyName (App x) = T.append "app-" (T.filter isAsciiLower x)
 stickinessPolicyName (LB Nothing) = "lb-no-exp"
 stickinessPolicyName (LB (Just x)) = T.append "lb-exp-" . T.pack $ show x
 
