@@ -157,6 +157,7 @@ createInstances instances subnetA sgA defTags userDataA = do
               let run_kernelId = Nothing
               let run_ramdiskId = Nothing
               let run_clientToken = Nothing
+              let run_associatePublicIpAddress = True
               run_availabilityZone <- ec2 .:? "zone"
               run_iamInstanceProfileARN <- castText <$> ec2 .: "instanceProfileARN"
 
