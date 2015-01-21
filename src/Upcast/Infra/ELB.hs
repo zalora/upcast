@@ -13,6 +13,7 @@ import Control.Monad
 import Control.Monad.Free
 
 import Data.Monoid
+import Data.Char
 import Data.Maybe (catMaybes)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -29,6 +30,7 @@ import Aws.Query (QueryAPIConfiguration(..), castValue)
 import qualified Aws.Route53 as R53
 import qualified Aws.Ec2 as EC2
 import qualified Aws.Elb as ELB
+import Aws.Elb.Commands.CreateAppCookieStickinessPolicy as ELB -- Should be part of ELB in the future
 
 import Upcast.Infra.Types
 
@@ -42,6 +44,21 @@ instance FromJSON ELB.LbProtocol where
 data R53Alias = R53Alias Text R53.HostedZoneId
 
 catTuples = foldr (\(ls, sp) (lss, sps) -> (ls:lss, sp:sps)) ([], [])
+
+data StickinessPolicy = App Text -- ^ App cookie policy
+                      | LB (Maybe Integer) -- ^ LB cookie policy, optional expiration
+
+instance FromJSON StickinessPolicy where
+  parseJSON (Object v) = case H.lookup "app" v of
+    Just (String x) -> pure $ App x
+    Nothing -> LB <$> v .: "lb"
+    _ -> mzero
+  parseJSON _ = mzero
+
+stickinessPolicyName :: StickinessPolicy -> Text
+stickinessPolicyName (App x) = T.append "app-" (T.filter isAsciiLower x)
+stickinessPolicyName (LB Nothing) = "lb-no-exp"
+stickinessPolicyName (LB (Just x)) = T.append "lb-exp-" . T.pack $ show x
 
 elbPlan :: (MonadFree InfraF m, Functor m)
         => InstanceA
@@ -74,9 +91,9 @@ elbPlan instanceA sgA subnetA elbs = do
                                                 Nothing -> Nothing
                                                 Just x -> Just x
 
-                    lbStickinessExp :: Maybe Integer <- listener .:? "lbStickinessCookieExpiration"
+                    lbStickiness :: Maybe StickinessPolicy <- listener .: "stickiness"
 
-                    return (ELB.Listener{..}, (maybe (-1) id lbStickinessExp, l_lbPort))
+                    return (ELB.Listener{..}, (lbStickiness, l_lbPort))
 
               let clb = ELB.CreateLoadBalancer{..}
 
@@ -129,10 +146,14 @@ elbPlan instanceA sgA subnetA elbs = do
 
         aws_ $ ELB.ModifyLoadBalancerAttributes name attrs
 
-        forM lbStickiness $ \(cookieExp, lbPort) -> when (cookieExp /= -1) $ do
-          let policyName = mconcat [name, "-", T.pack $ show lbPort, "-cookie-exp-", T.pack $ show cookieExp]
-          aws_ $ ELB.CreateLBCookieStickinessPolicy name (if cookieExp == 0 then Nothing else Just cookieExp) policyName
-          aws_ $ ELB.SetLoadBalancerPoliciesOfListener name (fromIntegral lbPort) [policyName]
+        forM lbStickiness $ \(maybePolicy, lbPort) -> case maybePolicy of
+          Just policy -> do
+            let policyName = mconcat [name, "-", T.pack $ show lbPort, "-cookie-", stickinessPolicyName policy]
+            case policy of
+              App cookieName -> aws_ $ ELB.CreateAppCookieStickinessPolicy name cookieName policyName
+              LB cookieExp -> aws_ $ ELB.CreateLBCookieStickinessPolicy name cookieExp policyName
+            aws_ $ ELB.SetLoadBalancerPoliciesOfListener name (fromIntegral lbPort) [policyName]
+          Nothing -> return ()
 
         aws_ $ ELB.ConfigureHealthCheck name healthCheck
 

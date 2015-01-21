@@ -36,7 +36,7 @@ executable upcast
                      , aws, http-conduit, conduit-extra, http-types
                      , optparse-applicative >= 0.11.0.1
                      , vk-aws-route53 > 0.1.1
-                     , aws-ec2 >= 0.2.2
+                     , aws-ec2 >= 0.3
                      , vk-posix-pty >= 0.2.1
 
   hs-source-dirs:      src
