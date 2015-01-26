@@ -1,6 +1,6 @@
 { config, pkgs, lib, ... }: with lib;
 let
-  cloudDefault = mkOverride 999;
+  cloudDefault = mkOverride 900;
 in
 {
     # usually covered by things like security groups
