@@ -6,7 +6,10 @@ let
   inherit (lib) mapAttrs getAttr evalModules;
 
   types = import ./infra-types.nix;
-  spec = import expr { inherit lib; };
+  spec =
+    let
+      x = import expr;
+    in if builtins.isFunction x then (x { inherit lib; }) else x;
 
   eval-infra = 
     let
