@@ -1,7 +1,10 @@
 { config, name, lib, ... }:
 
-with lib;
-
+let
+  common = import ./common.nix { inherit lib; };
+  inherit (common) sum;
+  inherit (lib) types mkOption mkIf mkDefault;
+in
 {
   options = {
     name = mkOption {
@@ -11,25 +14,7 @@ with lib;
       description = "Description of the EBS volume.  This is the <literal>Name</literal> tag of the disk.";
     };
 
-    region = mkOption {
-      example = "us-east-1";
-      type = types.str;
-      description = "Amazon EC2 region.";
-    };
-
-    zone = mkOption {
-      example = "us-east-1c";
-      type = types.str;
-      description = ''
-        The EC2 availability zone in which the volume should be
-        created.
-      '';
-    };
-
-    accessKeyId = mkOption {
-      type = types.str;
-      description = "The AWS Access Key ID.";
-    };
+    inherit (common) accessKeyId region zone;
 
     size = mkOption {
       example = 100;
@@ -41,6 +26,18 @@ with lib;
         However, you can set a size larger than the snapshot, allowing
         the volume to be larger than the snapshot from which it is
         created.
+      '';
+    };
+
+    volumeType = mkOption {
+      type = sum {
+        standard = types.unspecified;
+        gp2 = types.unspecified;
+        iop = types.int;
+      };
+      default = { standard = true; };
+      description = ''
+        EBS volume type. Defaults to standard magnetic.
       '';
     };
 

@@ -1,12 +1,14 @@
-{ lib }: with lib;
+{ lib }:
 
-rec {
-  inherit (import <upcast/option-types.nix> { inherit lib; }) infra;
+let
+  inherit (lib) mkOption types;
+in rec {
+  inherit (import <upcast/option-types.nix> { inherit lib; }) infra sum;
 
   accessKeyId = mkOption {
-    default = "";
+    default = "default";
     type = types.str;
-    description = "The AWS Access Key ID (yet ignored by Upcast).";
+    description = "The AWS Access Key ID (ignored by Upcast).";
   };
 
   region = mkOption {

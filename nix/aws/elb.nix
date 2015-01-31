@@ -1,25 +1,8 @@
 { config, name, lib, ... }:
-with lib;
 let
   common = import ./common.nix { inherit lib; };
-  inherit (common) infra;
-  # ctor-set is a set from ctor names to the contained type. For example,
-  # to represent data Foo = Foo Int | Bar String, you might have
-  # types.adt { foo = types.int; bar = types.str; } as the type and
-  # { foo = 2; } or { bar = "x"; } as the value.
-  adt = ctor-set: mkOptionType {
-    name = "an adt with these constructors: ${
-      concatStringsSep " " (attrNames ctor-set)
-    }";
-    check = x: let
-      names = attrNames x;
-
-      ctor = head names;
-    in isAttrs x && builtins.length names == 1 && ctor-set ? ${ctor} &&
-      ctor-set.${ctor}.check x.${ctor};
-    # Could theoretically merge matching ctors, but who cares
-    merge = mergeOneOption;
-  };
+  inherit (common) infra sum;
+  inherit (lib) mkOption types;
 in
 {
   options = {
@@ -45,7 +28,7 @@ in
     };
 
     listeners = mkOption {
-      type = types.listOf (types.submodule ({ lib, name, ... }: with lib; {
+      type = types.listOf (types.submodule ({ lib, name, ... }: {
         options = {
           lbPort = mkOption { type = types.int; default = 80; };
           lbProtocol = mkOption { type = types.string; default = "http"; };
@@ -53,7 +36,7 @@ in
           instanceProtocol = mkOption { type = types.string; default = "http"; };
           sslCertificateId = mkOption { type = types.string; default = ""; };
           stickiness = mkOption {
-            type = types.nullOr (adt {
+            type = types.nullOr (sum {
               app = types.str;
               lb = (types.nullOr types.int);
             });
@@ -80,7 +63,7 @@ in
     };
 
     accessLog = mkOption {
-      type = types.submodule ({ lib, name, ... }: with lib; {
+      type = types.submodule ({ lib, name, ... }: {
         options = {
           enable = mkOption { type = types.bool; default = false; };
           emitInterval = mkOption { type = types.int; default = 60; };
@@ -95,7 +78,7 @@ in
     };
 
     connectionDraining = mkOption {
-      type = types.submodule ({ lib, name, ... }: with lib; {
+      type = types.submodule ({ lib, name, ... }: {
         options = {
           enable = mkOption { type = types.bool; default = true; };
           timeout = mkOption { type = types.int; default = 300; };
@@ -127,7 +110,7 @@ in
     };
 
     route53Aliases = mkOption {
-      type = types.attrsOf (types.submodule ({ lib, name, ... }: with lib; {
+      type = types.attrsOf (types.submodule ({ lib, name, ... }: {
         options = {
           zoneId = mkOption { type = types.string; example = "ZOZONEZONEZONE"; };
         };

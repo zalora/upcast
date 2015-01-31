@@ -110,6 +110,18 @@ createSecurityGroups secGroups vpcA defTags = do
 
     return sgA
 
+parseVolumeType =
+  flip parse $ \(Object obj) ->
+    do
+      standard' :: Maybe Value <- obj .:? "standard"
+      gp2' :: Maybe Value <- obj .:? "gp2"
+      iop :: Maybe Int <- obj .:? "iop"
+
+      return $ head $ catMaybes [ fmap (const EC2.Standard) standard'
+                                , fmap (const EC2.GP2SSD) gp2'
+                                , fmap EC2.IOPSSD iop
+                                ]
+
 createEBS volumes defTags = do
     volumeA <- fmap mconcat $ forM volumes $ \vol -> do
         let (assocName, name, v) = parse vol $ \(Object obj) -> do
@@ -119,7 +131,10 @@ createEBS volumes defTags = do
               cvol_AvailabilityZone <- obj .: "zone"
               ebd_snapshotId <- fmap (\case "" -> Nothing; x -> Just x) (obj .: "snapshot")
               let ebd_deleteOnTermination = False
-              let ebd_volumeType = EC2.Standard
+
+              volumeType <- obj .: "volumeType"
+              let ebd_volumeType = parseVolumeType volumeType
+
               ebd_volumeSize <- obj .: "size"
               let ebd_encrypted = False
 

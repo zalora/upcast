@@ -108,7 +108,7 @@ parse :: a -> (a -> Parser b) -> b
 parse obj action = either error id (flip parseEither obj action)
 
 --
--- orphanarium:
+-- orphanage:
 --
 
 instance FromJSON EC2.IpProtocol where

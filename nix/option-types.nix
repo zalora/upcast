@@ -11,4 +11,22 @@ rec {
     check = x: x._type or "" == type;
     merge = mergeOneOption;
   });
+
+  # ctor-set is a set from ctor names to the contained type. For example,
+  # to represent data Foo = Foo Int | Bar String, you might have
+  # types.adt { foo = types.int; bar = types.str; } as the type and
+  # { foo = 2; } or { bar = "x"; } as the value.
+  sum = ctor-set: mkOptionType {
+    name = "an adt with these constructors: ${
+      concatStringsSep " " (attrNames ctor-set)
+    }";
+    check = x: let
+      names = attrNames x;
+
+      ctor = head names;
+    in isAttrs x && builtins.length names == 1 && ctor-set ? ${ctor} &&
+      ctor-set.${ctor}.check x.${ctor};
+    # Could theoretically merge matching ctors, but who cares
+    merge = mergeOneOption;
+  };
 }
