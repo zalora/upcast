@@ -30,6 +30,9 @@ in
       DefaultLimitCORE=1048576
     '';
 
+    boot.tmpOnTmpfs = cloudDefault true;
+    boot.cleanTmpDir = cloudDefault true;
+
     boot.kernel.sysctl = {
       # allows control of core dumps with systemd-coredumpctl
       "kernel.core_pattern" = cloudDefault "|${pkgs.systemd}/lib/systemd/systemd-coredump %p %u %g %s %t %e";
