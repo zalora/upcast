@@ -54,6 +54,7 @@ go FgCommands{..} dm install@Install{i_paths} = do
 
   case dm of
       Push -> fgrun' . nixCopyClosureToI $ install
+      Pull "localhost" -> return ()
       Pull from -> fgssh . nixCopyClosureFrom from $ install
 
   fgssh $ nixSetProfileI install
