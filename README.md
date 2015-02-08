@@ -2,11 +2,10 @@ Upcast is a set of nix-based linux deployment platform tools and cloud infrastru
 
 [![Build Status](https://travis-ci.org/zalora/upcast.svg?branch=master)](https://travis-ci.org/zalora/upcast)
 
+Upcast is part of [Zalora Platform](https://github.com/zalora/platform).
+
 It consists of (see [Features](#features) for details):
 - `infra` - AWS infrastructure based on a [declarative spec](test/big-network.nix) in [Nix](http://nixos.org/nix/) expression language
-- [opinionated base NixOS configuration](nix/nixos) suitable for cloud deployments based on [EC2 instance-store instances](nix/nixos/env-ec2.nix)
-  (see also the [list of AMIs](nix/aws/ec2-amis.nix))
-  and [VirtualBox](nix/nixos/env-virtualbox.nix) for development/testing
 - nix-based tools for PaaS-style software deployment and build support - `build-remote` and `install`
 - tools to bootstrap Nix on non-NixOS Linux distros
 
@@ -48,9 +47,9 @@ in
     };
   };
 
-  # you need <nixpkgs> in your $NIX_PATH to build this
-  # <upcast/nixos> is a drop-in replacement for <nixpkgs/nixos>
-  some-image = (import <upcast/nixos> {
+  # you need <nixpkgs> and <platform> in your $NIX_PATH to build this, see https://github.com/zalora/platform)
+  # <platform/nixos> is a drop-in replacement for <nixpkgs/nixos>
+  some-image = (import <platform/nixos> {
     configuration = { config, pkgs, lib, ... }: {
       config.services.nginx.enable = true;
     };

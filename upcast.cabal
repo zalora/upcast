@@ -10,10 +10,6 @@ cabal-version:       >=1.10
 data-files:          nix/*.nix
                    , nix/aws/*.nix
                    , nix/lib/*.nix
-                   , nix/nixos/*.nix
-                   , nix/nixos/kernel/exclude.amd64-virtual
-                   , nix/nixos/kernel/generic.inclusion-list
-                   , nix/nixos/kernel/module-inclusion
 
 
 executable upcast
