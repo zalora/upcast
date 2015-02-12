@@ -49,6 +49,12 @@ data DeliveryMode = Push | Pull String
 toDelivery :: Maybe String -> DeliveryMode
 toDelivery = maybe Push Pull
 
+-- | CLI arguments to 'infra*'
+data InfraCli = InfraCli
+                { infraCli_stateFile :: Maybe FilePath
+                , infraCli_expressionFile :: FilePath
+                } deriving (Show)
+
 -- | CLI arguments to 'install'.
 data InstallCli = InstallCli
                 { ic_target :: String
