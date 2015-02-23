@@ -225,8 +225,8 @@ attachEBS instanceA volumeA = do
                       False -> error $ mconcat ["can't handle disk: ", T.unpack t]
 
 
-ec2plan :: (MonadFree InfraF m, Functor m) => Text -> [EC2.ImportKeyPair] -> Value -> UserDataA -> m [(Text, Value, Value)]
-ec2plan expressionName keypairs spec userDataA = do
+ec2plan :: (MonadFree InfraF m, Functor m) => Text -> Text -> [EC2.ImportKeyPair] -> Value -> UserDataA -> m [(Text, Value, Value)]
+ec2plan environmentName expressionName keypairs spec userDataA = do
     mapM_ (\k -> aws1 k "keyFingerprint") keypairs
 
     vpcA <- createVPC vpcs defTags
@@ -257,7 +257,10 @@ ec2plan expressionName keypairs spec userDataA = do
     cast :: FromJSON a => Text -> [a]
     cast = (`mcast` spec)
 
-    defTags = [("created-using", "upcast"), ("expression", expressionName)]
+    defTags = [ ("created-using", "upcast")
+              , ("environment-name", environmentName)
+              , ("expression", expressionName)
+              ]
 
     vpcs = cast "ec2-vpc" :: [Value]
     subnets = cast "ec2-subnet" :: [Value]
