@@ -226,7 +226,7 @@ attachEBS instanceA volumeA = do
 
 
 ec2plan :: (MonadFree InfraF m, Functor m) => Text -> Text -> [EC2.ImportKeyPair] -> Value -> UserDataA -> m [(Text, Value, Value)]
-ec2plan environmentName expressionName keypairs spec userDataA = do
+ec2plan realmName expressionName keypairs spec userDataA = do
     mapM_ (\k -> aws1 k "keyFingerprint") keypairs
 
     vpcA <- createVPC vpcs defTags
@@ -258,7 +258,7 @@ ec2plan environmentName expressionName keypairs spec userDataA = do
     cast = (`mcast` spec)
 
     defTags = [ ("created-using", "upcast")
-              , ("environment-name", environmentName)
+              , ("realm", realmName)
               , ("expression", expressionName)
               ]
 

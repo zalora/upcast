@@ -23,7 +23,7 @@ data NixContext = NixContext
 
 data InfraContext = InfraContext
                   { inc_expressionFile :: String
-                  , inc_environmentName :: Text
+                  , inc_realmName :: Text
                   , inc_data :: Value
                   , inc_stateFile :: FilePath
                   } deriving (Show)

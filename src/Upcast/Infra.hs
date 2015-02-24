@@ -236,7 +236,7 @@ debugEvalInfra InfraContext{..} = do
     instances <- do
       let qapi = QueryAPIConfiguration $ T.encodeUtf8 region
           context = EvalContext undefined undefined qapi R53.route53
-          action = debugPlan emptyStore (ec2plan inc_environmentName name (snd <$> keypairs) inc_data userDataA)
+          action = debugPlan emptyStore (ec2plan inc_realmName name (snd <$> keypairs) inc_data userDataA)
           in runReaderT action context
 
     -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances
@@ -264,7 +264,7 @@ evalInfra InfraContext{..} = do
     instances <- HTTP.withManager $ \mgr -> do
       awsConf <- liftIO $ Aws.baseConfiguration
       let context = EvalContext mgr awsConf (QueryAPIConfiguration $ T.encodeUtf8 region) R53.route53
-          action = evalPlan store (ec2plan inc_environmentName name (snd <$> keypairs) inc_data userDataA)
+          action = evalPlan store (ec2plan inc_realmName name (snd <$> keypairs) inc_data userDataA)
           in runReaderT action context
 
     -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances

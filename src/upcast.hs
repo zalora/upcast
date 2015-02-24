@@ -33,9 +33,9 @@ import Upcast.Install
 evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
 evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
   value <- expectRight $ nixValue <$> fgconsume_ (nixInfraInfo nix)
-  environmentName <- expectText $ expectRight $ nixValue <$> fgconsume_ (nixEnvironmentName nix)
+  realmName <- expectText $ expectRight $ nixValue <$> fgconsume_ (nixRealmName nix)
   return InfraContext{ inc_expressionFile = file
-                     , inc_environmentName = environmentName
+                     , inc_realmName = realmName
                      , inc_stateFile = fromMaybe (replaceExtension file "store") infraCli_stateFile
                      , inc_data = value
                      }
