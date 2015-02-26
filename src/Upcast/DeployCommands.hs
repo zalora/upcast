@@ -53,6 +53,7 @@ nixRealmName NixContext{..} =
     Cmd Local [n|
       nix-instantiate
       --eval -A realm-name '#{nix_expressionFile}'
+      2>/dev/null || echo '""'
     |] "realm-name"
 
 nixInfraInfo :: NixContext -> Command Local
