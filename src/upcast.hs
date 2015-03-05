@@ -156,7 +156,7 @@ main = do
                         , prefColumns = 80
                         }
 
-    exp = metavar "<expression>"
+    exp = metavar "<expression file>"
 
     opts = (subparser cmds) `info` header "upcast - infrastructure orchestratrion"
 
