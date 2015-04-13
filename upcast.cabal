@@ -4,7 +4,7 @@ license-file:        LICENSE
 license:             MIT
 author:              Vladimir Kirillov
 maintainer:          vlad.ki@zalora.com
-copyright:           2014 Zalora
+copyright:           2014, 2015 Zalora South East Asia Pte Ltd
 build-type:          Simple
 cabal-version:       >=1.10
 data-files:          nix/*.nix
