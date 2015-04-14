@@ -1,25 +1,20 @@
 env:
- - GHCVER=7.8.3
-
-before_install:
- - sudo add-apt-repository -y ppa:hvr/ghc
- - sudo apt-get update
- - sudo apt-get install cabal-install-1.20 ghc-$GHCVER
- - export PATH=/opt/ghc/$GHCVER/bin:$PATH
- - |
-   if [ $GHCVER = "head" ] || [ ${GHCVER%.*} = "7.8" ]; then
-     sudo apt-get install happy-1.19.4 alex-3.1.3
-     export PATH=/opt/alex/3.1.3/bin:/opt/happy/1.19.4/bin:$PATH
-   else
-     sudo apt-get install happy alex
-   fi
+  nix_deb: https://hydra.nixos.org/build/13991577/download/1/nix_1.8pre3782-d2d5543-1_amd64.deb
 
 install:
- - cabal-1.20 update
- - cabal-1.20 sandbox init
- - cabal-1.20 install --only-dependencies
+  - sudo apt-get update -qq
+  - sudo apt-get install upx libdbd-sqlite3-perl libwww-curl-perl
+  - wget --no-check-certificate $nix_deb
+  - sudo dpkg -i $(basename $nix_deb)
+  - (mkdir nix-path; cd nix-path; git clone https://github.com/NixOS/nixpkgs.git)
+  - export NIX_PATH=$PWD/nix-path
+  - sudo install -o $USER -d /nix
 
 script:
- - cabal-1.20 configure --enable-tests -v2
- - cabal-1.20 build
- - cabal-1.20 test
+  - nix-build --option use-binary-cache true --option binary-caches http://cache.nixos.org -j4 default.nix
+
+deploy:
+  secret_access_key:
+    secure: aXVYnwIzqAzqSQRqKgoCMJffzTXVGqOoVUNtCQisKEKOqZsfxm0xW4OES3H/Ogu/Di2vFnp1nCALKA7HxUypseWOdrogwovJOQJzIeTZonM0gDsuoRwclsqhtGfYUmn4HNJMEeEvGlSAfZiPi8ZcMUZIBFe/vXsmy3J3F1Wnz+M=
+  access_key_id:
+    secure: QDP+G68PIZw8qQncLnsfSA33bIWCYEaUHmQI4bGuHlYmZ19a7ILu4IAmRTpclCIyMEwkl4oH8bwlcJB/6QEEpTKEKUe/FWapPSKbyvb78kfMKPrtmLshhfqjSwc0Cs1aMCGoF5H6C64/dRiiII1BRfDf9NjF1vbVktEH1V9mZLE=
