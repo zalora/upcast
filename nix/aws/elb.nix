@@ -107,6 +107,7 @@ in
           path = "";
         };
       };
+      type = types.attrs;
     };
 
     route53Aliases = mkOption {

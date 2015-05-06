@@ -116,8 +116,7 @@ in
     blockDeviceMapping = mkOption {
       default = { };
       example = { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdg".disk = "vol-d04895b8"; };
-      type = types.attrsOf types.optionSet;
-      options = ec2DiskOptions;
+      type = types.attrsOf (types.submodule ec2DiskOptions);
       description = ''
         Block device mapping.  <filename>/dev/xvd[a-e]</filename> must be ephemeral devices.
       '';

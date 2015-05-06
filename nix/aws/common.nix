@@ -12,6 +12,7 @@ in rec {
   };
 
   region = mkOption {
+    example = "us-east-1";
     type = types.str;
     description = "Amazon EC2 region.";
   };
@@ -39,9 +40,9 @@ in rec {
     description = "EC2 VPC subnet ID.";
   };
 
-  nullOr = option: mkOption ({
+  nullOr = option: mkOption {
     default = null;
-    type = types.nullOr (option.type);
+    type = types.nullOr (option.type or option);
     apply = x: if x == null then null else option.apply x;
-  });
+  };
 }

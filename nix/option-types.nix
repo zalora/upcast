@@ -1,5 +1,5 @@
 { lib, ... }: with lib;
-rec {
+if (lib._upcast-option-types or false) != false then lib._upcast-option-types else rec {
   union = t1: t2: mkOptionType {
     name = "${t1.name} or ${t2.name}";
     check = x: t1.check x || t2.check x;

@@ -14,6 +14,7 @@ with lib;
 
     privateKeyFile = mkOption {
       default = "";
+      type = types.str;
       description = "Key to import";
     };
   };
