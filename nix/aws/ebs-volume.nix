@@ -31,11 +31,11 @@ in
 
     volumeType = mkOption {
       type = sum {
-        standard = types.unspecified;
-        gp2 = types.unspecified;
+        standard = null;
+        gp2 = null;
         iop = types.int;
       };
-      default = { standard = true; };
+      default = { standard = null; };
       description = ''
         EBS volume type. Defaults to standard magnetic.
       '';

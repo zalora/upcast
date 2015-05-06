@@ -25,7 +25,8 @@ if (lib._upcast-option-types or false) != false then lib._upcast-option-types el
 
       ctor = head names;
     in isAttrs x && builtins.length names == 1 && ctor-set ? ${ctor} &&
-      ctor-set.${ctor}.check x.${ctor};
+      (ctor-set.${ctor}.check or (x: true)) x.${ctor};
+
     # Could theoretically merge matching ctors, but who cares
     merge = mergeOneOption;
   };

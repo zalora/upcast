@@ -113,10 +113,14 @@ in
           interval = mkOption { type = types.int; default = 30; };
           healthyThreshold = mkOption { type = types.int; default = 2; };
           unhealthyThreshold = mkOption { type = types.int; default = 10; };
-          target = {
-            protocol = mkOption { type = types.str; default = "TCP"; };
-            port = mkOption { type = types.int; default = 80; };
-            path = mkOption { type = types.str; default = ""; };
+          target = mkOption {
+            type = types.submodule ({ lib, name, ... }: {
+              options = {
+                protocol = mkOption { type = types.str; default = "TCP"; };
+                port = mkOption { type = types.int; default = 80; };
+                path = mkOption { type = types.str; default = ""; };
+              };
+            });
           };
         };
       });

@@ -55,18 +55,16 @@ in
             type = types.uniq (types.nullOr types.int);
           };
 
-          sourceGroup = {
-            ownerId = mkOption {
-              default = null;
-              description = "The AWS account ID that owns the source security group.";
-              type = types.uniq (types.nullOr types.str);
-            };
+          sourceGroupOwnerId = mkOption {
+            default = null;
+            description = "The AWS account ID that owns the source security group.";
+            type = types.uniq (types.nullOr types.str);
+          };
 
-            groupName = mkOption {
-              default = null;
-              description = "The name of the source security group (if allowing all instances in a group access instead of an IP range).";
-              type = types.uniq (types.nullOr types.str);
-            };
+          sourceGroupName = mkOption {
+            default = null;
+            description = "The name of the source security group (if allowing all instances in a group access instead of an IP range).";
+            type = types.uniq (types.nullOr types.str);
           };
 
           sourceIp = mkOption {
