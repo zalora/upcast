@@ -33,7 +33,6 @@ let
       int = fake-type "Int";
       bool = fake-type "Bool";
       attrsOf = fake-type-of "Attrs";
-      attrs = fake-type "Object";
       listOf = fake-type-of "List";
       uniq = x: x;
       unspecified = fake-type "Value";

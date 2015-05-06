@@ -107,7 +107,19 @@ in
           path = "";
         };
       };
-      type = types.attrs;
+      type = types.submodule ({ lib, name, ... }: {
+        options = {
+          timeout = mkOption { type = types.int; default = 5; };
+          interval = mkOption { type = types.int; default = 30; };
+          healthyThreshold = mkOption { type = types.int; default = 2; };
+          unhealthyThreshold = mkOption { type = types.int; default = 10; };
+          target = {
+            protocol = mkOption { type = types.str; default = "TCP"; };
+            port = mkOption { type = types.int; default = 80; };
+            path = mkOption { type = types.str; default = ""; };
+          };
+        };
+      });
     };
 
     route53Aliases = mkOption {
