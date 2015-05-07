@@ -55,7 +55,7 @@ in
   };
 
   config = {
-    _type = "ebs-volume";
+    _type = "ebs";
     size = mkIf (config.snapshot != "") (mkDefault 0);
   };
 

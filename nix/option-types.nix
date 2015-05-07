@@ -1,4 +1,11 @@
 { lib, ... }: with lib;
+let
+   mergeOneTransform = xform-f: loc: defs:
+    if defs == [] then abort "This case should never happen."
+    else if length defs != 1 then
+      throw "The unique option `${showOption loc}' is defined multiple times, in ${showFiles (getFiles defs)}."
+    else xform-f (head defs).value;
+in
 if (lib._upcast-option-types or false) != false then lib._upcast-option-types else rec {
   union = t1: t2: mkOptionType {
     name = "${t1.name} or ${t2.name}";
@@ -20,6 +27,7 @@ if (lib._upcast-option-types or false) != false then lib._upcast-option-types el
     name = "an adt with these constructors: ${
       concatStringsSep " " (attrNames ctor-set)
     }";
+
     check = x: let
       names = attrNames x;
 
@@ -27,7 +35,7 @@ if (lib._upcast-option-types or false) != false then lib._upcast-option-types el
     in isAttrs x && builtins.length names == 1 && ctor-set ? ${ctor} &&
       (ctor-set.${ctor}.check or (x: true)) x.${ctor};
 
-    # Could theoretically merge matching ctors, but who cares
-    merge = mergeOneOption;
+    # matching aeson's ObjectWithSingleField
+    merge = mergeOneTransform (mapAttrs (_: v: if v == null then [] else v));
   };
 }

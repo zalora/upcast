@@ -9,7 +9,7 @@ let
       disk = mkOption {
         default = "";
         example = "vol-d04895b8";
-        type = infra "ebs-volume";
+        type = infra "ebs";
         apply = x: if builtins.isString x then x else "res-" + x._name;
         description = ''
           EC2 identifier of the disk to be mounted.  This can be an
