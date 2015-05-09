@@ -30,14 +30,14 @@ in rec {
 
   vpc = mkOption {
     type = infra "ec2-vpc";
-    apply = x: if builtins.isString x then x else x._name;
     description = "VPC which contains the infra.";
+    apply = x: x;
   };
 
   subnet = mkOption {
     type = infra "ec2-subnet";
-    apply = x: if builtins.isString x then x else x._name;
     description = "EC2 VPC subnet ID.";
+    apply = x: x;
   };
 
   nullOr = option: mkOption {

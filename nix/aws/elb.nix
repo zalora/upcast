@@ -18,13 +18,11 @@ in
     subnets = mkOption {
       type = types.listOf (infra "ec2-subnet");
       default = [];
-      apply = map (x: if builtins.isString x then x else x._name);
     };
 
     instances = mkOption {
       type = types.listOf (infra "ec2-instance");
       default = [];
-      apply = map (x: if builtins.isString x then x else x._name);
     };
 
     listeners = mkOption {
@@ -52,7 +50,6 @@ in
     securityGroups = mkOption {
       example = [ "my-group" "my-other-group" ];
       type = types.listOf (infra "ec2-sg");
-      apply = map (x: if builtins.isString x then x else x._name);
       description = "Security groups for the ELB withing its VPC";
       default = [];
     };

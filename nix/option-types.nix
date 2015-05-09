@@ -7,17 +7,11 @@ let
     else xform-f (head defs).value;
 in
 if (lib._upcast-option-types or false) != false then lib._upcast-option-types else rec {
-  union = t1: t2: mkOptionType {
-    name = "${t1.name} or ${t2.name}";
-    check = x: t1.check x || t2.check x;
-    merge = mergeOneOption;
+  infra = type: mkOptionType {
+    name = "infra of type ‘${type}’ or remote resource id";
+    check = x: x._type or "" == type || isString x;
+    merge = mergeOneTransform (x: if x ? _type then { local = x._name; } else { remote = x; });
   };
-
-  infra = type: union types.str (mkOptionType {
-    name = "infra of type ‘${type}’";
-    check = x: x._type or "" == type;
-    merge = mergeOneOption;
-  });
 
   # ctor-set is a set from ctor names to the contained type. For example,
   # to represent data Foo = Foo Int | Bar String, you might have

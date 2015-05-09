@@ -113,7 +113,6 @@ let
 
   inspectlib = {
     _upcast-option-types = rec {
-      union = abort "generic unions are not supported";
       infra = type: rec {
         # specialized union
         _type = "InfraRef";
@@ -187,13 +186,16 @@ let
     data InfraRef a = RefLocal Text | RefRemote Text deriving (Show, Generic)
 
     instance FromJSON (InfraRef a) where
-      parseJSON (String s) = pure $ RefLocal s
-      parseJSON _ = empty
+      parseJSON = genericParseJSON defaultOptions
+                  { sumEncoding = ObjectWithSingleField
+                  , constructorTagModifier = drop 3 . map toLower
+                  }
 
     instance ToJSON (InfraRef a) where
-      toJSON (RefLocal t) = String t
-      toJSON (RefRemote t) = String t
-
+      toJSON = genericToJSON defaultOptions
+               { sumEncoding = ObjectWithSingleField
+               , constructorTagModifier = drop 3 . map toLower
+               }
 
     data Infras = Infras
           { ${infras}
@@ -203,6 +205,6 @@ let
       parseJSON (Object o) =
           Infras <$>
           ${concatStringsSep " <*>\n      " (map (x: "o .: \"${x}\"") toplevel-keys)}
-
+      parseJSON _ = empty
    '';
 in template

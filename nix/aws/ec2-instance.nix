@@ -10,7 +10,6 @@ let
         default = "";
         example = "vol-d04895b8";
         type = infra "ebs";
-        apply = x: if builtins.isString x then x else "res-" + x._name;
         description = ''
           EC2 identifier of the disk to be mounted.  This can be an
           ephemeral disk (e.g. <literal>ephemeral0</literal>), a
@@ -94,7 +93,6 @@ in
     keyPair = mkOption {
       example = "my-keypair";
       type = infra "ec2-keypair";
-      apply = x: if builtins.isString x then x else x.name;
       description = ''
         Name of the SSH key pair to be used to communicate securely
         with the instance.  Key pairs can be created using the
@@ -106,7 +104,6 @@ in
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
       type = types.listOf (infra "ec2-sg");
-      apply = map (x: if builtins.isString x then x else x._name);
       description = ''
         Security groups for the instance.  These determine the
         firewall rules applied to the instance.
