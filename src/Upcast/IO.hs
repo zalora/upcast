@@ -6,7 +6,6 @@ module Upcast.IO (
 , expect
 , srsly
 , expectRight
-, expectText
 , warn
 , warn8
 , pprint
@@ -18,16 +17,16 @@ import System.Exit (ExitCode(..))
 import Control.Exception
 
 import Data.Monoid (mconcat, (<>))
-import Data.Text (Text)
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as LBS
 
-import Data.Aeson.Types (ToJSON, Value(String))
+import Data.Aeson.Types (ToJSON)
 import Data.Aeson.Encode.Pretty (encodePretty)
 
 data ASCIIColor = Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
                 deriving (Enum)
 
+needsColor :: Bool
 needsColor = unsafePerformIO $ hIsTerminalDevice stderr
 
 applyColor :: ASCIIColor -> String -> String
@@ -57,13 +56,6 @@ expectRight action = do
   case result of
       Right smth -> return smth
       Left err -> oops err
-
-expectText :: IO Value -> IO Text
-expectText action = do
-  result <- action
-  case result of
-      String s -> return s
-      _ -> oops $ "expected Aeson.String but got " ++ show result
 
 warn :: [String] -> IO ()
 warn = hPutStrLn stderr . mconcat

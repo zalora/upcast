@@ -32,12 +32,14 @@ import Upcast.Install
 
 evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
 evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
-  value <- expectRight $ nixValue <$> fgconsume_ (nixInfraInfo nix)
-  realmName <- expectText $ expectRight $ nixValue <$> fgconsume_ (nixRealmName nix)
+  value <- expectRight $ nixInfras <$> fgconsume_ (nixInfraInfo nix)
+  data' <- expectRight $ nixValue <$> fgconsume_ (nixInfraInfo nix)
+  realmName <- expectRight $ jsonText <$> fgconsume_ (nixRealmName nix)
   return InfraContext{ inc_expressionFile = file
                      , inc_realmName = realmName
                      , inc_stateFile = fromMaybe (replaceExtension file "store") infraCli_stateFile
-                     , inc_data = value
+                     , inc_infras = value
+                     , inc_data = data'
                      }
 
 icontext :: InfraCli -> IO InfraContext
@@ -48,7 +50,7 @@ infra :: InfraCli -> IO [Machine]
 infra = icontext >=> evalInfra
 
 infraDump :: InfraCli -> IO ()
-infraDump = icontext >=> pprint . inc_data
+infraDump = icontext >=> print . inc_infras
 
 infraDebug :: InfraCli -> IO ()
 infraDebug = icontext >=> debugEvalInfra >=> const (return ())

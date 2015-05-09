@@ -36,7 +36,6 @@ import Aws.Query (QueryAPIConfiguration(..), castValue)
 import qualified Aws.Ec2 as EC2
 
 import Upcast.Interpolate (n)
-import Upcast.ATerm (alookupS)
 import Upcast.Infra.Types
 import Upcast.Infra.ELB
 
@@ -246,7 +245,7 @@ ec2plan realmName expressionName keypairs spec userDataA = do
     elbPlan instanceA sgA subnetA elbs
 
     Array reportedInfos <- aws (EC2.DescribeInstances instanceIds)
-   
+
     let orderedInstanceNames = fmap fst $ sortBy (compare `on` (fst . snd)) instanceA
         err = error "could not sort instanceIds after DescribeInstances"
         tcast = castValue :: Value -> Maybe Text
@@ -268,4 +267,3 @@ ec2plan realmName expressionName keypairs spec userDataA = do
     volumes = cast "ebs" :: [Value]
     instances = alistFromObject "ec2-instance" spec
     elbs = cast "elb" :: [Value]
-

@@ -52,7 +52,7 @@ nixRealmName :: NixContext -> Command Local
 nixRealmName NixContext{..} =
     Cmd Local [n|
       nix-instantiate
-      --eval -A realm-name '#{nix_expressionFile}'
+      --eval -A realm-name --json '#{nix_expressionFile}'
       2>/dev/null || echo '""'
     |] "realm-name"
 
@@ -62,7 +62,7 @@ nixInfraInfo NixContext{..} =
       nix-instantiate #{nix_args}
       --argstr expr '#{nix_expressionFile}'
       '<upcast/eval-infra.nix>'
-      --eval-only --strict --read-write-mode
+      --eval-only --strict --json --read-write-mode
     |] "info"
 
 nixInstantiate :: (IsString a, Show a) =>

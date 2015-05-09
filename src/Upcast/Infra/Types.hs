@@ -8,12 +8,14 @@
            #-}
 
 module Upcast.Infra.Types where
-  
+
 import Control.Applicative
 import Control.Monad (mzero)
 import Control.Monad.Free
 
-import Data.Text (Text)
+import Data.Monoid (mconcat)
+
+import Data.Text (Text, split)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 
@@ -24,6 +26,7 @@ import Data.Aeson
 import Data.Aeson.Types (parseEither, Parser)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as H
+import qualified Data.Vector as V
 
 import Aws.Core
 import Aws.Query
@@ -32,12 +35,30 @@ import qualified Aws.Ec2 as EC2
 import qualified Aws.Elb as ELB
 
 import Upcast.Types
-import Upcast.ATerm (alookupS, alookupSE)
 
 type MapCast a = Value -> Map Text a
 
+alookup :: [Text] -> Value -> Maybe Value
+alookup keys o@(Object h) =
+    case keys of
+      (x:xs) -> H.lookup x h >>= alookup xs
+      [] -> return o
+alookup keys@(_:_) a@(Array v) =
+    case V.length v of
+      1 -> alookup keys $ V.head v
+      _ -> Nothing
+alookup [] o = return o
+alookup (_:_) _ = Nothing
+
+alookupS = alookup . split (== '.')
+
+alookupSE s v = maybe (Left $ mconcat ["key `", s, "' not found"]) Right $ alookup (split (== '.') s) v
+
+castE :: FromJSON a => Value -> Either String a
+castE v = parseEither (const (parseJSON v)) v
+
 justCast :: forall a. FromJSON a => Value -> a
-justCast v = maybe (error (concat ["justCast failed for: ", show v])) id (castValue v :: Maybe a)
+justCast v = either (\e -> error (concat ["justCast failed for: ", show v, " with: ", e])) id (castE v :: Either String a)
 
 mvalues = fmap snd . Map.toList
 values = fmap snd . H.toList
