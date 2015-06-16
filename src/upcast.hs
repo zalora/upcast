@@ -29,14 +29,15 @@ import Upcast.Command
 import Upcast.Temp
 import Upcast.Environment
 import Upcast.Install
+import Upcast.Infra.Nix (infraRealmName)
 
 evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
 evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
-  value <- expectRight $ nixInfras <$> fgconsume_ (nixInfraInfo nix)
-  data' <- expectRight $ nixValue <$> fgconsume_ (nixInfraInfo nix)
-  realmName <- expectRight $ jsonText <$> fgconsume_ (nixRealmName nix)
+  info <- fgconsume_ (nixInfraInfo nix)
+  value <- expectRight $ return $ nixInfras info
+  data' <- expectRight $ return $ nixValue info
   return InfraContext{ inc_expressionFile = file
-                     , inc_realmName = realmName
+                     , inc_realmName = infraRealmName value
                      , inc_stateFile = fromMaybe (replaceExtension file "store") infraCli_stateFile
                      , inc_infras = value
                      , inc_data = data'

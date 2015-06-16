@@ -48,14 +48,6 @@ setupAgentF liftKey keyvals = do
     fgrunDirect $ sshListKeys agentSocket
     return agentSocket
 
-nixRealmName :: NixContext -> Command Local
-nixRealmName NixContext{..} =
-    Cmd Local [n|
-      nix-instantiate
-      --eval -A realm-name --json '#{nix_expressionFile}'
-      2>/dev/null || echo '""'
-    |] "realm-name"
-
 nixInfraInfo :: NixContext -> Command Local
 nixInfraInfo NixContext{..} =
     Cmd Local [n|

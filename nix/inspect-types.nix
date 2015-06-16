@@ -198,12 +198,14 @@ let
                }
 
     data Infras = Infras
-          { ${infras}
+          { infraRealmName :: Text
+          , ${infras}
           } deriving (Show, Generic)
 
     instance FromJSON Infras where
       parseJSON (Object o) =
           Infras <$>
+          o .: "realm-name" <*>
           ${concatStringsSep " <*>\n      " (map (x: "o .: \"${x}\"") toplevel-keys)}
       parseJSON _ = empty
    '';
