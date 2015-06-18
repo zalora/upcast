@@ -47,8 +47,9 @@ elbPlan :: (MonadFree InfraF m, Applicative m)
         -> Attrs Elb
         -> m [(Text, ())]
 elbPlan instanceA sgA subnetA elbs =
-  forAttrs elbs $ \clb_name Elb{..} -> do
+  forAttrs elbs $ \_ Elb{..} -> do
     -- create
+    let clb_name = elb_name
     let clb_scheme = if elb_internal then ELB.Internal else ELB.Public
     let clb_securityGroupIds = catMaybes $ lookupOrId' "sg-" sgA <$> elb_securityGroups
     let clb_subnetIds = catMaybes $ lookupOrId' "subnet-" subnetA <$> elb_subnets
