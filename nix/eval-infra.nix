@@ -34,4 +34,4 @@ let
       };
     in meta // stubs // out;
 
-in eval-infra
+in if spec ? infra then eval-infra else throw "expression ${expr} doesn't contain any infra"
