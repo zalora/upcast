@@ -1,13 +1,13 @@
 let
   lib = import <upcast/lib>;
   inherit (lib)
-    concatStringsSep attrNames mapAttrs
+    concatStringsSep attrNames mapAttrs listToAttrs
     head tail length
     mapAttrsToList mapAttrsRecursive mapAttrsRecursiveCond
     filter last hasPrefix
     stringToCharacters optionalString toUpper concatStrings replaceChars stringLength
     splitString
-    catAttrs concatMap attrValues isAttrs;
+    catAttrs concatMap attrValues isAttrs optionalAttrs;
 
   collect = pred: attrs:
     if pred attrs && isAttrs attrs then
@@ -53,7 +53,7 @@ let
     if (v._type == "Record") then v // rec {
       options = mapAttrs augment v.options;
 
-      _origname = if v._name == "AnonModule" then key else v._name;
+      _origname = v._name or key;
       _name = to-identifier _origname;
       _prefix = to-prefix _origname;
       _repr =
@@ -141,8 +141,8 @@ let
       submodule = function:
         let
           exp = function { lib = inspectlib; name = ""; config = {}; };
-          self = {
-            _name = exp.config._type or "AnonModule";
+          self = optionalAttrs (exp ? config && exp.config ? _type) {
+            _name = exp.config._type;
           };
         in { _type = "Record"; options = exp.options; } // self;
     };
@@ -154,7 +154,11 @@ let
   out = mapAttrs augment toplevel;
 
   cat = concatStringsSep "\n";
-  decls = catAttrs "_decl" (collect (as: as ? _decl) out);
+  decls =
+    let
+      to-as = xs: listToAttrs (map (x: { name = x._decl; value = x; }) xs);
+    in to-as (collect (as: as ? _decl) out);
+  uniq-decls = attrNames decls;
 
   infra-refs = collect (as: as ? _type && as._type == "InfraRef") out;
 
@@ -181,7 +185,7 @@ let
 
     type Attrs = Map Text
 
-    ${cat decls}
+    ${cat uniq-decls}
 
     data InfraRef a = RefLocal Text | RefRemote Text deriving (Show, Generic)
 
