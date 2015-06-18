@@ -15,7 +15,7 @@ if (lib._upcast-option-types or false) != false then lib._upcast-option-types el
 
   # ctor-set is a set from ctor names to the contained type. For example,
   # to represent data Foo = Foo Int | Bar String, you might have
-  # types.adt { foo = types.int; bar = types.str; } as the type and
+  # sum { foo = types.int; bar = types.str; } as the type and
   # { foo = 2; } or { bar = "x"; } as the value.
   sum = ctor-set: mkOptionType {
     name = "an adt with these constructors: ${
@@ -26,11 +26,18 @@ if (lib._upcast-option-types or false) != false then lib._upcast-option-types el
       names = attrNames x;
 
       ctor = head names;
-    in isAttrs x && builtins.length names == 1 && ctor-set ? ${ctor} &&
-      (ctor-set.${ctor}.check or (x: true)) x.${ctor};
+    in isAttrs x
+       && builtins.length names == 1
+       && ctor-set ? ${ctor}
+       && (ctor-set.${ctor}.check or (x: true)) x.${ctor};
+
 
     # matching aeson's ObjectWithSingleField
-    merge = mergeOneTransform (mapAttrs (_: v: if v == null then [] else v));
+    # otherwise, "when expecting a unit constructor (U1), encountered Null instead"
+    # if there are no constructor arguments, use []
+    merge = mergeOneTransform (mapAttrs (k: v: if ctor-set.${k} == null
+                                               then []
+                                               else v));
   };
 
   submodule = sub: lib.types.submodule {

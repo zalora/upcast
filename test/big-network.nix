@@ -76,6 +76,7 @@ in
           lbProtocol = "http";
           instancePort = 80;
           instanceProtocol = "http";
+          stickiness.lb = null;
         };
         https = {
           lbPort = 443;
