@@ -205,12 +205,13 @@ debugEvalInfra :: InfraContext -> IO [Machine]
 debugEvalInfra InfraContext{..} = do
   let region = "us-east-1"
 
+  keypairs <- prepareKeyPairs (infraEc2keypair inc_infras)
   userDataA <- preReadUserData (infraEc2instance inc_infras)
 
   (keypairA, instances) <-
     let qapi = QueryAPIConfiguration $ T.encodeUtf8 region
         context = EvalContext undefined undefined qapi R53.route53
-        action = debugPlan emptyStore (ec2plan inc_realmName name Map.empty userDataA inc_infras)
+        action = debugPlan emptyStore (ec2plan inc_realmName name keypairs userDataA inc_infras)
         in runReaderT action context
 
   -- mapM_ LBS.putStrLn $ fmap A.encodePretty instances

@@ -50,12 +50,12 @@ expect value excuse action = do
 srsly :: String -> IO ExitCode -> IO ()
 srsly = expect ExitSuccess
 
-expectRight :: IO (Either String a) -> IO a
+expectRight :: Show left => IO (Either left a) -> IO a
 expectRight action = do
   result <- action
   case result of
       Right smth -> return smth
-      Left err -> oops err
+      Left err -> oops (show err)
 
 warn :: [String] -> IO ()
 warn = hPutStrLn stderr . mconcat

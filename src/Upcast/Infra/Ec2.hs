@@ -36,7 +36,8 @@ import qualified Data.Vector as V
 import Aws.Query (QueryAPIConfiguration(..), castValue)
 import qualified Aws.Ec2 as EC2
 
-import Upcast.Command (fgconsume_, Command(..), Local(..))
+import Upcast.IO (expectRight)
+import Upcast.Command (fgconsume, Command(..), Local(..))
 import Upcast.Interpolate (n)
 import Upcast.Infra.Types
 import Upcast.Infra.ELB
@@ -52,7 +53,7 @@ preReadUserData instances =
 prepareKeyPairs :: Attrs Ec2keypair -> IO (Attrs EC2.ImportKeyPair)
 prepareKeyPairs =
   Map.traverseWithKey $ \_ Ec2keypair{..} -> do
-    pubkey <- fgconsume_ $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack ec2keypair_privateKeyFile, " -y"]) "ssh-keygen"
+    pubkey <- expectRight $ fgconsume $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack ec2keypair_privateKeyFile, " -y"]) "ssh-keygen"
     return $ EC2.ImportKeyPair ec2keypair_name $ T.decodeUtf8 $ Base64.encode pubkey
 
 

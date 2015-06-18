@@ -15,6 +15,12 @@ let
   };
 in
 {
+  # infra.ec2-keypair.global-keypair = {
+  #  inherit region accessKeyId;
+  #  name = "global-keypair";
+  #  privateKeyFile = "${<upcast/../test/big-network.nix>}";
+  # };
+
   infra.ec2-vpc.default = {
     inherit region accessKeyId;
     cidrBlock = "10.15.0.0/16";
