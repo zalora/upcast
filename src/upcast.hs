@@ -35,12 +35,10 @@ evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
 evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
   info <- fgconsume_ (nixInfraInfo nix)
   value <- expectRight $ return $ nixInfras info
-  data' <- expectRight $ return $ nixValue info
   return InfraContext{ inc_expressionFile = file
                      , inc_realmName = infraRealmName value
                      , inc_stateFile = fromMaybe (replaceExtension file "store") infraCli_stateFile
                      , inc_infras = value
-                     , inc_data = data'
                      }
 
 icontext :: InfraCli -> IO InfraContext

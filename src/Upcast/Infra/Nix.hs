@@ -322,6 +322,7 @@ instance ToJSON (InfraRef a) where
 
 data Infras = Infras
       { infraRealmName :: Text
+      , infraRegions :: [Text]
       , infraEbs :: Attrs Ebs
       , infraEc2instance :: Attrs Ec2instance
       , infraEc2keypair :: Attrs Ec2keypair
@@ -335,6 +336,7 @@ instance FromJSON Infras where
   parseJSON (Object o) =
       Infras <$>
       o .: "realm-name" <*>
+      o .: "regions" <*>
       o .: "ebs" <*>
       o .: "ec2-instance" <*>
       o .: "ec2-keypair" <*>

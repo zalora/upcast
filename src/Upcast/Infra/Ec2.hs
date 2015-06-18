@@ -17,28 +17,44 @@ import Control.Monad.Free
 import Data.Function (on)
 import Data.List (sortBy)
 import Data.Monoid
+import Data.Traversable (traverse)
 import Data.Maybe (catMaybes, maybeToList)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Text.IO as T
 import Data.ByteString.Lazy (toStrict)
+import qualified Data.ByteString.Base64 as Base64
 import Data.Aeson
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Encode.Pretty as A
 import qualified Data.Aeson.Types as A
 import qualified Data.Vector as V
-import qualified Data.HashMap.Strict as H
-import Data.HashMap.Strict (HashMap)
 
 import Aws.Query (QueryAPIConfiguration(..), castValue)
 import qualified Aws.Ec2 as EC2
 
+import Upcast.Command (fgconsume_, Command(..), Local(..))
 import Upcast.Interpolate (n)
 import Upcast.Infra.Types
 import Upcast.Infra.ELB
 import Upcast.Infra.Nix
+
+-- | read files mentioned in userData for each instance
+preReadUserData :: Attrs Ec2instance -> IO UserDataA
+preReadUserData instances =
+  forAttrs instances $ \_ Ec2instance{..} ->
+                        traverse (T.readFile . T.unpack) ec2instance_userData
+
+-- | pre-calculate EC2.ImportKeyPair values while we can do IO
+prepareKeyPairs :: Attrs Ec2keypair -> IO (Attrs EC2.ImportKeyPair)
+prepareKeyPairs =
+  Map.traverseWithKey $ \_ Ec2keypair{..} -> do
+    pubkey <- fgconsume_ $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack ec2keypair_privateKeyFile, " -y"]) "ssh-keygen"
+    return $ EC2.ImportKeyPair ec2keypair_name $ T.decodeUtf8 $ Base64.encode pubkey
+
 
 createVPC :: (MonadFree InfraF m, Applicative m) => Attrs Ec2vpc -> Tags -> m IDAlist
 createVPC vpcs defTags =
@@ -121,7 +137,7 @@ createEBS volumes defTags =
     toVolumeType Standard = EC2.Standard
     toVolumeType (Iop iops) = EC2.IOPSSD (fromIntegral iops)
 
-createInstances instances subnetA sgA defTags userDataA =
+createInstances instances subnetA sgA defTags userDataA keypairA =
   forAttrs instances $ \name Ec2instance{..} -> do
     let bds = Map.toList (xformMapping <$> ec2instance_blockDeviceMapping)
 
@@ -132,7 +148,7 @@ createInstances instances subnetA sgA defTags userDataA =
     let run_count = (1, 1)
     let run_instanceType = ec2instance_instanceType
     let run_ebsOptimized = ec2instance_ebsOptimized
-    let run_keyName = (\case (RefRemote x) -> Just x; _ -> Nothing) ec2instance_keyPair -- XXX
+    let run_keyName = lookupOrId' "" keypairA ec2instance_keyPair
     let run_availabilityZone = Just ec2instance_zone
     let run_iamInstanceProfileARN = ec2instance_instanceProfileARN
 
@@ -172,7 +188,7 @@ createInstances instances subnetA sgA defTags userDataA =
     textObject = T.decodeUtf8 . toStrict . A.encode . object
 
     userData name = textObject $ mconcat [ [ "hostname" .= name ]
-                                         , maybe [] (H.toList . fmap String) $ lookup name userDataA
+                                         , maybe [] (Map.toList . fmap String) $ lookup name userDataA
                                          ]
 
 attachEBS :: (MonadFree InfraF m) => InstanceA -> IDAlist -> m [()]
@@ -195,34 +211,46 @@ attachEBS instanceA volumeA =
                    | otherwise ->
                      error $ mconcat ["can't handle disk: ", T.unpack x]
 
-ec2plan :: (MonadFree InfraF m, Functor m, Applicative m) => Text -> Text -> [EC2.ImportKeyPair] -> UserDataA -> Infras -> m [(Text, Value, Ec2instance)]
+createKeypairs :: (MonadFree InfraF m, Applicative m) => Attrs EC2.ImportKeyPair -> m IDAlist
+createKeypairs cmds =
+  forAttrs cmds $ \keypair cmd -> do
+    _ <- aws1 cmd "keyFingerprint"
+    return keypair
+
+
+ec2plan :: (MonadFree InfraF m, Functor m, Applicative m)
+           => Text
+           -> Text
+           -> Attrs EC2.ImportKeyPair
+           -> UserDataA
+           -> Infras
+           -> m (IDAlist, [(Text, Value, Ec2instance)])
 ec2plan realmName expressionName keypairs userDataA Infras{..} = do
-    mapM_ (`aws1` "keyFingerprint") keypairs
+  keypairA <- createKeypairs keypairs
+  vpcA <- createVPC infraEc2vpc defTags
+  internetAccess vpcA defTags
+  subnetA <- createSubnets infraEc2subnet vpcA defTags
+  sgA <- createSecurityGroups infraEc2sg vpcA defTags
 
-    vpcA <- createVPC infraEc2vpc defTags
-    internetAccess vpcA defTags
-    subnetA <- createSubnets infraEc2subnet vpcA defTags
-    sgA <- createSecurityGroups infraEc2sg vpcA defTags
+  volumeA <- createEBS infraEbs defTags
+  instanceA <- createInstances infraEc2instance subnetA sgA defTags userDataA keypairA
 
-    volumeA <- createEBS infraEbs defTags
-    instanceA <- createInstances infraEc2instance subnetA sgA defTags userDataA
+  let instanceIds = fmap (fst . snd) instanceA
+  when (null instanceIds) $ fail "no instances, plan complete."
+  (wait . EC2.DescribeInstanceStatus) instanceIds
 
-    let instanceIds = fmap (fst . snd) instanceA
-    when (null instanceIds) $ fail "no instances, plan complete."
-    (wait . EC2.DescribeInstanceStatus) instanceIds
+  attachEBS instanceA volumeA
 
-    attachEBS instanceA volumeA
+  elbPlan ((\(name, (id, _)) -> (name, id)) <$> instanceA) sgA subnetA infraElb
 
-    elbPlan ((\(name, (id, _)) -> (name, id)) <$> instanceA) sgA subnetA infraElb
+  Array reportedInfos <- aws (EC2.DescribeInstances instanceIds)
 
-    Array reportedInfos <- aws (EC2.DescribeInstances instanceIds)
-
-    let orderedInstanceNames = fmap fst $ sortBy (compare `on` (fst . snd)) instanceA
-        err = error "could not sort instanceIds after DescribeInstances"
-        tcast = castValue :: Value -> Maybe Text
-        orderedReportedInfos = sortBy (compare `on` (maybe err id . fmap tcast . alookupS "instancesSet.instanceId")) $ V.toList reportedInfos
-        orderedInstanceInfos = fmap snd $ sortBy (compare `on` fst) (Map.toList infraEc2instance)
-        in return $ zip3 orderedInstanceNames orderedReportedInfos orderedInstanceInfos
+  let orderedInstanceNames = fmap fst $ sortBy (compare `on` (fst . snd)) instanceA
+      err = error "could not sort instanceIds after DescribeInstances"
+      tcast = castValue :: Value -> Maybe Text
+      orderedReportedInfos = sortBy (compare `on` (maybe err id . fmap tcast . alookupS "instancesSet.instanceId")) $ V.toList reportedInfos
+      orderedInstanceInfos = fmap snd $ sortBy (compare `on` fst) (Map.toList infraEc2instance)
+      in return (keypairA, zip3 orderedInstanceNames orderedReportedInfos orderedInstanceInfos)
   where
     defTags = [ ("created-using", "upcast")
               , ("realm", realmName)

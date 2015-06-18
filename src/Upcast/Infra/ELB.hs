@@ -34,9 +34,6 @@ import qualified Aws.Elb.Commands.CreateAppCookieStickinessPolicy as ELB -- Shou
 import Upcast.Infra.Types
 import Upcast.Infra.Nix
 
-data R53Alias = R53Alias Text R53.HostedZoneId
-
-catTuples = foldr (\(ls, sp) (lss, sps) -> (ls:lss, sp:sps)) ([], [])
 
 stickinessPolicyName :: Stickiness -> Text
 stickinessPolicyName (App x) = T.append "app-" (T.filter isAsciiLower x)
@@ -150,6 +147,7 @@ xformHealthCheck HealthCheck{..} = ELB.HealthCheck{..}
         Ssl port ->
           ELB.TargetSSL port
 
+toAliasCRR :: Text -> Text -> (Text -> Text -> R53.ChangeResourceRecordSets)
 toAliasCRR domain zoneId = \dnsName elbZoneId ->
     R53.ChangeResourceRecordSets
       (R53.HostedZoneId zoneId)

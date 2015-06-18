@@ -9,12 +9,7 @@ let
     splitString
     catAttrs concatMap attrValues isAttrs optionalAttrs;
 
-  collect = pred: attrs:
-    if pred attrs && isAttrs attrs then
-      [ attrs ] ++ concatMap (collect pred) (attrValues attrs)
-    else if isAttrs attrs then
-      concatMap (collect pred) (attrValues attrs)
-    else [];
+  inherit (import <upcast/extralib.nix>) collect;
 
   fake-type = _type: { inherit _type; };
   fake-type-of = _type: _arg: {
@@ -205,6 +200,7 @@ let
 
     data Infras = Infras
           { infraRealmName :: Text
+          , infraRegions :: [Text]
           , ${infras}
           } deriving (Show, Generic)
 
@@ -212,6 +208,7 @@ let
       parseJSON (Object o) =
           Infras <$>
           o .: "realm-name" <*>
+          o .: "regions" <*>
           ${concatStringsSep " <*>\n      " (map (x: "o .: \"${x}\"") toplevel-keys)}
       parseJSON _ = empty
    '';

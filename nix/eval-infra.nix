@@ -3,7 +3,9 @@
 let
 
   lib = import ./lib;
-  inherit (lib) mapAttrs getAttr evalModules;
+  inherit (lib) mapAttrs getAttr evalModules sort unique;
+  extralib = import ./extralib.nix;
+  inherit (extralib) collect;
 
   types = import ./infra-types.nix;
   spec =
@@ -25,7 +27,11 @@ let
       }).config;
       eval = nset: type: mapAttrs (k: v: eval1 k v type) nset;
       stubs = mapAttrs (k: v: {}) types;
-      meta = { realm-name = spec.realm-name or ""; };
-    in meta // stubs // mapAttrs (k: nset: eval nset (getAttr k types)) spec.infra;
+      out = mapAttrs (k: nset: eval nset (getAttr k types)) spec.infra;
+      meta = {
+        realm-name = spec.realm-name or "";
+        regions = unique (sort (x: y: x == y) (map (x: x.region) (collect (as: as ? region) out)));
+      };
+    in meta // stubs // out;
 
 in eval-infra
