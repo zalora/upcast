@@ -22,7 +22,6 @@ data NixContext = NixContext
 
 data InfraContext = InfraContext
                   { inc_expressionFile :: String
-                  , inc_realmName :: Text
                   , inc_infras :: Infras
                   , inc_stateFile :: FilePath
                   } deriving (Show)

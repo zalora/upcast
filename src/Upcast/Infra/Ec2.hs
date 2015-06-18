@@ -221,12 +221,11 @@ createKeypairs cmds =
 
 ec2plan :: (MonadFree InfraF m, Functor m, Applicative m)
            => Text
-           -> Text
            -> Attrs EC2.ImportKeyPair
            -> UserDataA
            -> Infras
            -> m (IDAlist, [(Text, Value, Ec2instance)])
-ec2plan realmName expressionName keypairs userDataA Infras{..} = do
+ec2plan expressionName keypairs userDataA Infras{..} = do
   keypairA <- createKeypairs keypairs
   vpcA <- createVPC infraEc2vpc defTags
   internetAccess vpcA defTags
@@ -254,6 +253,6 @@ ec2plan realmName expressionName keypairs userDataA Infras{..} = do
       in return (keypairA, zip3 orderedInstanceNames orderedReportedInfos orderedInstanceInfos)
   where
     defTags = [ ("created-using", "upcast")
-              , ("realm", realmName)
+              , ("realm", infraRealmName)
               , ("expression", expressionName)
               ]
