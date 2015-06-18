@@ -101,6 +101,7 @@ let
       _tag = to-identifier key;
       _decl = ''
         data ${_tag} = ${_repr} deriving (Show, Generic)
+
         instance FromJSON ${_tag} where
           parseJSON = genericParseJSON defaultOptions
                       { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
@@ -158,6 +159,7 @@ let
     let
       to-as = xs: listToAttrs (map (x: { name = x._decl; value = x; }) xs);
     in to-as (collect (as: as ? _decl) out);
+  # may also want a real uniqueness check here
   uniq-decls = attrNames decls;
 
   infra-refs = collect (as: as ? _type && as._type == "InfraRef") out;

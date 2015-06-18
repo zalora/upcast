@@ -16,12 +16,57 @@ import Data.Aeson.Types
 
 type Attrs = Map Text
 
+data AccessLog = AccessLog
+      { accessLog_emitInterval :: Int
+      , accessLog_enable :: Bool
+      , accessLog_s3BucketName :: Text
+      , accessLog_s3BucketPrefix :: Text
+      } deriving (Show, Generic)
+
+instance FromJSON AccessLog where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 10 }
+
+instance ToJSON AccessLog where
+  toJSON = genericToJSON defaultOptions
+           { fieldLabelModifier = drop 10 }
+
+
+data BlockDeviceMapping = BlockDeviceMapping
+      { blockDeviceMapping_blockDeviceMappingName :: Text
+      , blockDeviceMapping_disk :: InfraRef Ebs
+      , blockDeviceMapping_fsType :: Text
+      } deriving (Show, Generic)
+
+instance FromJSON BlockDeviceMapping where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 19 }
+
+instance ToJSON BlockDeviceMapping where
+  toJSON = genericToJSON defaultOptions
+           { fieldLabelModifier = drop 19 }
+
+
+data ConnectionDraining = ConnectionDraining
+      { connectionDraining_enable :: Bool
+      , connectionDraining_timeout :: Int
+      } deriving (Show, Generic)
+
+instance FromJSON ConnectionDraining where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 19 }
+
+instance ToJSON ConnectionDraining where
+  toJSON = genericToJSON defaultOptions
+           { fieldLabelModifier = drop 19 }
+
+
 data Ebs = Ebs
       { ebs_accessKeyId :: Text
       , ebs_name :: Text
       , ebs_region :: Text
       , ebs_size :: Int
-      , ebs_snapshot :: Text
+      , ebs_snapshot :: Maybe Text
       , ebs_volumeType :: VolumeType
       , ebs_zone :: Text
       } deriving (Show, Generic)
@@ -35,21 +80,13 @@ instance ToJSON Ebs where
            { fieldLabelModifier = drop 4 }
 
 
-data VolumeType = Gp2 | Iop Int | Standard deriving (Show, Generic)
-instance FromJSON VolumeType where
-  parseJSON = genericParseJSON defaultOptions
-              { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
-instance ToJSON VolumeType where
-  toJSON = genericToJSON defaultOptions
-           { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
-
 data Ec2instance = Ec2instance
       { ec2instance_accessKeyId :: Text
       , ec2instance_ami :: Text
       , ec2instance_blockDeviceMapping :: Attrs BlockDeviceMapping
       , ec2instance_ebsBoot :: Bool
       , ec2instance_ebsOptimized :: Bool
-      , ec2instance_instanceProfileARN :: Text
+      , ec2instance_instanceProfileARN :: Maybe Text
       , ec2instance_instanceType :: Text
       , ec2instance_keyPair :: InfraRef Ec2keypair
       , ec2instance_region :: Text
@@ -66,21 +103,6 @@ instance FromJSON Ec2instance where
 instance ToJSON Ec2instance where
   toJSON = genericToJSON defaultOptions
            { fieldLabelModifier = drop 12 }
-
-
-data BlockDeviceMapping = BlockDeviceMapping
-      { blockDeviceMapping_blockDeviceMappingName :: Text
-      , blockDeviceMapping_disk :: InfraRef Ebs
-      , blockDeviceMapping_fsType :: Text
-      } deriving (Show, Generic)
-
-instance FromJSON BlockDeviceMapping where
-  parseJSON = genericParseJSON defaultOptions
-              { fieldLabelModifier = drop 19 }
-
-instance ToJSON BlockDeviceMapping where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 19 }
 
 
 data Ec2keypair = Ec2keypair
@@ -113,26 +135,6 @@ instance FromJSON Ec2sg where
               { fieldLabelModifier = drop 6 }
 
 instance ToJSON Ec2sg where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 6 }
-
-
-data Rules = Rules
-      { rules_codeNumber :: Maybe Int
-      , rules_fromPort :: Maybe Int
-      , rules_protocol :: Text
-      , rules_sourceGroupName :: Maybe Text
-      , rules_sourceGroupOwnerId :: Maybe Text
-      , rules_sourceIp :: Maybe Text
-      , rules_toPort :: Maybe Int
-      , rules_typeNumber :: Maybe Int
-      } deriving (Show, Generic)
-
-instance FromJSON Rules where
-  parseJSON = genericParseJSON defaultOptions
-              { fieldLabelModifier = drop 6 }
-
-instance ToJSON Rules where
   toJSON = genericToJSON defaultOptions
            { fieldLabelModifier = drop 6 }
 
@@ -194,36 +196,6 @@ instance ToJSON Elb where
            { fieldLabelModifier = drop 4 }
 
 
-data AccessLog = AccessLog
-      { accessLog_emitInterval :: Int
-      , accessLog_enable :: Bool
-      , accessLog_s3BucketName :: Text
-      , accessLog_s3BucketPrefix :: Text
-      } deriving (Show, Generic)
-
-instance FromJSON AccessLog where
-  parseJSON = genericParseJSON defaultOptions
-              { fieldLabelModifier = drop 10 }
-
-instance ToJSON AccessLog where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 10 }
-
-
-data ConnectionDraining = ConnectionDraining
-      { connectionDraining_enable :: Bool
-      , connectionDraining_timeout :: Int
-      } deriving (Show, Generic)
-
-instance FromJSON ConnectionDraining where
-  parseJSON = genericParseJSON defaultOptions
-              { fieldLabelModifier = drop 19 }
-
-instance ToJSON ConnectionDraining where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 19 }
-
-
 data HealthCheck = HealthCheck
       { healthCheck_healthyThreshold :: Int
       , healthCheck_interval :: Int
@@ -241,19 +213,18 @@ instance ToJSON HealthCheck where
            { fieldLabelModifier = drop 12 }
 
 
-data Target = Target
-      { target_path :: Text
-      , target_port :: Int
-      , target_protocol :: Text
+data HealthCheckPathTarget = HealthCheckPathTarget
+      { healthCheckPathTarget_path :: Text
+      , healthCheckPathTarget_port :: Int
       } deriving (Show, Generic)
 
-instance FromJSON Target where
+instance FromJSON HealthCheckPathTarget where
   parseJSON = genericParseJSON defaultOptions
-              { fieldLabelModifier = drop 7 }
+              { fieldLabelModifier = drop 22 }
 
-instance ToJSON Target where
+instance ToJSON HealthCheckPathTarget where
   toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 7 }
+           { fieldLabelModifier = drop 22 }
 
 
 data Listeners = Listeners
@@ -274,14 +245,6 @@ instance ToJSON Listeners where
            { fieldLabelModifier = drop 10 }
 
 
-data Stickiness = App Text | Lb (Maybe Int) deriving (Show, Generic)
-instance FromJSON Stickiness where
-  parseJSON = genericParseJSON defaultOptions
-              { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
-instance ToJSON Stickiness where
-  toJSON = genericToJSON defaultOptions
-           { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
-
 data Route53Aliases = Route53Aliases
       { route53Aliases_zoneId :: Text
       } deriving (Show, Generic)
@@ -294,6 +257,53 @@ instance ToJSON Route53Aliases where
   toJSON = genericToJSON defaultOptions
            { fieldLabelModifier = drop 15 }
 
+
+data Rules = Rules
+      { rules_codeNumber :: Maybe Int
+      , rules_fromPort :: Maybe Int
+      , rules_protocol :: Text
+      , rules_sourceGroupName :: Maybe Text
+      , rules_sourceGroupOwnerId :: Maybe Text
+      , rules_sourceIp :: Maybe Text
+      , rules_toPort :: Maybe Int
+      , rules_typeNumber :: Maybe Int
+      } deriving (Show, Generic)
+
+instance FromJSON Rules where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 6 }
+
+instance ToJSON Rules where
+  toJSON = genericToJSON defaultOptions
+           { fieldLabelModifier = drop 6 }
+
+
+data Stickiness = App Text | Lb (Maybe Int) deriving (Show, Generic)
+
+instance FromJSON Stickiness where
+  parseJSON = genericParseJSON defaultOptions
+              { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
+instance ToJSON Stickiness where
+  toJSON = genericToJSON defaultOptions
+           { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
+
+data Target = Http HealthCheckPathTarget | Https HealthCheckPathTarget | Ssl Int | Tcp Int deriving (Show, Generic)
+
+instance FromJSON Target where
+  parseJSON = genericParseJSON defaultOptions
+              { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
+instance ToJSON Target where
+  toJSON = genericToJSON defaultOptions
+           { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
+
+data VolumeType = Gp2 | Iop Int | Standard deriving (Show, Generic)
+
+instance FromJSON VolumeType where
+  parseJSON = genericParseJSON defaultOptions
+              { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
+instance ToJSON VolumeType where
+  toJSON = genericToJSON defaultOptions
+           { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
 
 
 data InfraRef a = RefLocal Text | RefRemote Text deriving (Show, Generic)
@@ -333,4 +343,3 @@ instance FromJSON Infras where
       o .: "ec2-vpc" <*>
       o .: "elb"
   parseJSON _ = empty
-
