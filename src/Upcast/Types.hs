@@ -8,7 +8,7 @@ import Data.ByteString.Char8 (ByteString)
 
 import Upcast.Command (Remote)
 
-import Upcast.Infra.Nix (Infras)
+import Upcast.Infra.NixTypes (Infras)
 
 type StorePath = String
 type StorePathBS = ByteString

@@ -58,7 +58,7 @@ import Upcast.Types
 import Upcast.TermSubstitution
 
 import Upcast.Infra.Types
-import Upcast.Infra.Nix
+import Upcast.Infra.NixTypes
 import Upcast.Infra.Ec2
 
 -- | ReaderT context InfraPlan evaluates in.

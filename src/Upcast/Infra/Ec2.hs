@@ -41,7 +41,7 @@ import Upcast.Command (fgconsume, Command(..), Local(..))
 import Upcast.Interpolate (n)
 import Upcast.Infra.Types
 import Upcast.Infra.ELB
-import Upcast.Infra.Nix
+import Upcast.Infra.NixTypes
 
 -- | read files mentioned in userData for each instance
 preReadUserData :: Attrs Ec2instance -> IO UserDataA

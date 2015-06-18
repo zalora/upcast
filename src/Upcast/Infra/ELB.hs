@@ -32,7 +32,7 @@ import qualified Aws.Elb as ELB
 import qualified Aws.Elb.Commands.CreateAppCookieStickinessPolicy as ELB -- Should be part of ELB in the future
 
 import Upcast.Infra.Types
-import Upcast.Infra.Nix
+import Upcast.Infra.NixTypes
 
 
 stickinessPolicyName :: Stickiness -> Text

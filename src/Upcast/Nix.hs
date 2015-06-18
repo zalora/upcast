@@ -8,7 +8,7 @@ import Data.Text (Text)
 import Data.ByteString.Char8 (ByteString)
 
 import Data.Aeson (eitherDecodeStrict, Value)
-import Upcast.Infra.Nix (Infras)
+import Upcast.Infra.NixTypes (Infras)
 
 jsonText :: ByteString -> Either String Text
 jsonText = eitherDecodeStrict

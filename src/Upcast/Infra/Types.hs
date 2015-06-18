@@ -35,7 +35,7 @@ import qualified Aws.Ec2 as EC2
 import qualified Aws.Elb as ELB
 
 import Upcast.Types
-import Upcast.Infra.Nix
+import Upcast.Infra.NixTypes
 
 type MapCast a = Value -> Map Text a
 

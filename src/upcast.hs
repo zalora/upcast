@@ -29,7 +29,7 @@ import Upcast.Command
 import Upcast.Temp
 import Upcast.Environment
 import Upcast.Install
-import Upcast.Infra.Nix (infraRealmName)
+import Upcast.Infra.NixTypes (infraRealmName)
 
 evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
 evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
