@@ -55,6 +55,14 @@ in
     securityGroups = [ infra.ec2-sg.default ];
     instances = with infra.ec2-instance; [ web1 web2 ];
 
+    healthCheck = {
+      timeout = 5;
+      interval = 30;
+      healthyThreshold = 2;
+      unhealthyThreshold = 10;
+      target.tcp = 80;
+    };
+
     listeners =
       let
         http = {
@@ -71,5 +79,7 @@ in
           sslCertificateId = "123";
         };
       in [ http https ];
+
+    route53Aliases."elb.example.com".zoneId = "ZOZONEZONEZONE";
   };
 }
