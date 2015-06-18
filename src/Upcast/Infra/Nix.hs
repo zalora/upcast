@@ -17,7 +17,7 @@ import Data.Aeson.Types
 type Attrs = Map Text
 
 data AccessLog = AccessLog
-      { accessLog_emitInterval :: Int
+      { accessLog_emitInterval :: Integer
       , accessLog_enable :: Bool
       , accessLog_s3BucketName :: Text
       , accessLog_s3BucketPrefix :: Text
@@ -49,7 +49,7 @@ instance ToJSON BlockDeviceMapping where
 
 data ConnectionDraining = ConnectionDraining
       { connectionDraining_enable :: Bool
-      , connectionDraining_timeout :: Int
+      , connectionDraining_timeout :: Integer
       } deriving (Show, Generic)
 
 instance FromJSON ConnectionDraining where
@@ -65,7 +65,7 @@ data Ebs = Ebs
       { ebs_accessKeyId :: Text
       , ebs_name :: Text
       , ebs_region :: Text
-      , ebs_size :: Int
+      , ebs_size :: Integer
       , ebs_snapshot :: Maybe Text
       , ebs_volumeType :: VolumeType
       , ebs_zone :: Text
@@ -197,11 +197,11 @@ instance ToJSON Elb where
 
 
 data HealthCheck = HealthCheck
-      { healthCheck_healthyThreshold :: Int
-      , healthCheck_interval :: Int
+      { healthCheck_healthyThreshold :: Integer
+      , healthCheck_interval :: Integer
       , healthCheck_target :: Target
-      , healthCheck_timeout :: Int
-      , healthCheck_unhealthyThreshold :: Int
+      , healthCheck_timeout :: Integer
+      , healthCheck_unhealthyThreshold :: Integer
       } deriving (Show, Generic)
 
 instance FromJSON HealthCheck where
@@ -215,7 +215,7 @@ instance ToJSON HealthCheck where
 
 data HealthCheckPathTarget = HealthCheckPathTarget
       { healthCheckPathTarget_path :: Text
-      , healthCheckPathTarget_port :: Int
+      , healthCheckPathTarget_port :: Integer
       } deriving (Show, Generic)
 
 instance FromJSON HealthCheckPathTarget where
@@ -228,9 +228,9 @@ instance ToJSON HealthCheckPathTarget where
 
 
 data Listeners = Listeners
-      { listeners_instancePort :: Int
+      { listeners_instancePort :: Integer
       , listeners_instanceProtocol :: Text
-      , listeners_lbPort :: Int
+      , listeners_lbPort :: Integer
       , listeners_lbProtocol :: Text
       , listeners_sslCertificateId :: Text
       , listeners_stickiness :: Maybe Stickiness
@@ -259,14 +259,14 @@ instance ToJSON Route53Aliases where
 
 
 data Rules = Rules
-      { rules_codeNumber :: Maybe Int
-      , rules_fromPort :: Maybe Int
+      { rules_codeNumber :: Maybe Integer
+      , rules_fromPort :: Maybe Integer
       , rules_protocol :: Text
       , rules_sourceGroupName :: Maybe Text
       , rules_sourceGroupOwnerId :: Maybe Text
       , rules_sourceIp :: Maybe Text
-      , rules_toPort :: Maybe Int
-      , rules_typeNumber :: Maybe Int
+      , rules_toPort :: Maybe Integer
+      , rules_typeNumber :: Maybe Integer
       } deriving (Show, Generic)
 
 instance FromJSON Rules where
@@ -278,7 +278,7 @@ instance ToJSON Rules where
            { fieldLabelModifier = drop 6 }
 
 
-data Stickiness = App Text | Lb (Maybe Int) deriving (Show, Generic)
+data Stickiness = App Text | Lb (Maybe Integer) deriving (Show, Generic)
 
 instance FromJSON Stickiness where
   parseJSON = genericParseJSON defaultOptions
@@ -287,7 +287,7 @@ instance ToJSON Stickiness where
   toJSON = genericToJSON defaultOptions
            { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
 
-data Target = Http HealthCheckPathTarget | Https HealthCheckPathTarget | Ssl Int | Tcp Int deriving (Show, Generic)
+data Target = Http HealthCheckPathTarget | Https HealthCheckPathTarget | Ssl Integer | Tcp Integer deriving (Show, Generic)
 
 instance FromJSON Target where
   parseJSON = genericParseJSON defaultOptions
@@ -296,7 +296,7 @@ instance ToJSON Target where
   toJSON = genericToJSON defaultOptions
            { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
 
-data VolumeType = Gp2 | Iop Int | Standard deriving (Show, Generic)
+data VolumeType = Gp2 | Iop Integer | Standard deriving (Show, Generic)
 
 instance FromJSON VolumeType where
   parseJSON = genericParseJSON defaultOptions
@@ -343,3 +343,4 @@ instance FromJSON Infras where
       o .: "ec2-vpc" <*>
       o .: "elb"
   parseJSON _ = empty
+

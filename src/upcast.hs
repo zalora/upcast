@@ -78,7 +78,7 @@ buildRemote BuildRemoteCli{..} =
       when brc_cat $ do
         fwd $ Cmd Local [n|cat #{out}|] "cat"
         return ()
-      when (brc_installProfile /= Nothing) $ do
+      when (isJust brc_installProfile) $ do
         let Just prof = brc_installProfile
         fwd $ nixSetProfile prof (B8.unpack out)
         return ()

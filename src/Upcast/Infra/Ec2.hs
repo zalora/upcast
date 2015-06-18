@@ -17,7 +17,7 @@ import Control.Monad.Free
 import Data.Function (on)
 import Data.List (sortBy)
 import Data.Monoid
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, maybeToList)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Text (Text)
@@ -38,203 +38,174 @@ import qualified Aws.Ec2 as EC2
 import Upcast.Interpolate (n)
 import Upcast.Infra.Types
 import Upcast.Infra.ELB
+import Upcast.Infra.Nix
 
+createVPC :: (MonadFree InfraF m, Applicative m) => Attrs Ec2vpc -> Tags -> m IDAlist
+createVPC vpcs defTags =
+  forAttrs vpcs $ \aname Ec2vpc{..} -> do
+    vpcId <- aws1 (EC2.CreateVpc ec2vpc_cidrBlock EC2.Default) "vpcId"
+    wait $ EC2.DescribeVpcs [vpcId]
+    aws_ $ EC2.CreateTags [vpcId] (("Name", aname):defTags)
+    return vpcId
 
-createVPC vpcs defTags = do
-    vpcA <- fmap mconcat $ forM vpcs $ \vpc -> do
-        let (aname, cvpc) = parse vpc $ \(Object obj) -> do
-                        aname :: Text <- obj .: "_name"
-                        cvpc <- EC2.CreateVpc <$> obj .: "cidrBlock"
-                                              <*> pure EC2.Default
-                        return (aname, cvpc)
-        vpcId <- aws1 cvpc "vpcId"
-        wait $ EC2.DescribeVpcs [vpcId]
-        aws_ $ EC2.CreateTags [vpcId] (("Name", aname):defTags)
-        return [(aname, vpcId)]
+internetAccess :: MonadFree InfraF m => IDAlist -> Tags -> m [()]
+internetAccess vpcA defTags =
+  forM (fmap snd vpcA) $ \vpcId -> do
+    -- give the internet to VPC
+    aws_ (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsSupport True))
+    aws_ (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsHostnames True))
+    gwId <- aws1 EC2.CreateInternetGateway "internetGatewayId"
+    aws_ (EC2.AttachInternetGateway gwId vpcId)
+    aws_ (EC2.CreateTags [gwId] defTags)
 
-    return vpcA
+    rtbId <- aws1 (EC2.DescribeRouteTables vpcId) "routeTableId"
+    aws_ (EC2.CreateRoute rtbId "0.0.0.0/0" (EC2.GatewayId gwId))
+    aws_ (EC2.CreateTags [rtbId] defTags)
 
-internetAccess vpcA defTags = do
-    -- give the internet to VPCs
-    forM (fmap snd vpcA) $ \vpcId -> do
-      aws_ (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsSupport True))
-      aws_ (EC2.ModifyVpcAttribute vpcId (EC2.EnableDnsHostnames True))
-      gwId <- aws1 EC2.CreateInternetGateway "internetGatewayId"
-      aws_ (EC2.AttachInternetGateway gwId vpcId)
-      aws_ (EC2.CreateTags [gwId] defTags)
-
-      rtbId <- aws1 (EC2.DescribeRouteTables vpcId) "routeTableId"
-      aws_ (EC2.CreateRoute rtbId "0.0.0.0/0" (EC2.GatewayId gwId))
-      aws_ (EC2.CreateTags [rtbId] defTags)
-
+--createSubnets :: (MonadFree InfraF m, Applicative
 createSubnets subnets vpcA defTags = do
-    subnetA <- fmap mconcat $ forM subnets $ \subnet -> do
-        let (aname, csubnet) = parse subnet $ \(Object obj) -> do
-                        aname :: Text <- obj .: "_name"
-                        cidr <- obj .: "cidrBlock"
-                        vpc <- obj .: "vpc"
-                        zone <- obj .: "zone"
-                        let Just vpcId = lookupOrId "vpc-" vpcA vpc
-                        return (aname, EC2.CreateSubnet vpcId cidr $ Just zone)
-        subnetId <- aws1 csubnet "subnetId"
+  subnetA <- forAttrs subnets $ \_ Ec2subnet{..} ->
+    let
+      Just vpcId = lookupOrId' "vpc-" vpcA ec2subnet_vpc
+      csubnet = EC2.CreateSubnet vpcId ec2subnet_cidrBlock (Just ec2subnet_region)
+    in aws1 csubnet "subnetId"
 
-        return [(aname, subnetId)]
+  unless (null subnetA) $ (wait . EC2.DescribeSubnets) $ fmap snd subnetA
+  unless (null subnetA) $ aws_ (EC2.CreateTags (fmap snd subnetA) defTags)
 
-    unless (null subnetA) $ (wait . EC2.DescribeSubnets) $ fmap snd subnetA
-    unless (null subnetA) $ aws_ (EC2.CreateTags (fmap snd subnetA) defTags)
+  return subnetA
 
-    return subnetA
+-- XXX: Rules is actually a Rule (singular)
+fromRule :: Rules -> EC2.IpPermission
+fromRule Rules{..} = EC2.IpPermission proto (fromIntegral <$> rules_fromPort) (fromIntegral <$> rules_toPort) (maybeToList rules_sourceIp)
+  where
+    proto = case rules_protocol of
+      "tcp" -> EC2.TCP
+      "udp" -> EC2.UDP
+      "icmp" -> EC2.ICMP
+      _ -> EC2.All
 
 createSecurityGroups secGroups vpcA defTags = do
-    sgA <- fmap mconcat $ forM secGroups $ \sg -> do
-        -- AWS needs more than one transaction for each security group (Create + add rules)
-        let (aname, g) = parse sg $ \(Object obj) -> do
-                  name :: Text <- obj .: "name"
-                  aname :: Text <- obj .: "_name"
-                  desc :: Text <- obj .: "description"
-                  vpc <- obj .: "vpc"
-                  let vpcId = castText vpc >>= lookupOrId "vpc-" vpcA
-                  return (aname, EC2.CreateSecurityGroup name desc vpcId)
-        secGroupId <- aws1 g "groupId"
+  sgA <- forAttrs secGroups $ \aname Ec2sg{..} -> do
+    let vpcId = ec2sg_vpc >>= lookupOrId' "vpc-" vpcA
+    let g = EC2.CreateSecurityGroup ec2sg_name ec2sg_description vpcId
+    secGroupId <- aws1 g "groupId"
 
-        let r = parse sg $ \(Object obj) -> do
-                  rules <- obj .: "rules" :: A.Parser [EC2.IpPermission]
-                  return $ EC2.AuthorizeSecurityGroupIngress secGroupId rules
-        aws_ r
+    aws_ (EC2.AuthorizeSecurityGroupIngress secGroupId (map fromRule ec2sg_rules))
+    return secGroupId
 
-        return [(aname, secGroupId)]
+  unless (null sgA) $ (wait . flip EC2.DescribeSecurityGroups []) $ fmap snd sgA
+  unless (null sgA) $ aws_ (EC2.CreateTags (fmap snd sgA) defTags)
 
-    unless (null sgA) $ (wait . flip EC2.DescribeSecurityGroups []) $ fmap snd sgA
-    unless (null sgA) $ aws_ (EC2.CreateTags (fmap snd sgA) defTags)
+  return sgA
 
-    return sgA
+createEBS volumes defTags =
+  forAttrs volumes $ \_ Ebs{..} -> do
+    let ebd_snapshotId = ebs_snapshot
+    let ebd_deleteOnTermination = True
+    let ebd_volumeType = toVolumeType ebs_volumeType
+    let ebd_volumeSize = fromIntegral ebs_size
+    let ebd_encrypted = False
 
-parseVolumeType =
-  flip parse $ \(Object obj) ->
-    do
-      standard' :: Maybe Value <- obj .:? "standard"
-      gp2' :: Maybe Value <- obj .:? "gp2"
-      iop :: Maybe Int <- obj .:? "iop"
+    let cvol_ebs = EC2.EbsBlockDevice{..}
+    let cvol_AvailabilityZone = ebs_zone
 
-      return $ head $ catMaybes [ fmap (const EC2.Standard) standard'
-                                , fmap (const EC2.GP2SSD) gp2'
-                                , fmap EC2.IOPSSD iop
-                                ]
+    volumeId <- aws1 EC2.CreateVolume{..} "volumeId"
 
-createEBS volumes defTags = do
-    volumeA <- fmap mconcat $ forM volumes $ \vol -> do
-        let (assocName, name, v) = parse vol $ \(Object obj) -> do
-              name :: Text <- obj .: "name"
-              assocName :: Text <- obj .: "_name"
+    (wait . EC2.DescribeVolumes) [volumeId]
+    aws_ (EC2.CreateTags [volumeId] (("Name", ebs_name):defTags))
 
-              cvol_AvailabilityZone <- obj .: "zone"
-              ebd_snapshotId <- fmap (\case "" -> Nothing; x -> Just x) (obj .: "snapshot")
-              let ebd_deleteOnTermination = False
-
-              volumeType <- obj .: "volumeType"
-              let ebd_volumeType = parseVolumeType volumeType
-
-              ebd_volumeSize <- obj .: "size"
-              let ebd_encrypted = False
-
-              let cvol_ebs = EC2.EbsBlockDevice{..}
-
-              return $ (assocName, name, EC2.CreateVolume{..})
-
-        volumeId <- aws1 v "volumeId"
-
-        (wait . EC2.DescribeVolumes) [volumeId]
-        aws_ (EC2.CreateTags [volumeId] (("Name", name):defTags))
-
-        return [(assocName, volumeId)]
-    return volumeA
-
-createInstances instances subnetA sgA defTags userDataA = do
-    (instanceA :: InstanceA) <- fmap mconcat $ forM instances $ \inst -> do
-        let (name, blockDevs, cinst) = parse inst $ \(name, Object ec2 :: Value) -> do
-              securityGroupNames <- ec2 .: "securityGroups"
-              subnet <- ec2 .: "subnet"
-              let blockDevs = scast "blockDeviceMapping" (Object ec2) :: Maybe (Map Text Value)
-
-              run_imageId <- ec2 .: "ami"
-              let run_count = (1, 1)
-              run_instanceType <- ec2 .: "instanceType"
-              let run_securityGroupIds = catMaybes $ lookupOrId "sg-" sgA <$> securityGroupNames
-
-              let run_subnetId = castText subnet >>= lookupOrId "subnet-" subnetA
-              let run_monitoringEnabled = True
-              let run_disableApiTermination = False
-              let run_instanceInitiatedShutdownBehavior = Nothing
-              run_ebsOptimized <- ec2 .: "ebsOptimized"
-              run_keyName <- ec2 .:? "keyPair"
-              let run_userData = Just $ userData name
-              let run_kernelId = Nothing
-              let run_ramdiskId = Nothing
-              let run_clientToken = Nothing
-              let run_associatePublicIpAddress = True
-              run_availabilityZone <- ec2 .:? "zone"
-              run_iamInstanceProfileARN <- castText <$> ec2 .: "instanceProfileARN"
-
-              let run_blockDeviceMappings = catMaybes $ fmap parseBlockDevice (Map.toList $ (\case Just bd -> bd) blockDevs)
-
-              return (name, maybe [] (Map.toList) blockDevs, EC2.RunInstances{..})
-        awslog $ mconcat [ "instance: ", name
-                         , " (", EC2.run_instanceType cinst, ", ", EC2.run_imageId cinst
-                         , ", "
-                         , T.pack $ show $ EC2.run_blockDeviceMappings cinst
-                         , ")"
-                         ]
-        instanceId <- aws1 cinst "instancesSet.instanceId"
-        aws_ (EC2.CreateTags [instanceId] (("Name", name):defTags))
-        return [(name, (instanceId, blockDevs))]
-    return instanceA
+    return volumeId
   where
-    parseBlockDevice :: (Text, Value) -> Maybe EC2.BlockDeviceMapping
-    parseBlockDevice (bdm_deviceName, v) = flip A.parseMaybe v $ \(Object obj) -> do
-      diskName :: Text <- obj .: "disk"
-      when ("res-" `T.isPrefixOf` diskName) $ fail "ignore (handled later)"
-      unless ("ephemeral" `T.isPrefixOf` diskName) $ fail "ignore (not implemented)"
+    toVolumeType Gp2 = EC2.GP2SSD
+    toVolumeType Standard = EC2.Standard
+    toVolumeType (Iop iops) = EC2.IOPSSD (fromIntegral iops)
 
-      let bdm_device = EC2.Ephemeral diskName
+createInstances instances subnetA sgA defTags userDataA =
+  forAttrs instances $ \name Ec2instance{..} -> do
+    let bds = Map.toList (xformMapping <$> ec2instance_blockDeviceMapping)
 
-      return EC2.BlockDeviceMapping{..}
+    let run_blockDeviceMappings = catMaybes (snd <$> bds)
+    let run_subnetId = ec2instance_subnet >>= lookupOrId' "subnet-" subnetA
+    let run_securityGroupIds = catMaybes $ lookupOrId' "sg-" sgA <$> ec2instance_securityGroups
+    let run_imageId = ec2instance_ami
+    let run_count = (1, 1)
+    let run_instanceType = ec2instance_instanceType
+    let run_ebsOptimized = ec2instance_ebsOptimized
+    let run_keyName = (\case (RefRemote x) -> Just x; _ -> Nothing) ec2instance_keyPair -- XXX
+    let run_availabilityZone = Just ec2instance_zone
+    let run_iamInstanceProfileARN = ec2instance_instanceProfileARN
+
+    let run_userData = Just (userData name)
+
+    let run_monitoringEnabled = True
+    let run_disableApiTermination = False
+    let run_instanceInitiatedShutdownBehavior = Nothing
+    let run_kernelId = Nothing
+    let run_ramdiskId = Nothing
+    let run_clientToken = Nothing
+    let run_associatePublicIpAddress = True
+
+    awslog $ mconcat [ "instance: ", name
+                     , " (", run_instanceType, ", ", run_imageId
+                     , ", "
+                     , T.pack $ show run_blockDeviceMappings
+                     , ")"
+                     ]
+
+    instanceId <- aws1 EC2.RunInstances{..} "instancesSet.instanceId"
+    aws_ (EC2.CreateTags [instanceId] (("Name", name):defTags))
+    return (instanceId, Map.toList ec2instance_blockDeviceMapping)
+  where
+    -- we can only handle emphemeral volumes at creation time
+    xformMapping :: BlockDeviceMapping -> Maybe EC2.BlockDeviceMapping
+    xformMapping BlockDeviceMapping{..} =
+      case blockDeviceMapping_disk of
+       RefLocal _ -> fail "ignore (handled later)"
+       RefRemote x | "ephemeral" `T.isPrefixOf` x -> do
+                     let bdm_deviceName = blockDeviceMapping_blockDeviceMappingName
+                     let bdm_device = EC2.Ephemeral x
+                     return EC2.BlockDeviceMapping{..}
+                   | otherwise ->
+                     fail "ignore (not implemented)"
 
     textObject = T.decodeUtf8 . toStrict . A.encode . object
-    userData hostname = textObject $ mconcat [ [ "hostname" .= hostname ]
-                                             , maybe [] (H.toList . fmap String) $ lookup hostname userDataA
-                                             ]
 
-attachEBS instanceA volumeA = do
-    forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
-      let blockA = catMaybes $ (\(mapping, v) -> (mapping, ) <$> testVol v) <$> blockDevs
-      forM_ blockA $ \(avol_device, avol_volumeId) -> do
-        aws_ EC2.AttachVolume{..}
+    userData name = textObject $ mconcat [ [ "hostname" .= name ]
+                                         , maybe [] (H.toList . fmap String) $ lookup name userDataA
+                                         ]
+
+attachEBS :: (MonadFree InfraF m) => InstanceA -> IDAlist -> m [()]
+attachEBS instanceA volumeA =
+  forM (fmap snd instanceA) $ \(avol_instanceId, blockDevs) -> do
+    let blockA = catMaybes $ (\(mapping, v) -> (mapping, ) <$> toVolumeId v) <$> blockDevs
+    forM_ blockA $ \(avol_device, avol_volumeId) ->
+      aws_ EC2.AttachVolume{..}
   where
-    testVol v = let t = acast "disk" v :: Text
-                    in case "vol-" `T.isPrefixOf` (acast "disk" v) of
-                         True -> return t
-                         False -> test t
-    test t = let td = T.drop 4 t
-                 in do
-                    when ("ephemeral" `T.isPrefixOf` t) $ fail "ignore (handled)"
-                    case "res-" `T.isPrefixOf` t of
-                      True -> case lookup td volumeA of
-                                Nothing -> error $ mconcat [show td, " not found in volumeA = ", show volumeA]
-                                Just x -> return x
-                      False -> error $ mconcat ["can't handle disk: ", T.unpack t]
+    toVolumeId BlockDeviceMapping{..} =
+      case blockDeviceMapping_disk of
+       RefLocal ref ->
+         case lookup ref volumeA of
+           Nothing -> error $ mconcat [show ref, " not found in volumeA = ", show volumeA]
+           Just ebs -> return ebs
+       RefRemote x | "ephemeral" `T.isPrefixOf` x ->
+                     fail "ignore (handled already)"
+                   | "vol-" `T.isPrefixOf` x ->
+                     return x
+                   | otherwise ->
+                     error $ mconcat ["can't handle disk: ", T.unpack x]
 
+ec2plan :: (MonadFree InfraF m, Functor m, Applicative m) => Text -> Text -> [EC2.ImportKeyPair] -> UserDataA -> Infras -> m [(Text, Value, Ec2instance)]
+ec2plan realmName expressionName keypairs userDataA Infras{..} = do
+    mapM_ (`aws1` "keyFingerprint") keypairs
 
-ec2plan :: (MonadFree InfraF m, Functor m) => Text -> Text -> [EC2.ImportKeyPair] -> Value -> UserDataA -> m [(Text, Value, Value)]
-ec2plan realmName expressionName keypairs spec userDataA = do
-    mapM_ (\k -> aws1 k "keyFingerprint") keypairs
-
-    vpcA <- createVPC vpcs defTags
+    vpcA <- createVPC infraEc2vpc defTags
     internetAccess vpcA defTags
-    subnetA <- createSubnets subnets vpcA defTags
-    sgA <- createSecurityGroups secGroups vpcA defTags
+    subnetA <- createSubnets infraEc2subnet vpcA defTags
+    sgA <- createSecurityGroups infraEc2sg vpcA defTags
 
-    volumeA <- createEBS volumes defTags
-    instanceA <- createInstances instances subnetA sgA defTags userDataA
+    volumeA <- createEBS infraEbs defTags
+    instanceA <- createInstances infraEc2instance subnetA sgA defTags userDataA
 
     let instanceIds = fmap (fst . snd) instanceA
     when (null instanceIds) $ fail "no instances, plan complete."
@@ -242,7 +213,7 @@ ec2plan realmName expressionName keypairs spec userDataA = do
 
     attachEBS instanceA volumeA
 
-    elbPlan instanceA sgA subnetA elbs
+    elbPlan ((\(name, (id, _)) -> (name, id)) <$> instanceA) sgA subnetA infraElb
 
     Array reportedInfos <- aws (EC2.DescribeInstances instanceIds)
 
@@ -250,20 +221,10 @@ ec2plan realmName expressionName keypairs spec userDataA = do
         err = error "could not sort instanceIds after DescribeInstances"
         tcast = castValue :: Value -> Maybe Text
         orderedReportedInfos = sortBy (compare `on` (maybe err id . fmap tcast . alookupS "instancesSet.instanceId")) $ V.toList reportedInfos
-        orderedInstanceInfos = fmap snd $ sortBy (compare `on` fst) instances
+        orderedInstanceInfos = fmap snd $ sortBy (compare `on` fst) (Map.toList infraEc2instance)
         in return $ zip3 orderedInstanceNames orderedReportedInfos orderedInstanceInfos
   where
-    cast :: FromJSON a => Text -> [a]
-    cast = (`mcast` spec)
-
     defTags = [ ("created-using", "upcast")
               , ("realm", realmName)
               , ("expression", expressionName)
               ]
-
-    vpcs = cast "ec2-vpc" :: [Value]
-    subnets = cast "ec2-subnet" :: [Value]
-    secGroups = cast "ec2-sg" :: [Value]
-    volumes = cast "ebs" :: [Value]
-    instances = alistFromObject "ec2-instance" spec
-    elbs = cast "elb" :: [Value]

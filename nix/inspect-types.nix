@@ -133,7 +133,7 @@ let
       str = fake-type "Text";
       string = fake-type "Text";
       path = fake-type "Text";
-      int = fake-type "Int";
+      int = fake-type "Integer";
       bool = fake-type "Bool";
       attrsOf = fake-type-of "Attrs";
       listOf = fake-type-of "List";
