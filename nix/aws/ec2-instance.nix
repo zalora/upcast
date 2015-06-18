@@ -81,9 +81,9 @@ in
     };
 
     instanceProfileARN = mkOption {
-      default = "";
+      default = null;
       example = "arn:aws:iam::123456789012:instance-profile/S3-Permissions";
-      type = types.str;
+      type = types.nullOr types.str;
       description = ''
         The ARN of the IAM Instance Profile (IIP) to associate with
         the instances.

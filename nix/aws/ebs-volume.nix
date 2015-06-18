@@ -42,9 +42,9 @@ in
     };
 
     snapshot = mkOption {
-      default = "";
+      default = null;
       example = "snap-1cbda474";
-      type = types.str;
+      type = types.nullOr types.str;
       description = ''
         The snapshot ID from which this volume will be created.  If
         not specified, an empty volume is created.  Changing the
