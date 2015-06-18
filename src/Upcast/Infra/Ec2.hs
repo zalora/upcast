@@ -92,11 +92,10 @@ createSubnets subnets vpcA defTags = do
 
   return subnetA
 
--- XXX: Rules is actually a Rule (singular)
-fromRule :: Rules -> EC2.IpPermission
-fromRule Rules{..} = EC2.IpPermission proto (fromIntegral <$> rules_fromPort) (fromIntegral <$> rules_toPort) (maybeToList rules_sourceIp)
+fromRule :: Rule -> EC2.IpPermission
+fromRule Rule{..} = EC2.IpPermission proto (fromIntegral <$> rule_fromPort) (fromIntegral <$> rule_toPort) (maybeToList rule_sourceIp)
   where
-    proto = case rules_protocol of
+    proto = case rule_protocol of
       "tcp" -> EC2.TCP
       "udp" -> EC2.UDP
       "icmp" -> EC2.ICMP

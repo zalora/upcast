@@ -35,14 +35,11 @@ let
     then "(${toString term})" else "${toString term}";
 
   type-repr = v:
-    if ((v._repr or false) != false)
+    if v ? _repr
     then (v._repr)
     else (v._type or "()") + optionalString ((v._arg or false) != false) " ${type-repr v._arg}";
 
-  type-tag = v:
-    if ((v._tag or false) != false)
-    then (v._tag)
-    else type-repr v;
+  type-tag = v: if v ? _tag then v._tag else type-repr v;
 
   augment = key: v:
     if (v._type == "Record") then v // rec {
@@ -55,7 +52,7 @@ let
          concatStringsSep comma-prefix
             (mapAttrsToList (k: t: "${_prefix}${k} :: ${type-tag t}") options);
 
-      _tag = (to-identifier _name);
+      _tag = to-identifier _name;
       _decl = ''
         data ${_name} = ${_name}
               { ${_repr}
@@ -118,6 +115,7 @@ let
         _type = "Sum";
         inherit ctor-set;
       };
+      inherit (inspectlib.types) submodule;
     };
 
     mkOptionType = abort "not enough overrides";

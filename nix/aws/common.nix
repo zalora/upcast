@@ -3,7 +3,7 @@
 let
   inherit (lib) mkOption types;
 in rec {
-  inherit (import <upcast/option-types.nix> { inherit lib; }) infra sum;
+  inherit (import <upcast/option-types.nix> { inherit lib; }) infra sum submodule;
 
   accessKeyId = mkOption {
     default = "default";

@@ -32,4 +32,8 @@ if (lib._upcast-option-types or false) != false then lib._upcast-option-types el
     # matching aeson's ObjectWithSingleField
     merge = mergeOneTransform (mapAttrs (_: v: if v == null then [] else v));
   };
+
+  submodule = sub: lib.types.submodule {
+    imports = [ sub ./infra-base.nix ];
+  };
 }

@@ -74,7 +74,7 @@ elbPlan instanceA sgA subnetA elbs =
     aws_ $ ELB.RegisterInstancesWithLoadBalancer clb_name instances
 
      -- DNS aliases
-    let r53 = Map.elems $ Map.mapWithKey (\k Route53Aliases{..} -> toAliasCRR k route53Aliases_zoneId) elb_route53Aliases
+    let r53 = Map.elems $ Map.mapWithKey (\k Route53Alias{..} -> toAliasCRR k route53Alias_zoneId) elb_route53Aliases
 
     Array elbInfos <- aws (ELB.DescribeLoadBalancers [clb_name])
     let [elbInfo] = V.toList elbInfos -- fails in debug mode
@@ -88,20 +88,20 @@ elbPlan instanceA sgA subnetA elbs =
 
     return ()
 
-applyStickiness clb_name Listeners{..} =
-  case listeners_stickiness of
+applyStickiness clb_name Listener{..} =
+  case listener_stickiness of
     Nothing -> return ()
     Just policy -> do
       let policyName = mconcat [ clb_name
                                , "-"
-                               , T.pack $ show listeners_lbPort
+                               , T.pack $ show listener_lbPort
                                , "-cookie-"
                                , stickinessPolicyName policy
                                ]
       case policy of
         App cookieName -> aws_ $ ELB.CreateAppCookieStickinessPolicy clb_name cookieName policyName
         Lb cookieExp -> aws_ $ ELB.CreateLBCookieStickinessPolicy clb_name cookieExp policyName
-      aws_ $ ELB.SetLoadBalancerPoliciesOfListener clb_name (fromIntegral listeners_lbPort) [policyName]
+      aws_ $ ELB.SetLoadBalancerPoliciesOfListener clb_name (fromIntegral listener_lbPort) [policyName]
 
 xformConnectionDraining ConnectionDraining{..} =
   ELB.ConnectionDraining connectionDraining_enable (fromIntegral connectionDraining_timeout)
@@ -114,15 +114,15 @@ xformAccessLog AccessLog{..} =
         5 -> ELB.Min5
         60 -> ELB.Min60
 
-xformListener Listeners{..} = ELB.Listener{..}
+xformListener Listener{..} = ELB.Listener{..}
   where
-    l_lbPort = fromIntegral listeners_lbPort
-    l_instancePort = fromIntegral listeners_instancePort
-    l_lbProtocol = proto listeners_lbProtocol
-    l_instanceProtocol = proto listeners_instanceProtocol
-    l_sslCertificateId = if listeners_sslCertificateId == ""
+    l_lbPort = fromIntegral listener_lbPort
+    l_instancePort = fromIntegral listener_instancePort
+    l_lbProtocol = proto listener_lbProtocol
+    l_instanceProtocol = proto listener_instanceProtocol
+    l_sslCertificateId = if listener_sslCertificateId == ""
                          then Nothing
-                         else Just listeners_sslCertificateId
+                         else Just listener_sslCertificateId
 
     proto :: Text -> ELB.LbProtocol
     proto "http" = ELB.HTTP

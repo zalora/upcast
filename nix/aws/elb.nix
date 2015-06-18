@@ -1,16 +1,16 @@
 { config, name, lib, ... }:
 let
   common = import ./common.nix { inherit lib; };
-  inherit (common) infra sum;
+  inherit (common) infra sum submodule;
   inherit (lib) mkOption types;
 
-  healthCheckURLTarget = types.submodule ({ lib, name, ... }: {
-     options = {
-       port = mkOption { type = types.int; default = 80; };
-       path = mkOption { type = types.str; default = "/"; };
-     };
-     config._type = "healthCheckPathTarget";
-   });
+  healthCheckPathTarget = types.submodule ({ lib, name, ... }: {
+    options = {
+      port = mkOption { type = types.int; default = 80; };
+      path = mkOption { type = types.str; default = "/"; };
+    };
+    config._type = "healthCheckPathTarget";
+  });
 in
 {
   options = {
@@ -34,7 +34,7 @@ in
     };
 
     listeners = mkOption {
-      type = types.listOf (types.submodule ({ lib, name, ... }: {
+      type = types.listOf (submodule ({ name, ... }: {
         options = {
           lbPort = mkOption { type = types.int; default = 80; };
           lbProtocol = mkOption { type = types.string; default = "http"; };
@@ -49,6 +49,7 @@ in
             default = null;
           };
         };
+        config._type = "listener";
       }));
       default = [
         { lbPort = 80; lbProtocol = "http"; instancePort = 80; instanceProtocol = "http"; }
@@ -108,7 +109,7 @@ in
         unhealthyThreshold = 10;
         target.tcp = 80;
       };
-      type = types.submodule ({ lib, name, ... }: {
+      type = submodule ({ lib, name, ... }: {
         options = {
           timeout = mkOption { type = types.int; default = 5; };
           interval = mkOption { type = types.int; default = 30; };
@@ -118,8 +119,8 @@ in
             type = sum {
               tcp = types.int; # port number
               ssl = types.int; # port number
-              http = healthCheckURLTarget;
-              https = healthCheckURLTarget;
+              http = healthCheckPathTarget;
+              https = healthCheckPathTarget;
             };
             default = { tcp = 80; };
           };
@@ -128,10 +129,11 @@ in
     };
 
     route53Aliases = mkOption {
-      type = types.attrsOf (types.submodule ({ lib, name, ... }: {
+      type = types.attrsOf (submodule ({ lib, name, ... }: {
         options = {
           zoneId = mkOption { type = types.string; example = "ZOZONEZONEZONE"; };
         };
+        config._type = "route53Alias";
       }));
       default = {};
     };

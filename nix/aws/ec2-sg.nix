@@ -23,7 +23,7 @@ in
     vpc = common.nullOr common.vpc;
 
     rules = mkOption {
-      type = types.listOf (types.submodule ({ lib, name, ... }: {
+      type = types.listOf (common.submodule ({ lib, name, ... }: {
         options = {
           protocol = mkOption {
             default = "tcp";
@@ -73,9 +73,10 @@ in
             type = types.uniq (types.nullOr types.str);
           };
         };
+        config._type = "rule";
       }));
       description = "The security group's rules.";
-      default = {};
+      default = [];
     };
   };
 
