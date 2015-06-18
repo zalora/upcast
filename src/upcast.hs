@@ -32,12 +32,11 @@ import Upcast.Install
 
 evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
 evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
-  value <- expectRight $ nixValue <$> fgconsume_ (nixInfraInfo nix)
-  realmName <- expectText $ expectRight $ nixValue <$> fgconsume_ (nixRealmName nix)
+  info <- fgconsume_ (nixInfraInfo nix)
+  value <- expectRight $ return $ nixInfras info
   return InfraContext{ inc_expressionFile = file
-                     , inc_realmName = realmName
                      , inc_stateFile = fromMaybe (replaceExtension file "store") infraCli_stateFile
-                     , inc_data = value
+                     , inc_infras = value
                      }
 
 icontext :: InfraCli -> IO InfraContext
@@ -48,7 +47,7 @@ infra :: InfraCli -> IO [Machine]
 infra = icontext >=> evalInfra
 
 infraDump :: InfraCli -> IO ()
-infraDump = icontext >=> pprint . inc_data
+infraDump = icontext >=> print . inc_infras
 
 infraDebug :: InfraCli -> IO ()
 infraDebug = icontext >=> debugEvalInfra >=> const (return ())
@@ -75,7 +74,7 @@ buildRemote BuildRemoteCli{..} =
       when brc_cat $ do
         fwd $ Cmd Local [n|cat #{out}|] "cat"
         return ()
-      when (brc_installProfile /= Nothing) $ do
+      when (isJust brc_installProfile) $ do
         let Just prof = brc_installProfile
         fwd $ nixSetProfile prof (B8.unpack out)
         return ()

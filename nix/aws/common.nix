@@ -3,7 +3,7 @@
 let
   inherit (lib) mkOption types;
 in rec {
-  inherit (import <upcast/option-types.nix> { inherit lib; }) infra sum;
+  inherit (import <upcast/option-types.nix> { inherit lib; }) infra sum submodule;
 
   accessKeyId = mkOption {
     default = "default";
@@ -12,6 +12,7 @@ in rec {
   };
 
   region = mkOption {
+    example = "us-east-1";
     type = types.str;
     description = "Amazon EC2 region.";
   };
@@ -29,19 +30,19 @@ in rec {
 
   vpc = mkOption {
     type = infra "ec2-vpc";
-    apply = x: if builtins.isString x then x else x._name;
     description = "VPC which contains the infra.";
+    apply = x: x;
   };
 
   subnet = mkOption {
     type = infra "ec2-subnet";
-    apply = x: if builtins.isString x then x else x._name;
     description = "EC2 VPC subnet ID.";
+    apply = x: x;
   };
 
-  nullOr = option: mkOption ({
+  nullOr = option: mkOption {
     default = null;
-    type = types.nullOr (option.type);
+    type = types.nullOr (option.type or option);
     apply = x: if x == null then null else option.apply x;
-  });
+  };
 }

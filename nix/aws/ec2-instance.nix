@@ -9,8 +9,7 @@ let
       disk = mkOption {
         default = "";
         example = "vol-d04895b8";
-        type = infra "ebs-volume";
-        apply = x: if builtins.isString x then x else "res-" + x._name;
+        type = infra "ebs";
         description = ''
           EC2 identifier of the disk to be mounted.  This can be an
           ephemeral disk (e.g. <literal>ephemeral0</literal>), a
@@ -82,9 +81,9 @@ in
     };
 
     instanceProfileARN = mkOption {
-      default = "";
+      default = null;
       example = "arn:aws:iam::123456789012:instance-profile/S3-Permissions";
-      type = types.str;
+      type = types.nullOr types.str;
       description = ''
         The ARN of the IAM Instance Profile (IIP) to associate with
         the instances.
@@ -94,7 +93,6 @@ in
     keyPair = mkOption {
       example = "my-keypair";
       type = infra "ec2-keypair";
-      apply = x: if builtins.isString x then x else x.name;
       description = ''
         Name of the SSH key pair to be used to communicate securely
         with the instance.  Key pairs can be created using the
@@ -106,7 +104,6 @@ in
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
       type = types.listOf (infra "ec2-sg");
-      apply = map (x: if builtins.isString x then x else x._name);
       description = ''
         Security groups for the instance.  These determine the
         firewall rules applied to the instance.
@@ -116,8 +113,7 @@ in
     blockDeviceMapping = mkOption {
       default = { };
       example = { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdg".disk = "vol-d04895b8"; };
-      type = types.attrsOf types.optionSet;
-      options = ec2DiskOptions;
+      type = types.attrsOf (types.submodule ec2DiskOptions);
       description = ''
         Block device mapping.  <filename>/dev/xvd[a-e]</filename> must be ephemeral devices.
       '';

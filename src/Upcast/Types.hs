@@ -2,14 +2,13 @@
 
 module Upcast.Types where
 
-import System.FilePath (FilePath)
-import qualified Data.Text as T
-import Data.Text (Text(..))
+import Data.Text (Text)
 import Data.Aeson (Value)
 import Data.ByteString.Char8 (ByteString)
-import Data.Map (Map)
 
 import Upcast.Command (Remote)
+
+import Upcast.Infra.NixTypes (Infras)
 
 type StorePath = String
 type StorePathBS = ByteString
@@ -23,8 +22,7 @@ data NixContext = NixContext
 
 data InfraContext = InfraContext
                   { inc_expressionFile :: String
-                  , inc_realmName :: Text
-                  , inc_data :: Value
+                  , inc_infras :: Infras
                   , inc_stateFile :: FilePath
                   } deriving (Show)
 

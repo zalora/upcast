@@ -31,20 +31,20 @@ in
 
     volumeType = mkOption {
       type = sum {
-        standard = types.unspecified;
-        gp2 = types.unspecified;
+        standard = null;
+        gp2 = null;
         iop = types.int;
       };
-      default = { standard = true; };
+      default = { standard = null; };
       description = ''
         EBS volume type. Defaults to standard magnetic.
       '';
     };
 
     snapshot = mkOption {
-      default = "";
+      default = null;
       example = "snap-1cbda474";
-      type = types.str;
+      type = types.nullOr types.str;
       description = ''
         The snapshot ID from which this volume will be created.  If
         not specified, an empty volume is created.  Changing the
@@ -55,7 +55,7 @@ in
   };
 
   config = {
-    _type = "ebs-volume";
+    _type = "ebs";
     size = mkIf (config.snapshot != "") (mkDefault 0);
   };
 

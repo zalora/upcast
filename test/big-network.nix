@@ -15,6 +15,12 @@ let
   };
 in
 {
+  # infra.ec2-keypair.global-keypair = {
+  #  inherit region accessKeyId;
+  #  name = "global-keypair";
+  #  privateKeyFile = "${<upcast/../test/big-network.nix>}";
+  # };
+
   infra.ec2-vpc.default = {
     inherit region accessKeyId;
     cidrBlock = "10.15.0.0/16";
@@ -55,6 +61,14 @@ in
     securityGroups = [ infra.ec2-sg.default ];
     instances = with infra.ec2-instance; [ web1 web2 ];
 
+    healthCheck = {
+      timeout = 5;
+      interval = 30;
+      healthyThreshold = 2;
+      unhealthyThreshold = 10;
+      target.tcp = 80;
+    };
+
     listeners =
       let
         http = {
@@ -62,6 +76,7 @@ in
           lbProtocol = "http";
           instancePort = 80;
           instanceProtocol = "http";
+          stickiness.lb = null;
         };
         https = {
           lbPort = 443;
@@ -71,5 +86,7 @@ in
           sslCertificateId = "123";
         };
       in [ http https ];
+
+    route53Aliases."elb.example.com".zoneId = "ZOZONEZONEZONE";
   };
 }

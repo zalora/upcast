@@ -1,8 +1,16 @@
 { config, name, lib, ... }:
 let
   common = import ./common.nix { inherit lib; };
-  inherit (common) infra sum;
+  inherit (common) infra sum submodule;
   inherit (lib) mkOption types;
+
+  healthCheckPathTarget = types.submodule ({ lib, name, ... }: {
+    options = {
+      port = mkOption { type = types.int; default = 80; };
+      path = mkOption { type = types.str; default = "/"; };
+    };
+    config._type = "healthCheckPathTarget";
+  });
 in
 {
   options = {
@@ -18,17 +26,15 @@ in
     subnets = mkOption {
       type = types.listOf (infra "ec2-subnet");
       default = [];
-      apply = map (x: if builtins.isString x then x else x._name);
     };
 
     instances = mkOption {
       type = types.listOf (infra "ec2-instance");
       default = [];
-      apply = map (x: if builtins.isString x then x else x._name);
     };
 
     listeners = mkOption {
-      type = types.listOf (types.submodule ({ lib, name, ... }: {
+      type = types.listOf (submodule ({ name, ... }: {
         options = {
           lbPort = mkOption { type = types.int; default = 80; };
           lbProtocol = mkOption { type = types.string; default = "http"; };
@@ -43,6 +49,7 @@ in
             default = null;
           };
         };
+        config._type = "listener";
       }));
       default = [
         { lbPort = 80; lbProtocol = "http"; instancePort = 80; instanceProtocol = "http"; }
@@ -52,7 +59,6 @@ in
     securityGroups = mkOption {
       example = [ "my-group" "my-other-group" ];
       type = types.listOf (infra "ec2-sg");
-      apply = map (x: if builtins.isString x then x else x._name);
       description = "Security groups for the ELB withing its VPC";
       default = [];
     };
@@ -101,19 +107,33 @@ in
         interval = 30;
         healthyThreshold = 2;
         unhealthyThreshold = 10;
-        target = {
-          protocol = "TCP";
-          port = 80;
-          path = "";
-        };
+        target.tcp = 80;
       };
+      type = submodule ({ lib, name, ... }: {
+        options = {
+          timeout = mkOption { type = types.int; default = 5; };
+          interval = mkOption { type = types.int; default = 30; };
+          healthyThreshold = mkOption { type = types.int; default = 2; };
+          unhealthyThreshold = mkOption { type = types.int; default = 10; };
+          target = mkOption {
+            type = sum {
+              tcp = types.int; # port number
+              ssl = types.int; # port number
+              http = healthCheckPathTarget;
+              https = healthCheckPathTarget;
+            };
+            default = { tcp = 80; };
+          };
+        };
+      });
     };
 
     route53Aliases = mkOption {
-      type = types.attrsOf (types.submodule ({ lib, name, ... }: {
+      type = types.attrsOf (submodule ({ lib, name, ... }: {
         options = {
           zoneId = mkOption { type = types.string; example = "ZOZONEZONEZONE"; };
         };
+        config._type = "route53Alias";
       }));
       default = {};
     };

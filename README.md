@@ -163,7 +163,6 @@ Host *
 
 - state files are not garbage collected, have to be often cleaned up manually;
 - altering infra state is not supported properly (you need to remove using aws cli, cleanup the state file and try again);
-- word "aterm" is naming a completely different thing throughout the code;
 
 Note: the app is currently in HEAVY development (and is already being used to power production cloud instances)
 so some interfaces may break without notice until the initial release.

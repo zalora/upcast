@@ -24,165 +24,141 @@ import qualified Data.Aeson as A
 import qualified Data.Aeson.Encode.Pretty as A
 import qualified Data.Aeson.Types as A
 import qualified Data.Vector as V
-import qualified Data.HashMap.Strict as H
 
 import Aws.Query (QueryAPIConfiguration(..), castValue)
 import qualified Aws.Route53 as R53
 import qualified Aws.Ec2 as EC2
 import qualified Aws.Elb as ELB
-import Aws.Elb.Commands.CreateAppCookieStickinessPolicy as ELB -- Should be part of ELB in the future
+import qualified Aws.Elb.Commands.CreateAppCookieStickinessPolicy as ELB -- Should be part of ELB in the future
 
 import Upcast.Infra.Types
+import Upcast.Infra.NixTypes
 
-instance FromJSON ELB.LbProtocol where
-    parseJSON (String "http")  = pure ELB.HTTP
-    parseJSON (String "https") = pure ELB.HTTPS
-    parseJSON (String "tcp")   = pure ELB.TCP
-    parseJSON (String "ssl")   = pure ELB.SSL
-    parseJSON _ = mzero
 
-data R53Alias = R53Alias Text R53.HostedZoneId
-
-catTuples = foldr (\(ls, sp) (lss, sps) -> (ls:lss, sp:sps)) ([], [])
-
-data StickinessPolicy = App Text -- ^ App cookie policy
-                      | LB (Maybe Integer) -- ^ LB cookie policy, optional expiration
-
-instance FromJSON StickinessPolicy where
-  parseJSON (Object v) = case H.lookup "app" v of
-    Just (String x) -> pure $ App x
-    Nothing -> LB <$> v .: "lb"
-    _ -> mzero
-  parseJSON _ = mzero
-
-stickinessPolicyName :: StickinessPolicy -> Text
+stickinessPolicyName :: Stickiness -> Text
 stickinessPolicyName (App x) = T.append "app-" (T.filter isAsciiLower x)
-stickinessPolicyName (LB Nothing) = "lb-no-exp"
-stickinessPolicyName (LB (Just x)) = T.append "lb-exp-" . T.pack $ show x
+stickinessPolicyName (Lb Nothing) = "lb-no-exp"
+stickinessPolicyName (Lb (Just x)) = T.append "lb-exp-" . T.pack $ show x
 
-elbPlan :: (MonadFree InfraF m, Functor m)
-        => InstanceA
-        -> [(Text, Text)]
-        -> [(Text, Text)]
-        -> [Value]
-        -> m ()
-elbPlan instanceA sgA subnetA elbs = do
-    elb1 <- fmap mconcat $ forM elbs $ \elb -> do
-        let (clb, attrs, instanceRefs, r53, lbStickiness, healthCheck) = parse elb $ \(Object obj) -> do
-              clb_name :: Text <- obj .: "name"
-              internal :: Bool <- obj .: "internal"
-              let clb_scheme = if internal then ELB.Internal else ELB.Public
-              securityGroups :: [Text] <- obj .: "securityGroups"
-              let clb_securityGroupIds = catMaybes $ lookupOrId "sg-" sgA <$> securityGroups
-              subnets :: [Text] <- obj .: "subnets"
-              let clb_subnetIds = catMaybes $ lookupOrId "subnet-" subnetA <$> subnets
+elbPlan :: (MonadFree InfraF m, Applicative m)
+        => IDAlist
+        -> IDAlist
+        -> IDAlist
+        -> Attrs Elb
+        -> m [(Text, ())]
+elbPlan instanceA sgA subnetA elbs =
+  forAttrs elbs $ \_ Elb{..} -> do
+    -- create
+    let clb_name = elb_name
+    let clb_scheme = if elb_internal then ELB.Internal else ELB.Public
+    let clb_securityGroupIds = catMaybes $ lookupOrId' "sg-" sgA <$> elb_securityGroups
+    let clb_subnetIds = catMaybes $ lookupOrId' "subnet-" subnetA <$> elb_subnets
+    let clb_listeners = map xformListener elb_listeners
+    aws_ ELB.CreateLoadBalancer{..}
+    wait $ ELB.DescribeLoadBalancers [clb_name]
 
-              listeners :: [Value] <- obj .: "listeners"
+    -- stickiness
+    mapM_ (applyStickiness clb_name) elb_listeners
 
-              (clb_listeners, lbStickiness) <- fmap catTuples $ forM listeners $ \(Object listener) -> do
-                    l_lbPort <- listener .: "lbPort"
-                    l_instancePort <- listener .: "instancePort"
-                    l_instanceProtocol <- listener .: "instanceProtocol"
-                    l_lbProtocol <- listener .: "lbProtocol"
-                    sslCertificateId <- listener .:? "sslCertificateId"
+    -- attributes
+    let crossAttr = ELB.CrossZoneLoadBalancing elb_crossZoneLoadBalancing
+    let accessAttr = xformAccessLog elb_accessLog
+    let drainingAttr = xformConnectionDraining elb_connectionDraining
+    aws_ $ ELB.ModifyLoadBalancerAttributes clb_name [crossAttr, accessAttr, drainingAttr]
 
-                    let l_sslCertificateId = case sslCertificateId of
-                                                Just "" -> Nothing
-                                                Nothing -> Nothing
-                                                Just x -> Just x
+    -- healthcheck
+    aws_ $ ELB.ConfigureHealthCheck clb_name (xformHealthCheck elb_healthCheck)
 
-                    lbStickiness :: Maybe StickinessPolicy <- listener .: "stickiness"
+    -- instances
+    let instances = catMaybes $ lookupOrId' "i-" instanceA <$> elb_instances
+    aws_ $ ELB.RegisterInstancesWithLoadBalancer clb_name instances
 
-                    return (ELB.Listener{..}, (lbStickiness, l_lbPort))
+     -- DNS aliases
+    let r53 = Map.elems $ Map.mapWithKey (\k Route53Alias{..} -> toAliasCRR k route53Alias_zoneId) elb_route53Aliases
 
-              let clb = ELB.CreateLoadBalancer{..}
+    Array elbInfos <- aws (ELB.DescribeLoadBalancers [clb_name])
+    case V.toList elbInfos of
+      [elbInfo] -> do
+        let (elbZoneId :: Text, dnsName :: Text) =
+              parse elbInfo $ \(Object obj) ->
+                (,) <$> obj .: "CanonicalHostedZoneNameID" <*> obj .: "DNSName"
 
-              crossAttr <-
-                    ELB.CrossZoneLoadBalancing <$> (obj .: "crossZoneLoadBalancing")
-
-              Object alog <- obj .: "accessLog"
-              accessAttr <-
-                    ELB.AccessLog <$> (alog .: "enable")
-                                  <*> fmap (\case (5 :: Int) -> ELB.Min5
-                                                  (60 :: Int) -> ELB.Min60)
-                                          (alog .: "emitInterval")
-                                  <*> (alog .: "s3BucketName")
-                                  <*> (alog .: "s3BucketPrefix")
-
-              Object drain <- obj .: "connectionDraining"
-              drainingAttr <-
-                    ELB.ConnectionDraining <$> (drain .: "enable")
-                                           <*> (drain .: "timeout")
-
-              Object hc <- obj .: "healthCheck"
-              Object hcTarget <- hc .: "target"
-              target <- do
-                proto :: Text <- hcTarget .: "protocol"
-                return $ case proto of
-                           "TCP" -> ELB.TargetTCP <$> (hcTarget .: "port")
-                           "SSL" -> ELB.TargetSSL <$> (hcTarget .: "port")
-                           "HTTP" -> ELB.TargetHTTP <$> (hcTarget .: "port") <*> (hcTarget .: "path")
-                           "HTTPS" -> ELB.TargetHTTPS <$> (hcTarget .: "port") <*> (hcTarget .: "path")
-
-              healthCheck <-
-                    ELB.HealthCheck <$> target
-                                    <*> (hc .: "healthyThreshold")
-                                    <*> (hc .: "unhealthyThreshold")
-                                    <*> (hc .: "interval")
-                                    <*> (hc .: "timeout")
-
-              -- XXX: emptiness check?
-              instanceRefs :: [Text] <- obj .: "instances"
-
-              Object aliases <- obj .: "route53Aliases"
-              r53 <- H.elems <$> H.traverseWithKey (\k (Object v) -> toAliasCRR k <$> v .: "zoneId") aliases
-
-              return (clb, [crossAttr, accessAttr, drainingAttr], instanceRefs, r53, lbStickiness, healthCheck)
-
-        aws_ clb
-
-        let name = ELB.clb_name clb
-        wait $ ELB.DescribeLoadBalancers [name]
-
-        aws_ $ ELB.ModifyLoadBalancerAttributes name attrs
-
-        forM lbStickiness $ \(maybePolicy, lbPort) -> case maybePolicy of
-          Just policy -> do
-            let policyName = mconcat [name, "-", T.pack $ show lbPort, "-cookie-", stickinessPolicyName policy]
-            case policy of
-              App cookieName -> aws_ $ ELB.CreateAppCookieStickinessPolicy name cookieName policyName
-              LB cookieExp -> aws_ $ ELB.CreateLBCookieStickinessPolicy name cookieExp policyName
-            aws_ $ ELB.SetLoadBalancerPoliciesOfListener name (fromIntegral lbPort) [policyName]
-          Nothing -> return ()
-
-        aws_ $ ELB.ConfigureHealthCheck name healthCheck
-
-        let instances = fmap fst $ catMaybes $ fmap (flip lookup instanceA) instanceRefs
-        aws_ $ ELB.RegisterInstancesWithLoadBalancer name instances
-
-        Array elbInfos <- aws (ELB.DescribeLoadBalancers [name])
-        let [elbInfo] = V.toList elbInfos
-
-        let (elbZoneId :: Text, elbName :: Text) = parse elbInfo $ \(Object obj) -> do
-              (,) <$> obj .: "CanonicalHostedZoneNameID" <*> obj .: "DNSName"
-
-        let crr = (\x -> x elbName elbZoneId) <$> r53
-        return [(clb, attrs, crr)]
-
-    fmap mconcat $ forM elb1 $ \(clb, attrs, crr) -> do
-      mapM_ aws53crr crr
-      return [(clb, attrs)]
+        let crr = (\x -> x dnsName elbZoneId) <$> r53
+        mapM_ aws53crr crr
+      _ ->
+        awslog "Warning: unhandled DescribeLoadBalancers result"
 
     return ()
 
-toAliasCRR domain zoneId = \elbName elbZoneId ->
+applyStickiness clb_name Listener{..} =
+  case listener_stickiness of
+    Nothing -> return ()
+    Just policy -> do
+      let policyName = mconcat [ clb_name
+                               , "-"
+                               , T.pack $ show listener_lbPort
+                               , "-cookie-"
+                               , stickinessPolicyName policy
+                               ]
+      case policy of
+        App cookieName -> aws_ $ ELB.CreateAppCookieStickinessPolicy clb_name cookieName policyName
+        Lb cookieExp -> aws_ $ ELB.CreateLBCookieStickinessPolicy clb_name cookieExp policyName
+      aws_ $ ELB.SetLoadBalancerPoliciesOfListener clb_name (fromIntegral listener_lbPort) [policyName]
+
+xformConnectionDraining ConnectionDraining{..} =
+  ELB.ConnectionDraining connectionDraining_enable (fromIntegral connectionDraining_timeout)
+
+xformAccessLog AccessLog{..} =
+  ELB.AccessLog accessLog_enable interval accessLog_s3BucketName accessLog_s3BucketPrefix
+  where
+    interval =
+      case accessLog_emitInterval of
+        5 -> ELB.Min5
+        60 -> ELB.Min60
+
+xformListener Listener{..} = ELB.Listener{..}
+  where
+    l_lbPort = fromIntegral listener_lbPort
+    l_instancePort = fromIntegral listener_instancePort
+    l_lbProtocol = proto listener_lbProtocol
+    l_instanceProtocol = proto listener_instanceProtocol
+    l_sslCertificateId = if listener_sslCertificateId == ""
+                         then Nothing
+                         else Just listener_sslCertificateId
+
+    proto :: Text -> ELB.LbProtocol
+    proto "http" = ELB.HTTP
+    proto "https" = ELB.HTTPS
+    proto "tcp" = ELB.TCP
+    proto "ssl" = ELB.SSL
+    proto x = error $ mconcat ["xformListener: bad protocol: ", show x]
+
+xformHealthCheck HealthCheck{..} = ELB.HealthCheck{..}
+  where
+    hc_healthyThreshold = healthCheck_healthyThreshold
+    hc_unhealthyThreshold = healthCheck_unhealthyThreshold
+    hc_interval = healthCheck_interval
+    hc_timeout = healthCheck_timeout
+    hc_target =
+      case healthCheck_target of
+        Http HealthCheckPathTarget{..} ->
+          ELB.TargetHTTP healthCheckPathTarget_port healthCheckPathTarget_path
+        Https HealthCheckPathTarget{..} ->
+          ELB.TargetHTTPS healthCheckPathTarget_port healthCheckPathTarget_path
+        Tcp port ->
+          ELB.TargetTCP port
+        Ssl port ->
+          ELB.TargetSSL port
+
+toAliasCRR :: Text -> Text -> (Text -> Text -> R53.ChangeResourceRecordSets)
+toAliasCRR domain zoneId = \dnsName elbZoneId ->
     R53.ChangeResourceRecordSets
       (R53.HostedZoneId zoneId)
       Nothing
       [(R53.UPSERT, R53.ResourceRecordSet { R53.rrsName = R53.Domain domain
                                           , R53.rrsType = R53.A
                                           , R53.rrsAliasTarget = Just R53.AliasTarget { R53.atHostedZoneId = R53.HostedZoneId elbZoneId
-                                                                                      , R53.atDNSName = R53.Domain elbName
+                                                                                      , R53.atDNSName = R53.Domain dnsName
                                                                                       }
                                           , R53.rrsSetIdentifier = Nothing
                                           , R53.rrsWeight = Nothing
