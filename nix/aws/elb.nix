@@ -3,6 +3,14 @@ let
   common = import ./common.nix { inherit lib; };
   inherit (common) infra sum;
   inherit (lib) mkOption types;
+
+  healthCheckURLTarget = types.submodule ({ lib, name, ... }: {
+     options = {
+       port = mkOption { type = types.int; default = 80; };
+       path = mkOption { type = types.str; default = "/"; };
+     };
+     config._type = "healthCheckPathTarget";
+   });
 in
 {
   options = {
@@ -98,11 +106,7 @@ in
         interval = 30;
         healthyThreshold = 2;
         unhealthyThreshold = 10;
-        target = {
-          protocol = "TCP";
-          port = 80;
-          path = "";
-        };
+        target.tcp = 80;
       };
       type = types.submodule ({ lib, name, ... }: {
         options = {
@@ -111,13 +115,13 @@ in
           healthyThreshold = mkOption { type = types.int; default = 2; };
           unhealthyThreshold = mkOption { type = types.int; default = 10; };
           target = mkOption {
-            type = types.submodule ({ lib, name, ... }: {
-              options = {
-                protocol = mkOption { type = types.str; default = "TCP"; };
-                port = mkOption { type = types.int; default = 80; };
-                path = mkOption { type = types.str; default = ""; };
-              };
-            });
+            type = sum {
+              tcp = types.int; # port number
+              ssl = types.int; # port number
+              http = healthCheckURLTarget;
+              https = healthCheckURLTarget;
+            };
+            default = { tcp = 80; };
           };
         };
       });
