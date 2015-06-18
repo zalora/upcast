@@ -77,14 +77,16 @@ elbPlan instanceA sgA subnetA elbs =
     let r53 = Map.elems $ Map.mapWithKey (\k Route53Alias{..} -> toAliasCRR k route53Alias_zoneId) elb_route53Aliases
 
     Array elbInfos <- aws (ELB.DescribeLoadBalancers [clb_name])
-    let [elbInfo] = V.toList elbInfos -- fails in debug mode
+    case V.toList elbInfos of
+      [elbInfo] -> do
+        let (elbZoneId :: Text, dnsName :: Text) =
+              parse elbInfo $ \(Object obj) ->
+                (,) <$> obj .: "CanonicalHostedZoneNameID" <*> obj .: "DNSName"
 
-    let (elbZoneId :: Text, dnsName :: Text) =
-          parse elbInfo $ \(Object obj) ->
-            (,) <$> obj .: "CanonicalHostedZoneNameID" <*> obj .: "DNSName"
-
-    let crr = (\x -> x dnsName elbZoneId) <$> r53
-    mapM_ aws53crr crr
+        let crr = (\x -> x dnsName elbZoneId) <$> r53
+        mapM_ aws53crr crr
+      _ ->
+        awslog "Warning: unhandled DescribeLoadBalancers result"
 
     return ()
 

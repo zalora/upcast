@@ -50,7 +50,6 @@ import qualified Aws
 import Aws.Core
 import Aws.Query (QueryAPIConfiguration(..), castValue)
 import Aws.Canonical (canonicalSigData)
-import qualified Aws.Ec2 as EC2
 import qualified Aws.Route53 as R53
 
 import Upcast.Types
@@ -71,7 +70,7 @@ data EvalContext = EvalContext
 
 rqBody :: (MonadIO io, SignQuery r) => r -> ServiceConfiguration r q -> io Text
 rqBody tx conf = do
-    sig <- liftIO $ canonicalSigData
+    sig <- liftIO canonicalSigData
     let s = signQuery tx conf sig
     let Just body = sqBody s
     return $ bodyText body
