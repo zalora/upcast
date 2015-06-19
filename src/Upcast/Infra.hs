@@ -194,7 +194,9 @@ toMachine keypairA (h, reportedInfo, Ec2instance{..}) =
   (cast "instancesSet.ipAddress" :: Text)
   (cast "instancesSet.privateIpAddress" :: Text)
   (cast "instancesSet.instanceId" :: Text)
-  (lookupOrId keypairA ec2instance_keyPair)
+  (case ec2instance_keyPair of
+    RefRemote _ -> Nothing
+    _ -> lookupOrId keypairA ec2instance_keyPair)
   where
     cast :: FromJSON a => Text -> a
     cast = (`acast` reportedInfo)

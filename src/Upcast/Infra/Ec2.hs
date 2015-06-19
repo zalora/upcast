@@ -50,12 +50,11 @@ preReadUserData instances =
                         traverse (T.readFile . T.unpack) ec2instance_userData
 
 -- | pre-calculate EC2.ImportKeyPair values while we can do IO
-prepareKeyPairs :: Attrs Ec2keypair -> IO (Attrs EC2.ImportKeyPair)
+prepareKeyPairs :: Attrs Ec2keypair -> IO (Attrs (Ec2keypair, EC2.ImportKeyPair))
 prepareKeyPairs =
-  Map.traverseWithKey $ \_ Ec2keypair{..} -> do
+  Map.traverseWithKey $ \_ kp@Ec2keypair{..} -> do
     pubkey <- expectRight $ fgconsume $ Cmd Local (mconcat ["ssh-keygen -f ", T.unpack ec2keypair_privateKeyFile, " -y"]) "ssh-keygen"
-    return $ EC2.ImportKeyPair ec2keypair_name $ T.decodeUtf8 $ Base64.encode pubkey
-
+    return (kp, EC2.ImportKeyPair ec2keypair_name $ T.decodeUtf8 $ Base64.encode pubkey)
 
 createVPC :: (MonadFree InfraF m, Applicative m) => Attrs Ec2vpc -> Tags -> m IDAlist
 createVPC vpcs defTags =
@@ -211,16 +210,18 @@ attachEBS instanceA volumeA =
                    | otherwise ->
                      error $ mconcat ["can't handle disk: ", T.unpack x]
 
-createKeypairs :: (MonadFree InfraF m, Applicative m) => Attrs EC2.ImportKeyPair -> m IDAlist
+createKeypairs :: (MonadFree InfraF m, Applicative m)
+                  => Attrs (Ec2keypair, EC2.ImportKeyPair)
+                  -> m IDAlist
 createKeypairs cmds =
-  forAttrs cmds $ \keypair cmd -> do
+  forAttrs cmds $ \keypair (Ec2keypair{..}, cmd) -> do
     _ <- aws1 cmd "keyFingerprint"
-    return keypair
+    return ec2keypair_privateKeyFile
 
 
 ec2plan :: (MonadFree InfraF m, Functor m, Applicative m)
            => Text
-           -> Attrs EC2.ImportKeyPair
+           -> Attrs (Ec2keypair, EC2.ImportKeyPair)
            -> UserDataA
            -> Infras
            -> m (IDAlist, [(Text, Value, Ec2instance)])
