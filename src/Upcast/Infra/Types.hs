@@ -89,15 +89,9 @@ type K = Text
 type V = Text
 type IDAlist = [(K, V)]
 
-lookupOrId' :: Text -> IDAlist -> InfraRef a -> Maybe V
-lookupOrId' prefix alist (RefLocal x) = lookupOrId prefix alist x
-lookupOrId' prefix alist (RefRemote x) = lookupOrId prefix alist x
-
-lookupOrId :: Text -> IDAlist -> K -> Maybe V
-lookupOrId prefix alist str =
-  case prefix `T.isPrefixOf` str of
-    True -> Just str
-    False -> lookup str alist
+lookupOrId :: IDAlist -> InfraRef a -> Maybe V
+lookupOrId alist (RefLocal x) = lookup x alist
+lookupOrId alist (RefRemote x) = Just x
 
 type Tags = [EC2.Tag]
 

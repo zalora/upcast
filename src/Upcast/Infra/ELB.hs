@@ -51,8 +51,8 @@ elbPlan instanceA sgA subnetA elbs =
     -- create
     let clb_name = elb_name
     let clb_scheme = if elb_internal then ELB.Internal else ELB.Public
-    let clb_securityGroupIds = catMaybes $ lookupOrId' "sg-" sgA <$> elb_securityGroups
-    let clb_subnetIds = catMaybes $ lookupOrId' "subnet-" subnetA <$> elb_subnets
+    let clb_securityGroupIds = catMaybes $ lookupOrId sgA <$> elb_securityGroups
+    let clb_subnetIds = catMaybes $ lookupOrId subnetA <$> elb_subnets
     let clb_listeners = map xformListener elb_listeners
     aws_ ELB.CreateLoadBalancer{..}
     wait $ ELB.DescribeLoadBalancers [clb_name]
@@ -70,7 +70,7 @@ elbPlan instanceA sgA subnetA elbs =
     aws_ $ ELB.ConfigureHealthCheck clb_name (xformHealthCheck elb_healthCheck)
 
     -- instances
-    let instances = catMaybes $ lookupOrId' "i-" instanceA <$> elb_instances
+    let instances = catMaybes $ lookupOrId instanceA <$> elb_instances
     aws_ $ ELB.RegisterInstancesWithLoadBalancer clb_name instances
 
      -- DNS aliases

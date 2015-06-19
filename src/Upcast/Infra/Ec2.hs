@@ -83,7 +83,7 @@ internetAccess vpcA defTags =
 createSubnets subnets vpcA defTags = do
   subnetA <- forAttrs subnets $ \_ Ec2subnet{..} ->
     let
-      Just vpcId = lookupOrId' "vpc-" vpcA ec2subnet_vpc
+      Just vpcId = lookupOrId vpcA ec2subnet_vpc
       csubnet = EC2.CreateSubnet vpcId ec2subnet_cidrBlock (Just ec2subnet_region)
     in aws1 csubnet "subnetId"
 
@@ -103,7 +103,7 @@ fromRule Rule{..} = EC2.IpPermission proto (fromIntegral <$> rule_fromPort) (fro
 
 createSecurityGroups secGroups vpcA defTags = do
   sgA <- forAttrs secGroups $ \aname Ec2sg{..} -> do
-    let vpcId = ec2sg_vpc >>= lookupOrId' "vpc-" vpcA
+    let vpcId = ec2sg_vpc >>= lookupOrId vpcA
     let g = EC2.CreateSecurityGroup ec2sg_name ec2sg_description vpcId
     secGroupId <- aws1 g "groupId"
 
@@ -142,13 +142,13 @@ createInstances instances subnetA sgA defTags userDataA keypairA =
     let bds = Map.toList (xformMapping <$> ec2instance_blockDeviceMapping)
 
     let run_blockDeviceMappings = catMaybes (snd <$> bds)
-    let run_subnetId = ec2instance_subnet >>= lookupOrId' "subnet-" subnetA
-    let run_securityGroupIds = catMaybes $ lookupOrId' "sg-" sgA <$> ec2instance_securityGroups
+    let run_subnetId = ec2instance_subnet >>= lookupOrId subnetA
+    let run_securityGroupIds = catMaybes $ lookupOrId sgA <$> ec2instance_securityGroups
     let run_imageId = ec2instance_ami
     let run_count = (1, 1)
     let run_instanceType = ec2instance_instanceType
     let run_ebsOptimized = ec2instance_ebsOptimized
-    let run_keyName = lookupOrId' "" keypairA ec2instance_keyPair
+    let run_keyName = lookupOrId keypairA ec2instance_keyPair
     let run_availabilityZone = Just ec2instance_zone
     let run_iamInstanceProfileARN = ec2instance_instanceProfileARN
 
