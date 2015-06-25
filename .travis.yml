@@ -4,21 +4,20 @@ before_install:
 - mkdir -p ~/bin
 - curl -sL -o - https://github.com/commercialhaskell/stack/releases/download/v0.1.0.0/stack-0.1.0.0-x86_64-linux.gz | zcat > ~/bin/stack
 - chmod +x ~/bin/stack
-- ~/bin/stack setup
 
 install:
-- ~/bin/stack build
+- ~/bin/stack --system-ghc build
 
 script:
-- ~/bin/stack test
+- ~/bin/stack --system-ghc test
 
 cache:
   directories:
   - $HOME/bin
   - $HOME/.stack
 
-
 addons:
   apt:
     packages:
     - libgmp3-dev
+    - ghc-7.8.4
