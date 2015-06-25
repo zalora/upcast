@@ -16,3 +16,9 @@ cache:
   directories:
   - $HOME/bin
   - $HOME/.stack
+
+
+addons:
+  apt:
+    packages:
+    - libgmp3-dev
