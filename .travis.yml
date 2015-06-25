@@ -1,15 +1,17 @@
 sudo: false
 
 before_install:
-- sudo sh -c 'curl -sL -o - https://github.com/commercialhaskell/stack/releases/download/v0.1.0.0/stack-0.1.0.0-x86_64-linux.gz | zcat > /usr/local/bin/stack'
-- sudo chmod +x /usr/local/bin/stack
+- mkdir -p ~/bin
+- curl -sL -o - https://github.com/commercialhaskell/stack/releases/download/v0.1.0.0/stack-0.1.0.0-x86_64-linux.gz | zcat > ~/bin
+- chmod +x ~/bin/stack
 
 install:
-- stack build
+- ~/bin/stack build
 
 script:
-- stack test
+- ~/bin/stack test
 
 cache:
   directories:
+  - $HOME/bin
   - $HOME/.stack
