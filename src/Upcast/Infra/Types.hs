@@ -10,7 +10,6 @@
 module Upcast.Infra.Types where
 
 import Control.Applicative
-import Control.Monad (mzero)
 import Control.Monad.Free
 
 import Data.Monoid (mconcat)
@@ -61,29 +60,12 @@ castE v = parseEither (const (parseJSON v)) v
 justCast :: forall a. FromJSON a => Value -> a
 justCast v = either (\e -> error (concat ["justCast failed for: ", show v, " with: ", e])) id (castE v :: Either String a)
 
-mvalues = fmap snd . Map.toList
-values = fmap snd . H.toList
-
 forceLookup k v = case alookupSE k v of
                     Left reason -> error $ show reason
                     Right x -> x
 
-mcast :: forall a. FromJSON a => Text -> Value -> [a]
-mcast key value = mvalues $ (justCast :: MapCast a) $ forceLookup key value
-
 acast :: forall a. FromJSON a => Text -> Value -> a
 acast key value = (justCast :: Value -> a) $ forceLookup key value
-
-scast :: forall a. FromJSON a => Text -> Value -> Maybe a
-scast k v = alookupS k v >>= castValue
-
-alistFromObject :: Text -> Value -> [(Text, Value)]
-alistFromObject key value = Map.toList $ (justCast :: MapCast Value) $ forceLookup key value
-
-castText :: Value -> Maybe Text
-castText (String "") = Nothing
-castText (String s) = Just s
-castText _ = Nothing
 
 type K = Text
 type V = Text
