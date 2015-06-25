@@ -5,3 +5,4 @@
 *.hp
 *.prof
 cabal.sandbox.config
+Playground.hs
