@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE OverloadedStrings, RankNTypes #-}
 
 module Upcast.Command (
   Local(..)

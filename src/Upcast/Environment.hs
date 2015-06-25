@@ -1,4 +1,4 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 
 module Upcast.Environment where
 
@@ -67,4 +67,3 @@ prepAuth keyFiles = do
       when (null sock) $
         fail "SSH_AUTH_SOCK is not set, please setup your ssh agent with necessary keys."
       return sock
-

@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds #-}
+
 module Upcast.IO (
   module System.IO
 , ASCIIColor(..)
@@ -9,19 +11,31 @@ module Upcast.IO (
 , warn
 , warn8
 , pprint
+, Str
+, toString
+, args
+, squote
+, dquote
+, env
 ) where
 
-import System.IO
-import System.IO.Unsafe (unsafePerformIO)
-import System.Exit (ExitCode(..))
-import Control.Exception
+import           System.IO
+import           System.IO.Unsafe (unsafePerformIO)
+import           System.Exit (ExitCode(..))
+import           Control.Exception
 
-import Data.Monoid (mconcat, (<>))
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as LBS
+import           Data.Maybe (fromMaybe)
+import           Data.Monoid (Monoid, mconcat, (<>))
+import           Data.String (IsString)
 
-import Data.Aeson.Types (ToJSON)
-import Data.Aeson.Encode.Pretty (encodePretty)
+import           Data.List (intersperse)
+
+import           Text.Read (readMaybe)
+
+import           Data.Aeson.Types (ToJSON)
+import           Data.Aeson.Encode.Pretty (encodePretty)
 
 data ASCIIColor = Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
                 deriving (Enum)
@@ -65,3 +79,21 @@ warn8 = B8.hPutStrLn stderr . mconcat
 
 pprint :: ToJSON a => a -> IO ()
 pprint = LBS.putStrLn . encodePretty
+
+
+type Str a = (IsString a, Show a)
+
+toString :: Show a => a -> String
+toString s = let s' = show s in fromMaybe s' (readMaybe s')
+
+args :: (IsString a, Monoid a) => [a] -> a
+args = mconcat . intersperse " "
+
+squote :: Str a => a -> String
+squote a = mconcat ["'", toString a, "'"]
+
+dquote :: Str a => a -> String
+dquote a = mconcat ["\"", toString a, "\""]
+
+env :: Str a => [(String, a)] -> String
+env = args . ("env":) . mconcat . fmap (\(k, v) -> [k, "=", squote v])

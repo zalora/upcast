@@ -5,7 +5,6 @@
            , FlexibleContexts
            , LambdaCase
            , TupleSections
-           , QuasiQuotes
            #-}
 
 module Upcast.Infra.Ec2 where
@@ -38,7 +37,6 @@ import qualified Aws.Ec2 as EC2
 
 import Upcast.IO (expectRight)
 import Upcast.Command (fgconsume, Command(..), Local(..))
-import Upcast.Interpolate (n)
 import Upcast.Infra.Types
 import Upcast.Infra.ELB
 import Upcast.Infra.NixTypes

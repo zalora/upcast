@@ -22,7 +22,6 @@ executable upcast
                      , lifted-base
                      , mtl, free
                      , async
-                     , haskell-src-meta, template-haskell
                      , attoparsec
                      , aeson, unordered-containers, vector, scientific
                      , aeson-pretty
@@ -45,7 +44,7 @@ executable upcast
   hs-source-dirs:      src
   ghc-options:         -static -rtsopts -threaded
   default-language:    Haskell2010
-  default-extensions:  OverloadedStrings, TemplateHaskell
+  default-extensions:  OverloadedStrings
 
 executable fgrun
   main-is:             fgrun.hs
@@ -56,10 +55,8 @@ executable fgrun
                      , mtl
                      , conduit
                      , filepath
-                     , haskell-src-meta
                      , process
                      , resourcet
-                     , template-haskell
                      , time
                      , vk-posix-pty >= 0.2.1
 

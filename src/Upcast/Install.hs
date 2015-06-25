@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
 {-# LANGUAGE ImplicitParams #-}
 
 module Upcast.Install (
@@ -60,4 +60,3 @@ go FgCommands{..} dm install@Install{i_paths} = do
   fgssh $ nixSetProfileI install
   when (i_profile install == nixSystemProfile) $ do
     fgssh . nixSwitchToConfiguration $ install
-
