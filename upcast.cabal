@@ -39,6 +39,7 @@ executable upcast
                      , amazonka-elb
                      , amazonka-autoscaling
                      , lens
+                     , exceptions
                      , vk-posix-pty >= 0.2.1
 
   hs-source-dirs:      src
