@@ -1,34 +1,52 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, RecordWildCards, NamedFieldPuns #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Main where
 
-import Upcast.Monad
-import Options.Applicative
+import           Prelude hiding (sequence)
 
-import System.Directory (removeFile)
-import System.Posix.Env (getEnvDefault)
-import System.Posix.Files (readSymbolicLink)
-import System.FilePath.Posix
+import           Control.Monad.Catch (MonadCatch)
+import           Control.Monad.Error.Class (MonadError)
+import qualified Control.Monad.Trans.AWS as AWS
 
-import Data.List (intercalate)
-import qualified Data.Text as T
-import Data.Text (Text(..))
-import Data.Maybe (catMaybes, fromMaybe, isJust)
-import qualified Data.Map as Map
+import           Data.Aeson
 import qualified Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as B8
+import           Data.List (intercalate)
+import qualified Data.Map as Map
+import           Data.Maybe (catMaybes, fromMaybe, isJust)
+import           Data.Monoid
+import           Data.Text (Text(..))
+import qualified Data.Text as T
+import           Data.Traversable
 
-import Upcast.Types
-import Upcast.IO
-import Upcast.Interpolate (nl, n)
-import Upcast.Nix
-import Upcast.Infra
-import Upcast.DeployCommands
-import Upcast.Command
-import Upcast.Temp
-import Upcast.Environment
-import Upcast.Install
+import           Options.Applicative
+import           System.Directory (removeFile)
+import           System.Environment (setEnv)
+import           System.FilePath.Posix
+import           System.Posix.Env (getEnvDefault)
+import           System.Posix.Files (readSymbolicLink)
+
+import           Network.AWS.Types as AWS
+
+import           Upcast.Command
+import           Upcast.DeployCommands
+import           Upcast.Environment
+import           Upcast.IO
+import           Upcast.Infra
+import           Upcast.Infra.AmazonkaTypes
+import           Upcast.Infra.Match
+import           Upcast.Infra.NixTypes
+import           Upcast.Install
+import           Upcast.Interpolate (nl, n)
+import           Upcast.Monad
+import           Upcast.Nix
+import           Upcast.Temp
+import           Upcast.Types
 
 evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
 evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
@@ -51,6 +69,33 @@ infraDump = icontext >=> print . inc_infras
 
 infraDebug :: InfraCli -> IO ()
 infraDebug = icontext >=> debugEvalInfra >=> const (return ())
+
+infraScan :: InfraCli -> IO ()
+infraScan = icontext >=> go >=> pprint . object
+  where
+    go InfraContext{inc_infras=infras@Infras{..}} = do
+      let match ::
+            (CanMatch a, Applicative f, MonadCatch f, MonadError AWS.Error f, AWS.MonadAWS f)
+            => Attrs a -> f (Attrs (Either DiscoveryError ResourceId))
+          match = traverse (`matchTags` [("realm", infraRealmName)])
+
+          matchWithName ::
+            (CanMatch a, Applicative f, MonadCatch f, MonadError AWS.Error f, AWS.MonadAWS f)
+            => Attrs a -> f (Attrs (Either DiscoveryError ResourceId))
+          matchWithName = Map.traverseWithKey
+                         (\k v -> matchTags v [("realm", infraRealmName), ("Name", k)])
+
+      let region = readRegion (validateRegion infras)
+      env <- AWS.getEnv region AWS.Discover
+      expectRight $ AWS.runAWST env $
+        sequence [ ("vpc" .=)      <$> matchWithName infraEc2vpc
+                 , ("subnet" .=)   <$> match infraEc2subnet
+                 , ("sg" .=)       <$> match infraEc2sg
+                 , ("keypair" .=)  <$> match infraEc2keypair
+                 , ("ebs" .=)      <$> match infraEbs
+                 , ("instance" .=) <$> matchWithName infraEc2instance
+                 , ("elb" .=)      <$> match infraElb
+                 ]
 
 buildRemote :: BuildRemoteCli -> IO ()
 buildRemote BuildRemoteCli{..} =
@@ -157,7 +202,7 @@ main = do
 
     exp = metavar "<expression file>"
 
-    opts = (subparser cmds) `info` header "upcast - infrastructure orchestratrion"
+    opts = subparser cmds `info` header "upcast - infrastructure orchestratrion"
 
     cmds = command "infra"
            (sshConfig <$> infraCliArgs `info`
@@ -174,6 +219,10 @@ main = do
         <> command "infra-nix"
            (infraNix <$> infraCliArgs `info`
             progDesc "evaluate infrastructure and print the nix description")
+
+        <> command "infra-scan"
+           (infraScan <$> infraCliArgs `info`
+            progDesc "scan for existing resources ignoring the state file")
 
         <> command "build-remote"
            (buildRemote <$> buildRemoteCli `info`

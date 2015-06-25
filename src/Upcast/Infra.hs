@@ -60,6 +60,7 @@ import Upcast.Infra.Types
 import Upcast.Infra.NixTypes
 import Upcast.Infra.Ec2
 
+
 -- | ReaderT context InfraPlan evaluates in.
 data EvalContext = EvalContext
                { mgr :: HTTP.Manager
@@ -221,14 +222,18 @@ debugEvalInfra InfraContext{..} = do
   where
     name = T.pack $ snd $ splitFileName inc_expressionFile
 
+validateRegion :: Infras -> Text
+validateRegion Infras{infraRegions} =
+    case infraRegions of
+      [reg] -> reg
+      _ -> error $ mconcat [ "can only operate with expressions that "
+                           , "do not span multiple EC2 regions, given: "
+                           , show infraRegions
+                           ]
+
 evalInfra :: InfraContext -> IO [Machine]
 evalInfra InfraContext{..} = do
-    let region = case infraRegions inc_infras of
-                   [reg] -> T.encodeUtf8 reg
-                   _ -> error $ mconcat [ "can only operate with expressions that "
-                                        , "do not span multiple EC2 regions, given: "
-                                        , show (infraRegions inc_infras)
-                                        ]
+    let region = T.encodeUtf8 (validateRegion inc_infras)
     store <- loadSubStore inc_stateFile
 
     keypairs <- prepareKeyPairs (infraEc2keypair inc_infras)

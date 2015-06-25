@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ConstraintKinds #-}
@@ -6,6 +7,7 @@
 
 module Upcast.Infra.Match where
 
+import           Control.Applicative
 import           Control.Lens
 
 import           Control.Monad
@@ -15,7 +17,11 @@ import           Control.Monad.Trans.AWS (MonadAWS, AWSRequest, AWSPager)
 import qualified Control.Monad.Trans.AWS as AWS
 import           Control.Monad.Trans.Resource
 
+import           Data.Aeson (ToJSON)
 import           Data.Maybe (maybeToList)
+import           Data.Monoid
+import           Data.Text (Text)
+import           GHC.Generics
 
 import           Data.Conduit (($$), (=$=))
 import qualified Data.Conduit as C
@@ -32,11 +38,18 @@ import           Upcast.Infra.Types hiding (Tags)
 
 data DiscoveryError = NotFound
                     | Ambiguous [Text]
-                    deriving Show
+                    deriving (Show, Generic)
+instance ToJSON DiscoveryError
 
 type ResourceId = Text
 type Tags = [(Text, Text)]
 
+type CanMatch infra =
+  ( AWSMatchRequest infra
+  , AWSExtractIds (AWS.Rs (Rq infra))
+  , AWSRequest (Rq infra)
+  , AWSPager (Rq infra)
+  )
 
 class AWSExtractIds a where
   extractIds :: a -> [ResourceId]
@@ -69,7 +82,8 @@ instance AWSExtractIds EC2.DescribeKeyPairsResponse where
 
 instance AWSMatchRequest Ebs where
   type Rq Ebs = EC2.DescribeVolumes
-  matchRequest _ tags = EC2.describeVolumes & EC2.dv2Filters .~ filters tags
+  matchRequest Ebs{..} tags = EC2.describeVolumes &
+                              EC2.dv2Filters .~ filters (("Name", ebs_name):tags)
 
 instance AWSExtractIds EC2.DescribeVolumesResponse where
   extractIds resp = do
@@ -117,12 +131,16 @@ instance AWSExtractIds ELB.DescribeLoadBalancersResponse where
     maybeToList $ elb ^. ELB.lbdLoadBalancerName
 
 
+instance AWSPager EC2.DescribeVpcs where page _ _ = Nothing
+instance AWSPager EC2.DescribeSubnets where page _ _ = Nothing
+instance AWSPager EC2.DescribeSecurityGroups where page _ _ = Nothing
+instance AWSPager EC2.DescribeKeyPairs where page _ _ = Nothing
+instance AWSPager EC2.DescribeVolumes where page _ _ = Nothing
+
+
 matchTags ::
   forall infra m.
-  (AWSMatchRequest infra,
-   AWSExtractIds (AWS.Rs (Rq infra)),
-   AWSRequest (Rq infra),
-   AWSPager (Rq infra),
+  (CanMatch infra,
    MonadAWS m,
    MonadCatch m,
    MonadError AWS.Error m,
