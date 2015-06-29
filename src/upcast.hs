@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE ImplicitParams #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -12,16 +11,15 @@ import           Control.Monad.Catch (MonadCatch)
 import           Control.Monad.Error.Class (MonadError)
 
 import           Data.Aeson
-import qualified Data.ByteString.Char8 (ByteString)
+import           Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as B8
 import           Data.List (intercalate, intersperse)
 import qualified Data.Map as Map
 import           Data.Maybe (isJust)
-import           Data.Monoid
-import           Data.String
+import           Data.Monoid (mconcat)
 import           Data.Text (Text(..))
 import qualified Data.Text as T
-import           Data.Traversable
+import           Data.Traversable (sequence, traverse)
 
 import           Options.Applicative
 
@@ -84,7 +82,7 @@ buildRemote BuildRemoteCli{..} =
     fwd = fgrunDirect . ssh_
     copy = let ?sshConfig = Nothing in nixCopyClosureTo
 
-    go :: NixContext -> IO B8.ByteString
+    go :: NixContext -> IO ByteString
     go NixContext{..} = do
       drv <- fgtmp $ nixInstantiate nix_args brc_attribute nix_expressionFile
 
@@ -115,7 +113,7 @@ sshConfig = infra >=> out . mconcat . fmap config
                      , "StrictHostKeyChecking=no"
                      ]
 
-    args :: (IsString a, Monoid a) => [a] -> a
+    args :: [String] -> String
     args = mconcat . intersperse " "
 
     config Machine{..} = unlines [ args ["Host", toString m_hostname]
