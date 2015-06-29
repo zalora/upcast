@@ -1,24 +1,25 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
-
 module Upcast.Types where
 
 import Data.Text (Text)
 import Data.Aeson (Value)
 import Data.ByteString.Char8 (ByteString)
 
-import Upcast.Command (Remote)
-
 import Upcast.Infra.NixTypes (Infras)
 
-type StorePath = String
+newtype Remote = Remote String
+                 deriving Show
+
+type StorePath = FilePath
 type StorePathBS = ByteString
 type Hostname = Text
+type Executable = String
 
 data NixContext = NixContext
                   { nix_expressionFile :: FilePath
-                  , nix_args :: Text
+                  , nix_args :: [String]
                   , nix_sshStoreCache :: Maybe String
                   } deriving (Show)
+
 
 data InfraContext = InfraContext
                   { inc_expressionFile :: String
@@ -35,18 +36,19 @@ data Machine = Machine
              , m_keyFile :: Maybe Text
              } deriving (Show)
 
--- | Per-machine Nix closure install context used in some of 'DeployCommands'.
+
+-- | Per-machine Nix closure install context used during 'upcast install'.
 data Install = Install
-             { i_remote :: Remote
-             , i_storepath :: StorePath
-             , i_paths :: [StorePathBS] -- ^ all deps of 'i_storepath' (for 'nixTrySubstitutes')
-             , i_profile :: FilePath
-             } deriving (Show)
+              { i_remote :: Remote
+              , i_profile :: FilePath
+              , i_sshConfig :: Maybe FilePath
+              , i_delivery :: DeliveryMode
+              , i_storepath :: StorePath
+              } deriving (Show)
+
 
 data DeliveryMode = Push | Pull String
-
-toDelivery :: Maybe String -> DeliveryMode
-toDelivery = maybe Push Pull
+                  deriving Show
 
 -- | CLI arguments to 'infra*'
 data InfraCli = InfraCli
@@ -54,14 +56,6 @@ data InfraCli = InfraCli
                 , infraCli_expressionFile :: FilePath
                 } deriving (Show)
 
--- | CLI arguments to 'install'.
-data InstallCli = InstallCli
-                { ic_target :: String
-                , ic_profile :: Maybe FilePath
-                , ic_sshConfig :: Maybe FilePath
-                , ic_pullFrom :: Maybe String
-                , ic_storepath :: FilePath
-                } deriving (Show)
 
 -- | CLI arguments to 'buildRemote'.
 data BuildRemoteCli = BuildRemoteCli

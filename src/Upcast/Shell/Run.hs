@@ -1,10 +1,8 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 
-module Upcast.Command (
-  Local(..)
-, Remote(..)
-, Command(..)
-, ExitCode(..)
+module Upcast.Shell.Run (
+  ExitCode(..)
 , measure
 , fgrunProxy
 , fgrunPipe
@@ -15,42 +13,39 @@ module Upcast.Command (
 , spawn
 ) where
 
-import Upcast.Monad
+import           Upcast.Monad
 import qualified Upcast.IO as IO
-import Upcast.IO (openFile, warn, warn8, applyColor)
+import           Upcast.IO (openFile, warn, warn8, applyColor)
 
-import Control.Monad.Trans.Resource
+import           Control.Monad.Trans.Resource
 
-import System.FilePath (FilePath)
-import System.Process (createProcess, waitForProcess, interruptProcessGroupOf,
-                       CreateProcess(..), CmdSpec(..), StdStream(..), shell,
-                       ProcessHandle)
-import System.Exit (ExitCode(..))
-import GHC.IO.Handle (hClose, Handle)
-import System.IO.Error (tryIOError)
-import System.Posix.IO (createPipe, fdToHandle)
-import System.Posix.Pty (spawnWithPty, readPty, Pty)
-import System.Posix.Env (getEnv)
+import           System.FilePath (FilePath)
+import            System.Process (createProcess, waitForProcess, interruptProcessGroupOf,
+                                  CreateProcess(..), CmdSpec(..), StdStream(..), shell,
+                                  ProcessHandle)
+import           System.Exit (ExitCode(..))
+import           GHC.IO.Handle (hClose, Handle)
+import           System.IO.Error (tryIOError)
+import           System.Posix.IO (createPipe, fdToHandle)
+import           System.Posix.Pty (spawnWithPty, readPty, Pty)
+import           System.Posix.Env (getEnv)
 import qualified Data.List as L
-import Data.Monoid
-import Data.Time.Clock
-import Data.IORef
+import           Data.Monoid
+import           Data.Time.Clock
+import           Data.IORef
 
-import Data.ByteString (ByteString)
+import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 
-import Data.Conduit hiding (Flush(..))
+import           Data.Conduit hiding (Flush(..))
 import qualified Data.Conduit.List as CL
+
+import           Upcast.Shell.Types (Commandline, sh)
 
 data Flush a = Chunk a | Flush ExitCode
 type ProcessSource i m = ConduitM i (Flush ByteString) m ()
-type Key = FilePath
 
-data Local = Local deriving (Show)
-data Remote = Remote (Maybe Key) String deriving (Show)
-
-data Command a = Cmd a String String deriving (Show)
 data Mode = Consume | Run
 
 instance Monoid ExitCode where
@@ -66,20 +61,20 @@ measure action = do
     then' <- getCurrentTime
     return (diffUTCTime then' now, result)
 
-fgrunProxy :: Command Local -> IO ExitCode
+fgrunProxy :: Commandline -> IO ExitCode
 fgrunProxy cmd = do
   mPty <- getEnv "UPCAST_NO_PTY"
   let f = maybe runPty (const run) mPty
   fgrun1 f cmd
 
-fgrunPipe :: Command Local -> IO ExitCode
+fgrunPipe :: Commandline -> IO ExitCode
 fgrunPipe = fgrun1 run
 
-fgrunPty :: Command Local -> IO ExitCode
+fgrunPty :: Commandline -> IO ExitCode
 fgrunPty = fgrun1 runPty
 
-fgrun1 :: (Command Local -> ProcessSource () (ResourceT IO)) -> Command Local -> IO ExitCode
-fgrun1 runner c@(Cmd _ _ desc) = do
+fgrun1 :: (Commandline -> ProcessSource () (ResourceT IO)) -> Commandline -> IO ExitCode
+fgrun1 runner c = do
     print' Run c
     ref <- newIORef mempty
     (time, _) <- measure $ runResourceT $ runner c $$ awaitForever $ liftIO . output ref
@@ -87,57 +82,47 @@ fgrun1 runner c@(Cmd _ _ desc) = do
     printExit Run c code time
     return code
   where
+    desc = ""
     output ref (Flush code) = writeIORef ref code
-    output ref (Chunk s) = warn8 [ (B8.pack $ applyColor IO.Magenta desc)
+    output ref (Chunk s) = warn8 [ B8.pack $ applyColor IO.Magenta desc
                                  , "> ", s ]
 
-fgrunDirect :: Command Local -> IO ExitCode
-fgrunDirect c@(Cmd Local comm _) = do
+fgrunDirect :: Commandline -> IO ExitCode
+fgrunDirect c = do
     print' Run c
-    (_, _, _, phandle) <- createProcess cproc
+    (_, _, _, phandle) <- createProcess (interactiveProcess (sh c))
     (time, code) <- measure $ waitForProcess phandle
     printExit Run c code time
     return code
-  where
-    cproc = CreateProcess { cmdspec = ShellCommand comm
-                          , cwd = Nothing
-                          , env = Nothing
-                          , std_in = Inherit
-                          , std_out = UseHandle IO.stderr
-                          , std_err = UseHandle IO.stderr
-                          , close_fds = True
-                          , create_group = False
-                          , delegate_ctlc = True
-                          }
 
-fgconsume :: Command Local -> IO (Either BS.ByteString BS.ByteString)
-fgconsume c@(Cmd Local s _) = do
-    print' Consume c
+fgconsume :: Commandline -> IO (Either BS.ByteString BS.ByteString)
+fgconsume comm = do
+    print' Consume comm
     (time, (Just code, output)) <- measure $ (runResourceT $ proc $$ CL.consume) >>= return . concat
-    printExit Consume c code time
+    printExit Consume comm code time
     case code of
         ExitSuccess -> return $ Right output
         _ -> return $ Left output
     where
-      proc = roProcessSource (cmd s) Nothing (Just IO.stderr)
+      proc = roProcessSource (pipeProcess (sh comm)) Nothing (Just IO.stderr)
       concat = L.foldl' mappend (Just ExitSuccess, BS.empty) . fmap chunk
       chunk (Chunk a) = (Just ExitSuccess, a)
       chunk (Flush code) = (Just code, BS.empty)
 
-fgconsume_ :: Command Local -> IO BS.ByteString
+fgconsume_ :: Commandline -> IO BS.ByteString
 fgconsume_ c = either id id <$> fgconsume c
 
-run :: MonadResource m => Command Local -> ProcessSource i m
-run (Cmd Local s _) = roProcessSource (cmd s) Nothing Nothing
+run :: MonadResource m => Commandline -> ProcessSource i m
+run (sh -> c) = roProcessSource (pipeProcess c) Nothing Nothing
 
-runPty :: MonadResource m => Command Local -> ProcessSource i m
-runPty (Cmd Local s _) = do
-  (pty, proc) <- liftIO $ spawnWithPty Nothing True "/bin/sh" ["-c", s] (80, 25)
+runPty :: MonadResource m => Commandline -> ProcessSource i m
+runPty (sh -> c) = do
+  (pty, proc) <- liftIO $ spawnWithPty Nothing True "/bin/sh" ["-c", c] (80, 25)
   sourcePty (Just proc) pty
 
-spawn :: Command Local -> IO ProcessHandle
-spawn (Cmd Local s _) = do
-    (_, _, _, handle) <- createProcess $ cmd s
+spawn :: Commandline -> IO ProcessHandle
+spawn (sh -> c) = do
+    (_, _, _, handle) <- createProcess (pipeProcess c)
     return handle
 
 sourcePty :: MonadResource m => Maybe ProcessHandle -> Pty -> ProcessSource i m
@@ -166,17 +151,29 @@ sourcePty proc pty = loop ""
            yield (Chunk $ mconcat [acc, x])
            push xs >>= loop
 
-cmd :: String -> CreateProcess
-cmd s = CreateProcess { cmdspec = ShellCommand s
-                      , cwd = Nothing
-                      , env = Nothing
-                      , std_in = CreatePipe
-                      , std_out = CreatePipe
-                      , std_err = CreatePipe
-                      , close_fds = True
-                      , create_group = True
-                      , delegate_ctlc = False
-                      }
+pipeProcess :: String -> CreateProcess
+pipeProcess s = CreateProcess { cmdspec = ShellCommand s
+                              , cwd = Nothing
+                              , env = Nothing
+                              , std_in = CreatePipe
+                              , std_out = CreatePipe
+                              , std_err = CreatePipe
+                              , close_fds = True
+                              , create_group = True
+                              , delegate_ctlc = False
+                              }
+
+interactiveProcess :: String -> CreateProcess
+interactiveProcess s = CreateProcess { cmdspec = ShellCommand s
+                                     , cwd = Nothing
+                                     , env = Nothing
+                                     , std_in = Inherit
+                                     , std_out = UseHandle IO.stderr
+                                     , std_err = UseHandle IO.stderr
+                                     , close_fds = True
+                                     , create_group = False
+                                     , delegate_ctlc = True
+                                     }
 
 roProcessSource
   :: MonadResource m =>
@@ -220,7 +217,8 @@ sourceHandle ph h = loop
 color Consume = IO.Cyan
 color Run = IO.Blue
 
-prefix (Cmd Local _ desc) = mconcat [applyColor IO.Magenta desc, "% "]
+prefix = const "% "
+--prefix desc = mconcat [applyColor IO.Magenta desc, "% "]
 
 printExit mode cmd ex time = warn [ prefix cmd, suffix ex ]
   where
@@ -230,5 +228,5 @@ printExit mode cmd ex time = warn [ prefix cmd, suffix ex ]
                                                   <> show time
     suffix ExitSuccess = applyColor (color mode) $ "completed in " <> show time
 
-print' mode c@(Cmd Local comm desc) =
-  warn [prefix c, applyColor (color mode) $ L.take 1000 comm]
+print' mode (sh -> comm) =
+  warn [prefix comm, applyColor (color mode) $ L.take 1000 comm]

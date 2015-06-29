@@ -1,10 +1,9 @@
 import System.Environment (getArgs)
 
 import Data.List
-import Upcast.Command
+import Upcast.Shell
 
 main = do
-  args <- getArgs
-  let cmd = Cmd Local (intercalate " " args) "fgrun"
-  _ <- fgrunProxy cmd
+  (command:args) <- getArgs
+  _ <- fgrunProxy (exec command args)
   return ()

@@ -1,6 +1,5 @@
-{-# LANGUAGE OverloadedStrings
-           , TupleSections
-           #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 
 module Upcast.TermSubstitution (
   SubStore

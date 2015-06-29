@@ -40,9 +40,10 @@ executable upcast
                      , lens
                      , exceptions
                      , vk-posix-pty >= 0.2.1
+                     , semigroups
+                     , tagged
 
   hs-source-dirs:      src
-  ghc-options:         -static -rtsopts -threaded
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
 
@@ -59,8 +60,10 @@ executable fgrun
                      , resourcet
                      , time
                      , vk-posix-pty >= 0.2.1
+                     , semigroups
+                     , directory
+                     , random
 
   hs-source-dirs:      src
-  ghc-options:         -static -rtsopts -threaded
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings

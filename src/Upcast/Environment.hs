@@ -1,69 +1,72 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Upcast.Environment where
 
-import System.Directory (canonicalizePath)
-import System.Posix.Env (getEnvDefault, getEnv, setEnv)
-import System.FilePath.Posix
-import Options.Applicative
+import           Control.Applicative
+import           System.Directory (canonicalizePath)
+import           System.Posix.Env (getEnvDefault, getEnv)
+import           System.FilePath.Posix (replaceExtension)
 
-import qualified Data.ByteString.Char8 as BS
+import           Data.Aeson (eitherDecodeStrict, Value)
+import           Data.ByteString.Char8 (ByteString)
+import           Data.Maybe (catMaybes, fromMaybe, isJust, fromJust)
+import           Data.Text (Text)
 import qualified Data.Text as T
-import Data.Text (Text)
-import qualified Data.Map as Map
-import Data.Map (Map)
 
-import Data.Aeson (eitherDecodeStrict)
+import           Upcast.IO (expectRight)
+import           Upcast.Infra.NixTypes (Infras)
+import           Upcast.Monad (sequenceMaybe)
+import           Upcast.Shell
+import           Upcast.Types (StorePath, NixContext(..), InfraCli(..), InfraContext(..))
 
-import Upcast.Monad
-import Upcast.IO
-import Upcast.Types
-import Upcast.Temp
-import Upcast.Command
-import Upcast.DeployCommands (setupAgentF, sshAddKeyFile)
+import           Paths_upcast (getDataFileName)
 
-import Paths_upcast
-
-sequenceMaybe :: Monad m => [m (Maybe a)] -> m (Maybe a)
-sequenceMaybe [] = return Nothing
-sequenceMaybe (act:actions) = act >>= maybe (sequenceMaybe actions) (return . Just)
-
-nixPath :: IO (Maybe String)
-nixPath = sequenceMaybe [getEnv "NIX_UPCAST", Just <$> getDataFileName "nix"]
+nixPath :: IO String
+nixPath =
+  fromJust <$> sequenceMaybe [ getEnv "NIX_UPCAST"
+                              , Just <$> getDataFileName "nix"
+                              , Just <$> return "nix" ]
 
 nixContext :: FilePath -> IO NixContext
 nixContext file = do
     nix_expressionFile <- canonicalizePath file
-    Just upcastPath <- fmap T.pack <$> nixPath
+    upcastPath <- nixPath
     nixArgs <- T.pack <$> getEnvDefault "UPCAST_NIX_FLAGS" ""
-    let nix_args = " -I upcast=" <> upcastPath <> " " <> nixArgs <> " --show-trace "
-
+    let nix_args = ["-I", "upcast=" <> upcastPath, "--show-trace"] <>
+                   (fmap T.unpack (T.splitOn " " nixArgs))
     nix_sshStoreCache <- getEnv "UPCAST_SSH_STORE_CACHE"
-
     return NixContext{..}
 
-parseSubstitutesMap :: String -> ReadM (Map Text StorePath)
-parseSubstitutesMap s =
-  case eitherDecodeStrict $ BS.pack s of
-      Left e -> readerError e
-      Right v -> return v
+icontext :: InfraCli -> IO InfraContext
+icontext infraCli@InfraCli{..} =
+  nixContext infraCli_expressionFile >>= evalInfraContext infraCli
 
-prepAuth :: [Text] -> IO ()
-prepAuth keyFiles = do
-    userAuthSock <- getEnv "UPCAST_SSH_AUTH_SOCK"
-    agentSocket <- case userAuthSock of
-                     Just sock -> do
-                        warn ["Using UPCAST_SSH_AUTH_SOCK: ", sock]
-                        return sock
-                     Nothing | null keyFiles ->  fallback
-                             | otherwise -> setupAgentF sshAddKeyFile keyFiles
+evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
+evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
+  info <- fgconsume_ (nixInfraInfo nix)
+  value <- expectRight $ return $ nixInfras info
+  return InfraContext{ inc_expressionFile = file
+                     , inc_stateFile = fromMaybe (replaceExtension file "store") infraCli_stateFile
+                     , inc_infras = value
+                     }
 
-    setEnv "SSH_AUTH_SOCK" agentSocket True
-  where
-    fallback = do
-      sock <- getEnvDefault "SSH_AUTH_SOCK" ""
-      warn [ "None of instances reference ssh key files, using SSH_AUTH_SOCK ("
-           , show sock, ")."]
-      when (null sock) $
-        fail "SSH_AUTH_SOCK is not set, please setup your ssh agent with necessary keys."
-      return sock
+nixInfras :: ByteString -> Either String Infras
+nixInfras = eitherDecodeStrict
+
+nixInfraInfo :: NixContext -> Commandline
+nixInfraInfo NixContext{..} =
+  exec "nix-instantiate" (nix_args <>
+                          [ "--argstr", "expr", nix_expressionFile
+                          , "<upcast/eval-infra.nix>"
+                          , "--eval-only", "--strict", "--json"
+                          , "--read-write-mode"
+                          ])
+
+nixInstantiate :: [String] -> Maybe String -> String -> FilePath -> Commandline
+nixInstantiate nix_args attr exprFile root =
+  exec "nix-instantiate" (nix_args <>
+                          [ "--read-write-mode"
+                          , "--add-root", root
+                          , "--indirect"
+                          ] <> maybeKey "-A" attr <> [exprFile])
