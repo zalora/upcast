@@ -39,12 +39,12 @@ mapMBoth f (a, b) = return (,) `ap` f a `ap` f b
 mapMBoth_ :: Monad m => (t -> m a) -> (t, t) -> m ()
 mapMBoth_ f (a, b) = f a >> f b  >> return ()
 
-whenJustM :: MonadPlus m => m (Maybe a) -> (a -> m b) -> m b
+whenJustM :: Monad m => m (Maybe a) -> (a -> m b) -> m ()
 whenJustM action f = do
   result <- action
   case result of
-   Just x -> f x
-   Nothing -> mzero
+   Just x -> f x >> return ()
+   Nothing -> return ()
 
 sequenceMaybe :: Monad m => [m (Maybe a)] -> m (Maybe a)
 sequenceMaybe [] = return Nothing

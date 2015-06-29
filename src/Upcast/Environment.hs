@@ -5,12 +5,13 @@ module Upcast.Environment where
 
 import           Control.Applicative
 import           System.Directory (canonicalizePath)
-import           System.Posix.Env (getEnvDefault, getEnv)
+import           System.Posix.Env (getEnv)
 import           System.FilePath.Posix (replaceExtension)
 
 import           Data.Aeson (eitherDecodeStrict, Value)
 import           Data.ByteString.Char8 (ByteString)
 import           Data.Maybe (catMaybes, fromMaybe, isJust, fromJust)
+import           Data.Monoid (mempty)
 import           Data.Text (Text)
 import qualified Data.Text as T
 
@@ -32,9 +33,9 @@ nixContext :: FilePath -> IO NixContext
 nixContext file = do
     nix_expressionFile <- canonicalizePath file
     upcastPath <- nixPath
-    nixArgs <- T.pack <$> getEnvDefault "UPCAST_NIX_FLAGS" ""
+    nixArgs <- getEnv "UPCAST_NIX_FLAGS"
     let nix_args = ["-I", "upcast=" <> upcastPath, "--show-trace"] <>
-                   (fmap T.unpack (T.splitOn " " nixArgs))
+                   maybe mempty (fmap T.unpack . T.splitOn " " . T.pack) nixArgs
     nix_sshStoreCache <- getEnv "UPCAST_SSH_STORE_CACHE"
     return NixContext{..}
 
