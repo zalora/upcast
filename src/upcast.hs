@@ -29,8 +29,8 @@ import qualified Control.Monad.Trans.AWS as AWS
 import           Network.AWS.Types as AWS
 
 import           Upcast.Shell hiding ((<>))
-import           Upcast.Deploy hiding (ssh)
-import           Upcast.Environment (nixPath, nixContext, icontext)
+import           Upcast.Deploy (nixCopyClosureTo, nixRealise, nixSetProfile, nixSystemProfile)
+import           Upcast.Environment (nixPath, nixContext, icontext, nixInstantiate)
 import           Upcast.IO
 import           Upcast.Infra
 import           Upcast.Infra.AmazonkaTypes (readRegion)

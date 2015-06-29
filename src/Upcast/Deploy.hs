@@ -36,3 +36,13 @@ nixSetProfile i_profile i_storepath =
 
 nixClosure :: FilePath -> Commandline
 nixClosure path = exec "nix-store" ["-qR", path]
+
+nixCopyClosureTo :: (?sshConfig :: Maybe FilePath) => String -> FilePath -> Commandline
+nixCopyClosureTo "localhost" path = exec "ls" ["-ld", "--", path]
+nixCopyClosureTo host path = nixSshEnv (exec "nix-copy-closure" [ "--gzip"
+                                                                , "--to", host
+                                                                , path
+                                                                ])
+
+nixSystemProfile :: FilePath
+nixSystemProfile = "/nix/var/nix/profiles/system"

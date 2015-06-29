@@ -12,7 +12,8 @@ module Upcast.Install (
 import System.Posix.Env (getEnv)
 import Data.List (break)
 
-import Upcast.Deploy (nixSetProfile, ssh, sshBaseOptions, nixSshEnv)
+import Upcast.Deploy (nixSetProfile, ssh, sshBaseOptions, nixSshEnv,
+                      nixCopyClosureTo, nixSystemProfile)
 import Upcast.IO (expect)
 import Upcast.Monad (whenJustM, when, unless)
 import Upcast.Shell (Commandline, ExitCode(..), fgrunDirect, (|:),
@@ -43,9 +44,6 @@ nixSetProfileI :: (?sshConfig :: Maybe FilePath) => Install -> Commandline
 nixSetProfileI Install{..} =
     forward i_remote (nixSetProfile i_profile i_storepath)
 
-nixSystemProfile :: FilePath
-nixSystemProfile = "/nix/var/nix/profiles/system"
-
 nixSwitchToConfiguration :: (?sshConfig :: Maybe FilePath) => Install -> Commandline
 nixSwitchToConfiguration Install{i_remote = r@(Remote host)} =
   ssh host (env [("NIXOS_NO_SYNC", "1")]
@@ -54,13 +52,8 @@ nixSwitchToConfiguration Install{i_remote = r@(Remote host)} =
 prepKnownHostI cache Install{i_remote} = forward i_remote (prepKnownHost cache)
 
 nixCopyClosureToI :: (?sshConfig :: Maybe FilePath) => Install -> Commandline
-nixCopyClosureToI Install{i_remote=(Remote host), i_storepath} = go host i_storepath
-  where
-    go "localhost" path = exec "ls" ["-ld", "--", path]
-    go host path = nixSshEnv (exec "nix-copy-closure" [ "--gzip"
-                                                      , "--to", host
-                                                      , path
-                                                      ])
+nixCopyClosureToI Install{i_remote=(Remote host), i_storepath} =
+  nixCopyClosureTo host i_storepath
 
 nixCopyClosureFromI :: (?sshConfig :: Maybe FilePath) => String -> Install -> Commandline
 nixCopyClosureFromI from Install{i_remote, i_storepath} =
