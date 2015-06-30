@@ -1,13 +1,14 @@
-{-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ImplicitParams #-}
 
 module Upcast.Deploy where
 
 import qualified Upcast.Shell as Shell
-import Upcast.Shell (Commandline, (<>), env, render, args, maybeKey, exec)
-import Upcast.Types (StorePath, Remote(..), Install(..), NixContext(..))
+import           Upcast.Shell (Commandline, (<>), env, render,
+                               args, maybeKey, exec)
+import           Upcast.Types (StorePath, Remote(..),
+                               Install(..), NixContext(..))
 
 ssh :: (?sshConfig :: Maybe FilePath) => String -> Commandline -> Commandline
 ssh host = Shell.ssh host sshBaseOptions

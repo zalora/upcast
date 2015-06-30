@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ImplicitParams #-}
 
 module Upcast.Environment where
 
@@ -10,16 +11,19 @@ import           System.FilePath.Posix (replaceExtension)
 
 import           Data.Aeson (eitherDecodeStrict, Value)
 import           Data.ByteString.Char8 (ByteString)
+import qualified Data.ByteString.Char8 as B8
 import           Data.Maybe (catMaybes, fromMaybe, isJust, fromJust)
 import           Data.Monoid (mempty)
 import           Data.Text (Text)
 import qualified Data.Text as T
 
-import           Upcast.IO (expectRight)
+import           Upcast.Deploy (nixCopyClosureTo, nixRealise, nixSetProfile)
+import           Upcast.IO (expectRight, srsly)
 import           Upcast.Infra.NixTypes (Infras)
-import           Upcast.Monad (sequenceMaybe)
+import           Upcast.Monad (sequenceMaybe, when)
 import           Upcast.Shell
-import           Upcast.Types (StorePath, NixContext(..), InfraCli(..), InfraContext(..))
+import           Upcast.Types (StorePath, NixContext(..), InfraCli(..),
+                               InfraContext(..), BuildRemote(..))
 
 import           Paths_upcast (getDataFileName)
 
@@ -71,3 +75,27 @@ nixInstantiate nix_args attr exprFile root =
                           , "--add-root", root
                           , "--indirect"
                           ] <> maybeKey "-A" attr <> [exprFile])
+
+
+buildRemote :: BuildRemote -> IO FilePath
+buildRemote BuildRemote{..} = nixContext brc_expressionFile >>= go
+  where
+    ssh_ = ssh brc_builder []
+    fwd = fgrunDirect . ssh_
+    copy = let ?sshConfig = Nothing in nixCopyClosureTo
+
+    go :: NixContext -> IO FilePath
+    go NixContext{..} = do
+      drv <- fgtmp (nixInstantiate nix_args brc_attribute nix_expressionFile)
+
+      srsly "nix-copy-closure failed" (fgrunDirect (copy brc_builder drv))
+      srsly "realise failed" (fwd (nixRealise drv))
+      out <- B8.unpack <$> fgconsume_ (ssh_ (exec "nix-store" ["-qu", drv]))
+      when brc_cat $ do
+        fwd (exec "cat" [toString out])
+        return ()
+      when (isJust brc_installProfile) $ do
+        let Just prof = brc_installProfile
+        fwd (nixSetProfile prof out)
+        return ()
+      return out

@@ -7,20 +7,24 @@
 
 module Upcast.Infra.Match where
 
-import           Control.Applicative
-import           Control.Lens
+import           Prelude hiding (sequence)
 
-import           Control.Monad
+import           Control.Applicative
+import           Control.Lens hiding ((.=))
+
+import           Control.Monad hiding (sequence)
 import           Control.Monad.Catch (MonadCatch)
 import           Control.Monad.Error.Class (MonadError)
 import           Control.Monad.Trans.AWS (MonadAWS, AWSRequest, AWSPager)
 import qualified Control.Monad.Trans.AWS as AWS
 import           Control.Monad.Trans.Resource
 
-import           Data.Aeson (ToJSON)
+import           Data.Aeson (ToJSON, Value, object, (.=))
 import           Data.Maybe (maybeToList)
 import           Data.Monoid
 import           Data.Text (Text)
+import qualified Data.Map as Map
+import           Data.Traversable (sequence, traverse)
 import           GHC.Generics
 
 import           Data.Conduit (($$), (=$=))
@@ -34,6 +38,9 @@ import qualified Network.AWS.ELB.Types as ELB
 
 import           Upcast.Infra.NixTypes
 import           Upcast.Infra.Types hiding (Tags)
+import           Upcast.IO (expectRight)
+import           Upcast.Infra (validateRegion)
+import           Upcast.Infra.AmazonkaTypes (readRegion)
 
 
 data DiscoveryError = NotFound
@@ -160,3 +167,30 @@ matchTags infra tags = toDiscovery <$> C.runConduit conduit
 
 filters tags = toFilter <$> ("created-using", "upcast"):tags
   where toFilter (k, v) = EC2.filter' (mconcat ["tag:", k]) & EC2.fValues .~ [v]
+
+
+matchInfras :: Infras -> IO Value
+matchInfras infras@Infras{..} = object <$> do
+  env <- AWS.getEnv region AWS.Discover
+  expectRight $ AWS.runAWST env $
+    sequence [ ("vpc" .=)      <$> matchWithName infraEc2vpc
+             , ("subnet" .=)   <$> match infraEc2subnet
+             , ("sg" .=)       <$> match infraEc2sg
+             , ("keypair" .=)  <$> match infraEc2keypair
+             , ("ebs" .=)      <$> match infraEbs
+             , ("instance" .=) <$> matchWithName infraEc2instance
+             , ("elb" .=)      <$> match infraElb
+             ]
+  where
+    match ::
+      (CanMatch a, Applicative f, MonadCatch f, MonadError AWS.Error f, AWS.MonadAWS f)
+      => Attrs a -> f (Attrs (Either DiscoveryError ResourceId))
+    match = traverse (`matchTags` [("realm", infraRealmName)])
+
+    matchWithName ::
+      (CanMatch a, Applicative f, MonadCatch f, MonadError AWS.Error f, AWS.MonadAWS f)
+      => Attrs a -> f (Attrs (Either DiscoveryError ResourceId))
+    matchWithName = Map.traverseWithKey
+                   (\k v -> matchTags v [("realm", infraRealmName), ("Name", k)])
+
+    region = readRegion (validateRegion infras)
