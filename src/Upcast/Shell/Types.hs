@@ -8,7 +8,6 @@ module Upcast.Shell.Types (
 , Arg
 , toArg
 , render
-, quote
 , Expr
 , Commandline
 , (|:)
@@ -90,18 +89,14 @@ sha (E exec args)    = fromString exec <> toArg args
 sha (Pipe l r)       = sha l <> "|" <> sha r
 sha (Seq l r)        = sha l <> ";" <> sha r
 sha (Env xs exp)     = env' xs <> sha exp
-sha (Sudo exp)       = "sudo sh -c" <> quote (sha exp)
+sha (Sudo exp)       = "sudo sh -c" <> Arg (escape (sh exp))
 sha (Redir exp file) = "(" <> sha exp <> ">" <> Arg file <> ")"
-sha (SSH host op exp)= "ssh" <> toArg op <> fromString host <> quote (sha exp)
+sha (SSH host op exp)= "ssh" <> toArg op <> fromString host <> Arg (escape (sh exp))
 
 sh = render . sha
 
-
 toArg :: [String] -> Arg
 toArg = foldr (\inc acc -> fromString (escape inc) <> acc) mempty
-
-quote :: Arg -> Arg
-quote (Arg a) = Arg (mconcat ["\"", a, "\""])
 
 escape :: String -> String
 escape xs = if any dangerous xs then go xs else xs
