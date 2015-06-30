@@ -5,10 +5,12 @@ install:
 - curl -sL -o - https://github.com/commercialhaskell/stack/releases/download/v0.1.0.0/stack-0.1.0.0-x86_64-linux.gz | zcat > ~/bin/stack
 - chmod +x ~/bin/stack
 - export PATH=/opt/ghc/7.8.4/bin:$PATH
+- export GHC_OPTIONS="-static -rtsopts -threaded"
+- export STACK="~/bin/stack --system-ghc -j2"
 
 script:
-- ~/bin/stack --system-ghc -j2 build
-- ~/bin/stack --system-ghc -j2 install
+- $STACK build --ghc-options "$GHC_OPTIONS"
+- $STACK install --ghc-options "$GHC_OPTIONS"
 - cp ~/.local/bin/upcast .
 - strip -p --strip-unneeded --remove-section=.comment upcast
 - upx upcast
