@@ -4,9 +4,14 @@ install:
 - mkdir -p ~/bin
 - curl -sL -o - https://github.com/commercialhaskell/stack/releases/download/v0.1.0.0/stack-0.1.0.0-x86_64-linux.gz | zcat > ~/bin/stack
 - chmod +x ~/bin/stack
-- ~/bin/stack setup
+- export PATH=/opt/ghc/7.8.4/bin:$PATH
 
-script: ./travis.sh
+script:
+- ~/bin/stack --system-ghc build
+- ~/bin/stack --system-ghc install
+- cp ~/.local/bin/upcast .
+- strip -p --strip-unneeded --remove-section=.comment upcast
+- upx upcast
 
 cache:
   directories:
@@ -19,7 +24,11 @@ addons:
     - libgmp3-dev
     - upx-ucl
     - binutils
+    - ghc-7.8.4
+
+    sources:
+    - hvr-ghc
 
   artifacts:
     paths:
-    - upcast-$TRAVIS_BUILD_NUMBER
+    - upcast
