@@ -104,9 +104,9 @@ args :: [String] -> Arg
 args = foldr (\inc acc -> arg inc <> acc) mempty
 
 escape :: String -> String
-escape xs = if any dangerous xs then go xs else xs
+escape xs = if all safe xs then xs else escaped
   where
-    go xs = "\"" ++ concatMap f xs ++ "\""
+    escaped = "\"" ++ concatMap f xs ++ "\""
 
     f '\0' = ""
     f '"'  = "\\\""
@@ -114,7 +114,7 @@ escape xs = if any dangerous xs then go xs else xs
     f '!'  = "\\!"
     f x    = [x]
 
-    dangerous = (`elem` "'<>\\{}! \"")
+    safe = (`elem` "-./0123456789:=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ^_")
 
 maybeKey :: String -> Maybe String -> [String]
 maybeKey k = maybe mempty (\v -> [k, v])
