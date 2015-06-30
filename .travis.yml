@@ -7,8 +7,8 @@ install:
 - export PATH=/opt/ghc/7.8.4/bin:$PATH
 
 script:
-- ~/bin/stack --system-ghc build
-- ~/bin/stack --system-ghc install
+- ~/bin/stack --system-ghc -j2 build
+- ~/bin/stack --system-ghc -j2 install
 - cp ~/.local/bin/upcast .
 - strip -p --strip-unneeded --remove-section=.comment upcast
 - upx upcast
@@ -17,6 +17,7 @@ cache:
   directories:
   - $HOME/bin
   - $HOME/.stack/snapshots/x86_64-linux/lts-*
+
 
 addons:
   apt:
