@@ -6,7 +6,7 @@ install:
 - chmod +x ~/bin/stack
 - export PATH=/opt/ghc/7.8.4/bin:$PATH
 - export GHC_OPTIONS="-static -rtsopts -threaded"
-- export STACK="~/bin/stack --system-ghc -j2"
+- export STACK="$HOME/bin/stack --system-ghc -j2"
 
 script:
 - $STACK build --ghc-options "$GHC_OPTIONS"
