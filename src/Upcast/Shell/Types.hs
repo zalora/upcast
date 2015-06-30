@@ -112,9 +112,11 @@ escape xs = if all safe xs then xs else escaped
     f '"'  = "\\\""
     f '\\' = "\\\\"
     f '!'  = "\\!"
+    f '$'  = "\\$"
+    f '`'  = "\\`"
     f x    = [x]
 
-    safe = (`elem` "-./0123456789:=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ^_")
+    safe = (`elem` "-./0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
 
 maybeKey :: String -> Maybe String -> [String]
 maybeKey k = maybe mempty (\v -> [k, v])
