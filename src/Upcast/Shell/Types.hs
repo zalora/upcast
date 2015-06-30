@@ -6,7 +6,8 @@
 module Upcast.Shell.Types (
   (<>) -- from Data.Semigroup
 , Arg
-, toArg
+, arg
+, args
 , render
 , Expr
 , Commandline
@@ -85,18 +86,22 @@ env = Env
 ssh = SSH
 
 sha :: Expr [String] -> Arg
-sha (E exec args)    = fromString exec <> toArg args
+sha (E exec args')   = arg exec <> args args'
 sha (Pipe l r)       = sha l <> "|" <> sha r
-sha (Seq l r)        = sha l <> ";" <> sha r
+sha (Seq l r)        = "{" <> sha l <> ";" <> sha r <> "; }"
 sha (Env xs exp)     = env' xs <> sha exp
-sha (Sudo exp)       = "sudo sh -c" <> Arg (escape (sh exp))
-sha (Redir exp file) = "(" <> sha exp <> ">" <> Arg file <> ")"
-sha (SSH host op exp)= "ssh" <> toArg op <> fromString host <> Arg (escape (sh exp))
+sha (Sudo exp)       = "sudo sh -c" <> arg (sh exp)
+sha (Redir exp file) = "{" <> sha exp <> ">" <> arg file <> "; }"
+sha (SSH host op exp)= "ssh" <> args op <> arg host <> arg (sh exp)
 
+sh :: Expr [String] -> String
 sh = render . sha
 
-toArg :: [String] -> Arg
-toArg = foldr (\inc acc -> fromString (escape inc) <> acc) mempty
+arg :: String -> Arg
+arg = fromString . escape
+
+args :: [String] -> Arg
+args = foldr (\inc acc -> arg inc <> acc) mempty
 
 escape :: String -> String
 escape xs = if any dangerous xs then go xs else xs
@@ -106,15 +111,10 @@ escape xs = if any dangerous xs then go xs else xs
     f '\0' = ""
     f '"'  = "\\\""
     f '\\' = "\\\\"
+    f '!'  = "\\!"
     f x    = [x]
 
-    dangerous = \case '\'' -> True
-                      '<'  -> True
-                      '>'  -> True
-                      '"'  -> True
-                      ' '  -> True
-                      '\\' -> True
-                      _    -> False
+    dangerous = (`elem` "'<>\\{}! \"")
 
 maybeKey :: String -> Maybe String -> [String]
 maybeKey k = maybe mempty (\v -> [k, v])

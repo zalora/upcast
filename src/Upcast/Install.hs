@@ -17,7 +17,7 @@ import Upcast.Deploy (nixSetProfile, ssh, sshBaseOptions, nixSshEnv,
 import Upcast.IO (expect)
 import Upcast.Monad (whenJustM, when, unless)
 import Upcast.Shell (Commandline, ExitCode(..), fgrunDirect, (|:),
-                     exec, (|>), (<>), env, toArg, render)
+                     exec, (|>), (<>), env, render)
 import Upcast.Types (Remote(..), Install(..), DeliveryMode(..))
 
 fgrun = expect ExitSuccess "install step failed" . fgrunDirect

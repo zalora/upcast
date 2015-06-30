@@ -6,7 +6,7 @@
 module Upcast.Deploy where
 
 import qualified Upcast.Shell as Shell
-import Upcast.Shell (Commandline, (<>), env, render, toArg, maybeKey, exec)
+import Upcast.Shell (Commandline, (<>), env, render, args, maybeKey, exec)
 import Upcast.Types (StorePath, Remote(..), Install(..), NixContext(..))
 
 ssh :: (?sshConfig :: Maybe FilePath) => String -> Commandline -> Commandline
@@ -16,7 +16,7 @@ sshEnv :: FilePath -> Commandline -> Commandline
 sshEnv socket = env [("SSH_AUTH_SOCK", socket), ("SSH_ASKPASS", "/usr/bin/true")]
 
 nixSshEnv :: (?sshConfig :: Maybe FilePath) => Commandline -> Commandline
-nixSshEnv = env [("NIX_SSHOPTS", render (toArg sshBaseOptions))]
+nixSshEnv = env [("NIX_SSHOPTS", render (args sshBaseOptions))]
 
 sshBaseOptions :: (?sshConfig :: Maybe FilePath) => [String]
 sshBaseOptions = [ "-A"
