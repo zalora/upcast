@@ -64,11 +64,12 @@ class AWSExtractIds a where
 class AWSMatchRequest infra where
   type Rq infra
   matchRequest :: infra -> Tags -> Rq infra
-
+  matchIds :: [ResourceId] -> proxy infra -> Rq infra
 
 instance AWSMatchRequest Ec2instance where
   type Rq Ec2instance = EC2.DescribeInstances
   matchRequest _ tags = EC2.describeInstances & EC2.di1Filters .~ filters tags
+  matchIds ids _ = EC2.describeInstances & EC2.di1InstanceIds .~ ids
 
 instance AWSExtractIds EC2.DescribeInstancesResponse where
   extractIds resp = do
@@ -80,6 +81,7 @@ instance AWSExtractIds EC2.DescribeInstancesResponse where
 instance AWSMatchRequest Ec2keypair where
   type Rq Ec2keypair = EC2.DescribeKeyPairs
   matchRequest _ tags = EC2.describeKeyPairs & EC2.dkp1Filters .~ filters tags
+  matchIds ids _ = EC2.describeKeyPairs & EC2.dkp1Filters .~ filterIds "key-name" ids
 
 instance AWSExtractIds EC2.DescribeKeyPairsResponse where
   extractIds resp = do
@@ -91,6 +93,7 @@ instance AWSMatchRequest Ebs where
   type Rq Ebs = EC2.DescribeVolumes
   matchRequest Ebs{..} tags = EC2.describeVolumes &
                               EC2.dv2Filters .~ filters (("Name", ebs_name):tags)
+  matchIds ids _ = EC2.describeVolumes & EC2.dv2VolumeIds .~ ids
 
 instance AWSExtractIds EC2.DescribeVolumesResponse where
   extractIds resp = do
@@ -101,6 +104,7 @@ instance AWSExtractIds EC2.DescribeVolumesResponse where
 instance AWSMatchRequest Ec2sg where
   type Rq Ec2sg = EC2.DescribeSecurityGroups
   matchRequest _ tags = EC2.describeSecurityGroups & EC2.dsg1Filters .~ filters tags
+  matchIds ids _ = EC2.describeSecurityGroups & EC2.dsg1GroupIds .~ ids
 
 instance AWSExtractIds EC2.DescribeSecurityGroupsResponse where
   extractIds resp = do
@@ -111,6 +115,7 @@ instance AWSExtractIds EC2.DescribeSecurityGroupsResponse where
 instance AWSMatchRequest Ec2subnet where
   type Rq Ec2subnet = EC2.DescribeSubnets
   matchRequest _ tags = EC2.describeSubnets & EC2.dsFilters .~ filters tags
+  matchIds ids _ = EC2.describeSubnets & EC2.dsSubnetIds .~ ids
 
 instance AWSExtractIds EC2.DescribeSubnetsResponse where
   extractIds resp = do
@@ -121,6 +126,7 @@ instance AWSExtractIds EC2.DescribeSubnetsResponse where
 instance AWSMatchRequest Ec2vpc where
   type Rq Ec2vpc = EC2.DescribeVpcs
   matchRequest _ tags = EC2.describeVpcs & EC2.dv1Filters .~ filters tags
+  matchIds ids _ = EC2.describeVpcs & EC2.dv1VpcIds .~ ids
 
 instance AWSExtractIds EC2.DescribeVpcsResponse where
   extractIds resp = do
@@ -131,6 +137,7 @@ instance AWSExtractIds EC2.DescribeVpcsResponse where
 instance AWSMatchRequest Elb where
   type Rq Elb = ELB.DescribeLoadBalancers
   matchRequest Elb{..} _ = ELB.describeLoadBalancers & ELB.dlbLoadBalancerNames .~ [elb_name]
+  matchIds ids _ = ELB.describeLoadBalancers & ELB.dlbLoadBalancerNames .~ ids
 
 instance AWSExtractIds ELB.DescribeLoadBalancersResponse where
   extractIds resp = do
@@ -168,6 +175,7 @@ matchTags infra tags = toDiscovery <$> C.runConduit conduit
 filters tags = toFilter <$> ("created-using", "upcast"):tags
   where toFilter (k, v) = EC2.filter' (mconcat ["tag:", k]) & EC2.fValues .~ [v]
 
+filterIds tag ids = [EC2.filter' tag & EC2.fValues .~ ids]
 
 matchInfras :: Infras -> IO Value
 matchInfras infras@Infras{..} = object <$> do
