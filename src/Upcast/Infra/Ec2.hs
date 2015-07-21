@@ -234,21 +234,22 @@ ec2plan expressionName keypairs userDataA Infras{..} = do
   instanceA <- createInstances infraEc2instance subnetA sgA defTags userDataA keypairA
 
   let instanceIds = fmap (fst . snd) instanceA
-  when (null instanceIds) $ fail "no instances, plan complete."
-  (wait . EC2.DescribeInstanceStatus) instanceIds
-
-  attachEBS instanceA volumeA
+  unless (null instanceIds) $ do
+    wait $ EC2.DescribeInstanceStatus instanceIds
+    void $ attachEBS instanceA volumeA
 
   elbPlan ((\(name, (id, _)) -> (name, id)) <$> instanceA) sgA subnetA infraElb
 
-  Array reportedInfos <- aws (EC2.DescribeInstances instanceIds)
-
-  let orderedInstanceNames = fmap fst $ sortBy (compare `on` (fst . snd)) instanceA
-      err = error "could not sort instanceIds after DescribeInstances"
-      tcast = castValue :: Value -> Maybe Text
-      orderedReportedInfos = sortBy (compare `on` (maybe err id . fmap tcast . alookupS "instancesSet.instanceId")) $ V.toList reportedInfos
-      orderedInstanceInfos = fmap snd $ sortBy (compare `on` fst) (Map.toList infraEc2instance)
-      in return (keypairA, zip3 orderedInstanceNames orderedReportedInfos orderedInstanceInfos)
+  case instanceA of
+   [] -> return (keypairA, [])
+   _ -> do
+    Array reportedInfos <- aws (EC2.DescribeInstances instanceIds)
+    let orderedInstanceNames = fst <$> sortBy (compare `on` (fst . snd)) instanceA
+        err = error "could not sort instanceIds after DescribeInstances"
+        tcast = castValue :: Value -> Maybe Text
+        orderedReportedInfos = sortBy (compare `on` (maybe err id . fmap tcast . alookupS "instancesSet.instanceId")) $ V.toList reportedInfos
+        orderedInstanceInfos = snd <$> sortBy (compare `on` fst) (Map.toList infraEc2instance)
+        in return (keypairA, zip3 orderedInstanceNames orderedReportedInfos orderedInstanceInfos)
   where
     defTags = [ ("created-using", "upcast")
               , ("realm", infraRealmName)

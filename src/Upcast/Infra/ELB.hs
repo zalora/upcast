@@ -71,7 +71,7 @@ elbPlan instanceA sgA subnetA elbs =
 
     -- instances
     let instances = catMaybes $ lookupOrId instanceA <$> elb_instances
-    aws_ $ ELB.RegisterInstancesWithLoadBalancer clb_name instances
+    unless (null instances) $ aws_ $ ELB.RegisterInstancesWithLoadBalancer clb_name instances
 
      -- DNS aliases
     let r53 = Map.elems $ Map.mapWithKey (\k Route53Alias{..} -> toAliasCRR k route53Alias_zoneId) elb_route53Aliases
