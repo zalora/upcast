@@ -22,13 +22,13 @@ infraDump :: InfraCli -> IO ()
 infraDump = icontext >=> print . inc_infras
 
 infraNix :: InfraCli -> IO ()
-infraNix = infra >=> putStrLn . machines2nix
+infraNix = infra >=> putStr . machines2nix
 
 infraScan :: InfraCli -> IO ()
 infraScan = icontext >=> matchInfras . inc_infras >=> pprint
 
 sshConfig :: InfraCli -> IO ()
-sshConfig = infra >=> putStrLn . machines2ssh
+sshConfig = infra >=> putStr . machines2ssh
 
 printNixPath :: IO ()
 printNixPath = nixPath >>= putStrLn
