@@ -18,7 +18,6 @@ data NixContext =
   NixContext
   { nix_expressionFile :: FilePath
   , nix_args :: [String]
-  , nix_sshStoreCache :: Maybe String
   } deriving (Show)
 
 data InfraContext
@@ -57,14 +56,16 @@ data InfraCli =
   InfraCli
   { infraCli_stateFile :: Maybe FilePath
   , infraCli_expressionFile :: FilePath
+  , infraCli_extra :: [String]
   } deriving (Show)
 
--- | Arguments to 'buildRemote'.
-data BuildRemote =
-  BuildRemote
-  { brc_builder :: String
-  , brc_attribute :: Maybe String
-  , brc_cat :: Bool
-  , brc_installProfile :: Maybe FilePath
-  , brc_expressionFile :: FilePath
-  }
+-- | Arguments to 'build'.
+data Build =
+  Build
+  { b_builder :: String
+  , b_attribute :: Maybe String
+  , b_cat :: Bool
+  , b_installProfile :: Maybe FilePath
+  , b_expressionFile :: FilePath
+  , b_extra :: [String]
+  } deriving (Show)

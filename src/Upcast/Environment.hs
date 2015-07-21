@@ -23,7 +23,7 @@ import           Upcast.Infra.NixTypes (Infras)
 import           Upcast.Monad (sequenceMaybe, when)
 import           Upcast.Shell
 import           Upcast.Types (StorePath, NixContext(..), InfraCli(..),
-                               InfraContext(..), BuildRemote(..))
+                               InfraContext(..), Build(..))
 
 import           Paths_upcast (getDataFileName)
 
@@ -33,19 +33,16 @@ nixPath =
                               , Just <$> getDataFileName "nix"
                               , Just <$> return "nix" ]
 
-nixContext :: FilePath -> IO NixContext
-nixContext file = do
+nixContext :: FilePath -> [String] -> IO NixContext
+nixContext file args = do
     nix_expressionFile <- canonicalizePath file
     upcastPath <- nixPath
-    nixArgs <- getEnv "UPCAST_NIX_FLAGS"
-    let nix_args = ["-I", "upcast=" <> upcastPath, "--show-trace"] <>
-                   maybe mempty (fmap T.unpack . T.splitOn " " . T.pack) nixArgs
-    nix_sshStoreCache <- getEnv "UPCAST_SSH_STORE_CACHE"
+    let nix_args = ["-I", "upcast=" <> upcastPath, "--show-trace"] <> args
     return NixContext{..}
 
 icontext :: InfraCli -> IO InfraContext
 icontext infraCli@InfraCli{..} =
-  nixContext infraCli_expressionFile >>= evalInfraContext infraCli
+  nixContext infraCli_expressionFile infraCli_extra >>= evalInfraContext infraCli
 
 evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
 evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
@@ -65,37 +62,37 @@ nixInfraInfo NixContext{..} =
                           [ "--argstr", "expr", nix_expressionFile
                           , "<upcast/eval-infra.nix>"
                           , "--eval-only", "--strict", "--json"
-                          , "--read-write-mode"
                           ])
 
 nixInstantiate :: [String] -> Maybe String -> String -> FilePath -> Commandline
 nixInstantiate nix_args attr exprFile root =
   exec "nix-instantiate" (nix_args <>
-                          [ "--read-write-mode"
-                          , "--add-root", root
+                          [ "--add-root", root
                           , "--indirect"
                           ] <> maybeKey "-A" attr <> [exprFile])
 
 
-buildRemote :: BuildRemote -> IO FilePath
-buildRemote BuildRemote{..} = nixContext brc_expressionFile >>= go
+build :: Build -> IO FilePath
+build Build{..} = nixContext b_expressionFile b_extra >>= go
   where
-    ssh_ = ssh brc_builder []
+    ssh_ = case b_builder of
+                "localhost" -> id
+                _ -> ssh b_builder []
     fwd = fgrunDirect . ssh_
     copy = let ?sshConfig = Nothing in nixCopyClosureTo
 
     go :: NixContext -> IO FilePath
     go NixContext{..} = do
-      drv <- fgtmp (nixInstantiate nix_args brc_attribute nix_expressionFile)
+      drv <- fgtmp (nixInstantiate nix_args b_attribute nix_expressionFile)
 
-      srsly "nix-copy-closure failed" (fgrunDirect (copy brc_builder drv))
+      srsly "nix-copy-closure failed" (fgrunDirect (copy b_builder drv))
       srsly "realise failed" (fwd (nixRealise drv))
       out <- B8.unpack <$> fgconsume_ (ssh_ (exec "nix-store" ["-qu", drv]))
-      when brc_cat $ do
+      when b_cat $ do
         fwd (exec "cat" [toString out])
         return ()
-      when (isJust brc_installProfile) $ do
-        let Just prof = brc_installProfile
+      when (isJust b_installProfile) $ do
+        let Just prof = b_installProfile
         fwd (nixSetProfile prof out)
         return ()
       return out

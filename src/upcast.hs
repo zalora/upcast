@@ -3,7 +3,7 @@ module Main where
 import           Options.Applicative
 
 import           Upcast.Deploy (nixSystemProfile)
-import           Upcast.Environment (nixPath, nixContext, icontext, buildRemote)
+import           Upcast.Environment (nixPath, icontext, build)
 import           Upcast.IO
 import           Upcast.Infra (evalInfra, debugEvalInfra)
 import           Upcast.Infra.Match (matchInfras)
@@ -46,6 +46,7 @@ main = do
                         }
 
     exp = metavar "<expression file>"
+    nixArgs = many (argument str (metavar "nix arguments..."))
 
     opts = subparser cmds `info` header "upcast - infrastructure orchestratrion"
 
@@ -69,9 +70,9 @@ main = do
            (infraScan <$> infraCliArgs `info`
             progDesc "scan for existing resources ignoring the state file")
 
-        <> command "build-remote"
-           ((putStrLn <=< buildRemote) <$> buildRemoteCli `info`
-            progDesc "forward nix-build to a remote host")
+        <> command "build"
+           ((putStrLn <=< build) <$> buildCli `info`
+            progDesc "nix-build with remote forwarding")
 
         <> command "nix-path"
            (pure printNixPath `info`
@@ -88,12 +89,14 @@ main = do
                      <> metavar "FILE"
                      <> help "use FILE as state file"))
       <*> argument str exp
+      <*> nixArgs
 
     installCli = Install
-      <$> (Remote <$> strOption (long "target"
+      <$> (Remote <$> (strOption (long "target"
                                  <> short 't'
                                  <> metavar "ADDRESS"
-                                 <> help "SSH-accessible host with Nix"))
+                                 <> help "SSH-accessible host with Nix")
+                       <|> pure "localhost"))
       <*> (strOption (long "profile"
                       <> short 'p'
                       <> metavar "PROFILE"
@@ -107,15 +110,15 @@ main = do
       <*> (Pull <$> strOption (long "pull"
                                <> short 'f'
                                <> metavar "FROM"
-                               <> help "pull store paths from host")
+                               <> help "pull store paths from host (relative to ADDRESS)")
            <|> pure Push)
       <*> argument str (metavar "STORE_PATH")
 
-    buildRemoteCli = BuildRemote
-      <$> strOption (long "target"
+    buildCli = Build
+      <$> (strOption (long "target"
                     <> short 't'
                     <> metavar "ADDRESS"
-                    <> help "SSH-accessible host with Nix")
+                    <> help "SSH-accessible host with Nix") <|> pure "localhost")
       <*> optional (strOption (short 'A'
                      <> metavar "ATTRIBUTE"
                      <> help "build a specific attribute in the expression file"))
@@ -126,3 +129,4 @@ main = do
                      <> metavar "PROFILE"
                      <> help "set the output store path to PROFILE on the target"))
       <*> argument str exp
+      <*> nixArgs
