@@ -42,7 +42,7 @@ forward (Remote host) = ssh host
 
 nixSetProfileI :: (?sshConfig :: Maybe FilePath) => Install -> Commandline
 nixSetProfileI Install{..} =
-    forward i_remote (nixSetProfile i_profile i_storepath)
+  forward i_remote (nixSetProfile i_profile i_storepath)
 
 nixSwitchToConfiguration :: (?sshConfig :: Maybe FilePath) => Install -> Commandline
 nixSwitchToConfiguration Install{i_remote = r@(Remote host)} =
