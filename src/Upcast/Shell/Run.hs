@@ -10,6 +10,8 @@ module Upcast.Shell.Run (
 , fgrunDirect
 , fgconsume
 , fgconsume_
+, qconsume
+, qconsume_
 , spawn
 ) where
 
@@ -95,10 +97,26 @@ fgrunDirect c = do
     printExit Run c code time
     return code
 
+qconsume :: Commandline -> IO (Either BS.ByteString BS.ByteString)
+qconsume comm = do
+    (time, (Just code, output)) <- measure $ liftM concat (runResourceT $ proc $$ CL.consume)
+    case code of
+        ExitSuccess -> return $ Right output
+        _ -> return $ Left output
+    where
+      proc = roProcessSource (pipeProcess (sh comm)) Nothing (Just IO.stderr)
+      concat = L.foldl' mappend (Just ExitSuccess, BS.empty) . fmap chunk
+      chunk (Chunk a) = (Just ExitSuccess, a)
+      chunk (Flush code) = (Just code, BS.empty)
+
+qconsume_ :: Commandline -> IO BS.ByteString
+qconsume_ c = either id id <$> qconsume c
+
+
 fgconsume :: Commandline -> IO (Either BS.ByteString BS.ByteString)
 fgconsume comm = do
     print' Consume comm
-    (time, (Just code, output)) <- measure $ (runResourceT $ proc $$ CL.consume) >>= return . concat
+    (time, (Just code, output)) <- measure $ liftM concat (runResourceT $ proc $$ CL.consume)
     printExit Consume comm code time
     case code of
         ExitSuccess -> return $ Right output
