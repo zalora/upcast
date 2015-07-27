@@ -19,6 +19,7 @@ module Upcast.Shell.Types (
 , sudo
 , sh
 , sha
+, Hostname
 , Str
 , toString
 , maybeKey
