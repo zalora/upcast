@@ -13,9 +13,6 @@ import           Upcast.Types (StorePath, Remote(..),
 ssh :: (?sshConfig :: Maybe FilePath) => String -> Commandline -> Commandline
 ssh host = Shell.ssh host sshBaseOptions
 
-sshEnv :: FilePath -> Commandline -> Commandline
-sshEnv socket = env [("SSH_AUTH_SOCK", socket), ("SSH_ASKPASS", "/usr/bin/true")]
-
 nixSshEnv :: (?sshConfig :: Maybe FilePath) => Commandline -> Commandline
 nixSshEnv = env [("NIX_SSHOPTS", render (args sshBaseOptions))]
 

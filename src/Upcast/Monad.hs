@@ -15,6 +15,7 @@ module Upcast.Monad (
 
 , (<<<)
 
+, liftM
 , liftIO
 
 , runResourceT
