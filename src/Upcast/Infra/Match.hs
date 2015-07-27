@@ -154,18 +154,18 @@ matchTags ::
    MonadResource m)
   => infra
   -> Tags
-  -> m (Either DiscoveryError ResourceId)
-matchTags infra tags = toDiscovery <$> C.runConduit conduit
+  -> m [ResourceId]
+matchTags infra tags = C.runConduit conduit
   where
     conduit = AWS.paginate (matchRequest infra tags) =$=
               CL.concatMap extractIds =$=
               CL.consume
 
-    toDiscovery [one] = Right one
-    toDiscovery [] = Left NotFound
-    toDiscovery many = Left (Ambiguous many)
+toDiscovery [one] = Right one
+toDiscovery [] = Left NotFound
+toDiscovery many = Left (Ambiguous many)
 
-filters tags = toFilter <$> ("created-using", "upcast"):tags
+filters tags = toFilter <$> tags --("created-using", "upcast"):tags
   where toFilter (k, v) = EC2.filter' (mconcat ["tag:", k]) & EC2.fValues .~ [v]
 
 
@@ -182,15 +182,17 @@ matchInfras infras@Infras{..} = object <$> do
              , ("elb" .=)      <$> match infraElb
              ]
   where
+    discover i t = toDiscovery <$> matchTags i t
+
     match ::
       (CanMatch a, Applicative f, MonadCatch f, MonadError AWS.Error f, AWS.MonadAWS f)
       => Attrs a -> f (Attrs (Either DiscoveryError ResourceId))
-    match = traverse (`matchTags` [("realm", infraRealmName)])
+    match = traverse (`discover` [("realm", infraRealmName)])
 
     matchWithName ::
       (CanMatch a, Applicative f, MonadCatch f, MonadError AWS.Error f, AWS.MonadAWS f)
       => Attrs a -> f (Attrs (Either DiscoveryError ResourceId))
     matchWithName = Map.traverseWithKey
-                   (\k v -> matchTags v [("realm", infraRealmName), ("Name", k)])
+                   (\k v -> discover v [("realm", infraRealmName), ("Name", k)])
 
     region = readRegion (validateRegion infras)
