@@ -48,7 +48,7 @@ main = do
     exp = metavar "<expression file>"
     nixArgs = many (argument str (metavar "nix arguments..."))
 
-    opts = subparser cmds `info` header "upcast - infrastructure orchestratrion"
+    opts = subparser cmds `info` header "upcast - infrastructure orchestration"
 
     cmds = command "infra"
            (sshConfig <$> infraCliArgs `info`
