@@ -2,11 +2,11 @@ Upcast is a set of nix-based linux deployment platform tools and cloud infrastru
 
 [![Build Status](https://travis-ci.org/zalora/upcast.svg?branch=master)](https://travis-ci.org/zalora/upcast)
 
-Upcast is part of [Zalora Platform](https://github.com/zalora/platform).
+Upcast is part of [Microgram](https://github.com/zalora/microgram).
 
 It consists of (see [Features](#features) for details):
 - `infra` - AWS infrastructure based on a [declarative spec](test/big-network.nix) in [Nix](http://nixos.org/nix/) expression language
-- nix-based tools for PaaS-style software deployment and build support - `build-remote` and `install`
+- nix-based tools for PaaS-style software deployment and build support - `build` and `install`
 - tools to bootstrap Nix on non-NixOS Linux distros
 
 The ultimate goal of Upcast is to make you stop thinking about deployments and focus on your apps instead.
@@ -72,15 +72,15 @@ Note that the infrastructure spec is evaluated separately from NixOS system clos
 % upcast infra infra.nix > ssh_config
 ```
 
-`upcast build-remote` and `upcast install` are wrappers over Nix/NixOS toolchain.
+`upcast build` and `upcast install` are wrappers over Nix/NixOS toolchain.
 Here they are used to build a NixOS system closure and install it on `node1`.
 
 ```console
-% upcast build-remote -t hydra -A some-image infra.nix \
+% upcast build -t hydra -A some-image infra.nix \
     | xargs -tn1 upcast install -c ssh_config -f hydra -t node1 
 ```
 
-Same example without `build-remote`:
+Same example without `build`:
 
 ```console
 % nix-build -I upcast=$(upcast nix-path) -A some-image -A some-image infra.nix
@@ -97,7 +97,7 @@ Unlike [Nix distributed builds](http://nixos.org/nix/manual/#chap-distributed-bu
 packages are not copied back and forth between the instance and your local machine.
 
 ```bash
-upcast build-remote -t hydra.com -A something default.nix
+upcast build -t hydra.com -A something default.nix
 ```
 
 If you want to update your existing systems as part of your CI workflow, you can do something like this:
@@ -109,7 +109,7 @@ awk '/^Host/{print $2}' ssh_config | \
     xargs -I% -P4 -n1 -t ssh -F ssh_config % nix-collect-garbage -d
 
 awk '/^Host/{print $2}' ssh_config | \
-    xargs -I% -P4 -n1 -t upcast install -t % $(upcast build-remote -A some-system blah.nix)
+    xargs -I% -P4 -n1 -t upcast install -t % $(upcast build -A some-system blah.nix)
 ```
 
 #### Nix profile installs
@@ -124,7 +124,7 @@ You can use nix profiles to pin your own packages (or collection of packages usi
 For example, install a random package and pin it to a `hello` profile:
 
 ```bash
-upcast build-remote -t hydra -A my-package default.nix | xargs -n1t upcast install -f hydra -p /nix/var/nix/profiles/hello -t target-instance
+upcast build -t hydra -A my-package default.nix | xargs -n1t upcast install -f hydra -p /nix/var/nix/profiles/hello -t target-instance
 ```
 
 Assuming `my-package` contains `bin/program` you can run it like: `/nix/var/nix/profiles/per-user
