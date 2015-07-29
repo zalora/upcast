@@ -1,5 +1,5 @@
 name:                upcast
-version:             0.1.0.0
+version:             0.1.1.0
 license-file:        LICENSE
 license:             MIT
 author:              Vladimir Kirillov
@@ -10,6 +10,59 @@ cabal-version:       >=1.10
 data-files:          nix/*.nix
                    , nix/aws/*.nix
                    , nix/lib/*.nix
+
+library
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
+
+  exposed-modules:     Upcast.Deploy
+                     , Upcast.Environment
+                     , Upcast.IO
+                     , Upcast.Infra
+                     , Upcast.Infra.Amazonka
+                     , Upcast.Infra.Match
+                     , Upcast.Infra.NixTypes
+                     , Upcast.Infra.Types
+                     , Upcast.Install
+                     , Upcast.Shell
+                     , Upcast.Types
+
+  build-depends:       base
+                     , aeson
+                     , aeson-pretty
+                     , amazonka
+                     , amazonka-autoscaling
+                     , amazonka-core
+                     , amazonka-ec2 >= 0.3.6.1
+                     , amazonka-elb
+                     , amazonka-route53 >= 0.3.6.1
+                     , async
+                     , attoparsec
+                     , base64-bytestring
+                     , bytestring
+                     , conduit, resourcet
+                     , conduit-extra
+                     , containers
+                     , directory
+                     , exceptions
+                     , filepath
+                     , lens
+                     , lifted-base
+                     , mtl
+                     , optparse-applicative >= 0.11.0.1
+                     , pretty-show
+                     , process
+                     , random
+                     , scientific
+                     , semigroups
+                     , tagged
+                     , text
+                     , time
+                     , unix
+                     , unordered-containers
+                     , vector
+                     , vk-posix-pty >= 0.2.1
 
 
 executable upcast
