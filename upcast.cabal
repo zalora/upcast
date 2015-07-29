@@ -34,9 +34,10 @@ executable upcast
                      , aws-ec2 >= 0.3.2
                      , amazonka
                      , amazonka-core
-                     , amazonka-ec2
+                     , amazonka-ec2 >= 0.3.6.1
                      , amazonka-elb
                      , amazonka-autoscaling
+                     , amazonka-route53 >= 0.3.6.1
                      , lens
                      , exceptions
                      , vk-posix-pty >= 0.2.1
