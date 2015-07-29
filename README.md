@@ -61,8 +61,7 @@ in
 note that upcast only evaluates the top level `infra` attribute.
 
 `upcast infra` actually provisions all resources and outputs the `ssh_config(5)` for all compute
-nodes in the spec. It also writes a `.store` file with the infra state, which is a text file -
-you can commit it into your VCS which is great for scaling your teamwork.
+nodes in the spec.
 
 Note that the infrastructure spec is evaluated separately from NixOS system closure unlike NixOps
 (installation must also be handled separately and is outside of `upcast` cli tool).
@@ -161,12 +160,7 @@ Host *
 
 ### Known issues
 
-- state files are not garbage collected, have to be often cleaned up manually;
-- altering infra state is not supported properly (you need to remove using aws cli, cleanup the state file and try again);
+- altering infra state is not supported thoroughly
 
 Note: the app is currently in HEAVY development (and is already being used to power production cloud instances)
 so some interfaces may break without notice until the initial release.
-
-### More stuff
-
-The AWS client code now lives in its own library: [zalora/aws-ec2](https://github.com/zalora/aws-ec2).

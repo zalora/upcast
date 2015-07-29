@@ -1,7 +1,11 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Upcast.Infra.AmazonkaTypes where
 
+import Data.Monoid (mconcat)
 import Data.Text (unpack)
 import Network.AWS.Types
+import Upcast.Infra.NixTypes (Infras(..))
 
 readRegion s =
   case unpack s of
@@ -17,3 +21,12 @@ readRegion s =
     "us-gov-west-1"      -> GovCloud
     "fips-us-gov-west-1" -> GovCloudFIPS
     "sa-east-1"          -> SaoPaulo
+
+validateRegion :: Infras -> Region
+validateRegion Infras{infraRegions} =
+    case infraRegions of
+      [reg] -> readRegion reg
+      _ -> error $ mconcat [ "can only operate with expressions that "
+                           , "do not span multiple EC2 regions, given: "
+                           , show infraRegions
+                           ]

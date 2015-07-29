@@ -5,7 +5,7 @@ import           Options.Applicative
 import           Upcast.Deploy (nixSystemProfile)
 import           Upcast.Environment (nixPath, icontext, build)
 import           Upcast.IO
-import           Upcast.Infra (evalInfra, debugEvalInfra)
+import           Upcast.Infra (evalInfra)
 import           Upcast.Infra.Match (matchInfras)
 import           Upcast.Install (install)
 import           Upcast.Monad
@@ -14,9 +14,6 @@ import           Upcast.Types
 
 infra :: InfraCli -> IO [Machine]
 infra = icontext >=> evalInfra
-
-infraDebug :: InfraCli -> IO ()
-infraDebug = icontext >=> debugEvalInfra >=> const (return ())
 
 infraDump :: InfraCli -> IO ()
 infraDump = icontext >=> print . inc_infras
@@ -48,7 +45,7 @@ main = do
     exp = metavar "<expression file>"
     nixArgs = many (argument str (metavar "nix arguments..."))
 
-    opts = subparser cmds `info` header "upcast - infrastructure orchestratrion"
+    opts = subparser cmds `info` header "upcast - infrastructure orchestration"
 
     cmds = command "infra"
            (sshConfig <$> infraCliArgs `info`
@@ -57,10 +54,6 @@ main = do
         <> command "infra-tree"
            (infraDump <$> infraCliArgs `info`
             progDesc "dump infrastructure tree in json format")
-
-        <> command "infra-debug"
-           (infraDebug <$> infraCliArgs `info`
-            progDesc "evaluate infrastructure in debug mode")
 
         <> command "infra-nix"
            (infraNix <$> infraCliArgs `info`
@@ -82,14 +75,7 @@ main = do
            (install <$> installCli `info`
             progDesc "copy a store path closure and set it to a profile")
 
-    infraCliArgs = InfraCli
-      <$> optional (strOption
-                    (long "state"
-                     <> short 's'
-                     <> metavar "FILE"
-                     <> help "use FILE as state file"))
-      <*> argument str exp
-      <*> nixArgs
+    infraCliArgs = InfraCli <$> argument str exp <*> nixArgs
 
     installCli = Install
       <$> (Remote <$> (strOption (long "target"

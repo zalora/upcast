@@ -16,7 +16,7 @@ let
     inherit _type _arg;
   };
 
-  comma-prefix = "\n      , ";
+  comma-prefix = "\n     , ";
 
   replace = replaceChars ["-"] [""];
 
@@ -55,8 +55,8 @@ let
       _tag = to-identifier _name;
       _decl = ''
         data ${_name} = ${_name}
-              { ${_repr}
-              } deriving (Show, Generic)
+             { ${_repr}
+             } deriving (Show, Generic)
 
         instance FromJSON ${_name} where
           parseJSON = genericParseJSON defaultOptions
@@ -96,10 +96,13 @@ let
 
         instance FromJSON ${_tag} where
           parseJSON = genericParseJSON defaultOptions
-                      { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
+                      { sumEncoding = ObjectWithSingleField
+                      , constructorTagModifier = map toLower }
+
         instance ToJSON ${_tag} where
           toJSON = genericToJSON defaultOptions
-                   { sumEncoding = ObjectWithSingleField, constructorTagModifier = map toLower }
+                   { sumEncoding = ObjectWithSingleField
+                   , constructorTagModifier = map toLower }
       '';
     } else v;
 
