@@ -5,7 +5,7 @@ import           Options.Applicative
 import           Upcast.Deploy (nixSystemProfile)
 import           Upcast.Environment (nixPath, icontext, build)
 import           Upcast.IO
-import           Upcast.Infra (evalInfra, debugEvalInfra)
+import           Upcast.Infra (evalInfra)
 import           Upcast.Infra.Match (matchInfras)
 import           Upcast.Install (install)
 import           Upcast.Monad
@@ -14,9 +14,6 @@ import           Upcast.Types
 
 infra :: InfraCli -> IO [Machine]
 infra = icontext >=> evalInfra
-
-infraDebug :: InfraCli -> IO ()
-infraDebug = icontext >=> debugEvalInfra >=> const (return ())
 
 infraDump :: InfraCli -> IO ()
 infraDump = icontext >=> print . inc_infras
@@ -57,10 +54,6 @@ main = do
         <> command "infra-tree"
            (infraDump <$> infraCliArgs `info`
             progDesc "dump infrastructure tree in json format")
-
-        <> command "infra-debug"
-           (infraDebug <$> infraCliArgs `info`
-            progDesc "evaluate infrastructure in debug mode")
 
         <> command "infra-nix"
            (infraNix <$> infraCliArgs `info`

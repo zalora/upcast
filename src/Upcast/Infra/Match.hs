@@ -37,10 +37,9 @@ import qualified Network.AWS.ELB as ELB
 import qualified Network.AWS.ELB.Types as ELB
 
 import           Upcast.Infra.NixTypes
-import           Upcast.Infra.Types hiding (Tags)
+import           Upcast.Infra.Types
 import           Upcast.IO (expectRight)
-import           Upcast.Infra (validateRegion)
-import           Upcast.Infra.AmazonkaTypes (readRegion)
+import           Upcast.Infra.AmazonkaTypes (validateRegion)
 
 
 data DiscoveryError = NotFound
@@ -49,7 +48,6 @@ data DiscoveryError = NotFound
 instance ToJSON DiscoveryError
 
 type ResourceId = Text
-type Tags = [(Text, Text)]
 
 type CanMatch infra =
   ( AWSMatchRequest infra
@@ -172,6 +170,8 @@ toDiscovery [one] = Right one
 toDiscovery [] = Left NotFound
 toDiscovery many = Left (Ambiguous many)
 
+discover i t = toDiscovery <$> matchTags i t
+
 filters tags = toFilter <$> tags --("created-using", "upcast"):tags
   where toFilter (k, v) = EC2.filter' (mconcat ["tag:", k]) & EC2.fValues .~ [v]
 
@@ -190,8 +190,6 @@ matchInfras infras@Infras{..} = object <$> do
              , ("elb" .=)      <$> match infraElb
              ]
   where
-    discover i t = toDiscovery <$> matchTags i t
-
     match ::
       (CanMatch a, Applicative f, MonadCatch f, MonadError AWS.Error f, AWS.MonadAWS f)
       => Attrs a -> f (Attrs (Either DiscoveryError ResourceId))
@@ -203,4 +201,4 @@ matchInfras infras@Infras{..} = object <$> do
     matchWithName = Map.traverseWithKey
                    (\k v -> discover v [("realm", infraRealmName), ("Name", k)])
 
-    region = readRegion (validateRegion infras)
+    region = validateRegion infras

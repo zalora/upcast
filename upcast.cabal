@@ -20,7 +20,7 @@ executable upcast
                      , bytestring, text, base64-bytestring
                      , unix, process, time
                      , lifted-base
-                     , mtl, free
+                     , mtl
                      , async
                      , attoparsec
                      , aeson, unordered-containers, vector, scientific
@@ -28,10 +28,8 @@ executable upcast
                      , conduit, resourcet
                      , random
                      , pretty-show
-                     , aws, http-conduit, conduit-extra, http-types
+                     , conduit-extra
                      , optparse-applicative >= 0.11.0.1
-                     , vk-aws-route53 > 0.1.1
-                     , aws-ec2 >= 0.3.2
                      , amazonka
                      , amazonka-core
                      , amazonka-ec2 >= 0.3.6.1
