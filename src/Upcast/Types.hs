@@ -24,7 +24,6 @@ data InfraContext
   = InfraContext
     { inc_expressionFile :: String
     , inc_infras :: Infras
-    , inc_stateFile :: FilePath
     } deriving (Show)
 
 -- | Structure used to pass arguments between evaluation and installation phases.
@@ -54,8 +53,7 @@ data DeliveryMode = Push | Pull String
 -- | CLI arguments to 'infra*'.
 data InfraCli =
   InfraCli
-  { infraCli_stateFile :: Maybe FilePath
-  , infraCli_expressionFile :: FilePath
+  { infraCli_expressionFile :: FilePath
   , infraCli_extra :: [String]
   } deriving (Show)
 

@@ -75,14 +75,7 @@ main = do
            (install <$> installCli `info`
             progDesc "copy a store path closure and set it to a profile")
 
-    infraCliArgs = InfraCli
-      <$> optional (strOption
-                    (long "state"
-                     <> short 's'
-                     <> metavar "FILE"
-                     <> help "use FILE as state file"))
-      <*> argument str exp
-      <*> nixArgs
+    infraCliArgs = InfraCli <$> argument str exp <*> nixArgs
 
     installCli = Install
       <$> (Remote <$> (strOption (long "target"

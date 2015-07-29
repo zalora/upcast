@@ -7,12 +7,11 @@ module Upcast.Environment where
 import           Control.Applicative
 import           System.Directory (canonicalizePath)
 import           System.Posix.Env (getEnv)
-import           System.FilePath.Posix (replaceExtension)
 
 import           Data.Aeson (eitherDecodeStrict, Value)
 import           Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as B8
-import           Data.Maybe (catMaybes, fromMaybe, isJust, fromJust)
+import           Data.Maybe (catMaybes, isJust, fromJust)
 import           Data.Monoid (mempty)
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -49,7 +48,6 @@ evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
   info <- fgconsume_ (nixInfraInfo nix)
   value <- expectRight $ return $ nixInfras info
   return InfraContext{ inc_expressionFile = file
-                     , inc_stateFile = fromMaybe (replaceExtension file "store") infraCli_stateFile
                      , inc_infras = value
                      }
 
