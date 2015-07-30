@@ -18,7 +18,7 @@ Every Upcast feature so far has appeared from the need to improve day-to-day ope
 #### Deploying NixOS-based software on Upcast-provisioned AWS infrastructure
 
 ```console
-% cabal install
+% stack install
 ```
 
 Contents of `infra.nix`:
