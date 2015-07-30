@@ -89,6 +89,7 @@ executable upcast
                      , lens
                      , lifted-base
                      , mtl
+                     , natural-sort
                      , optparse-applicative >= 0.11.0.1
                      , pretty-show
                      , process
