@@ -11,6 +11,7 @@ module Upcast.IO (
 , warn
 , warn8
 , pprint
+, ppShow
 ) where
 
 import           System.IO
@@ -27,6 +28,7 @@ import           Data.String
 import           Data.List (intersperse)
 
 import           Text.Read (readMaybe)
+import           Text.Show.Pretty (ppShow)
 
 import           Data.Aeson.Types (ToJSON)
 import           Data.Aeson.Encode.Pretty (encodePretty)

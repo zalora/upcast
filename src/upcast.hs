@@ -16,7 +16,7 @@ infra :: InfraCli -> IO [Machine]
 infra = icontext >=> evalInfra
 
 infraDump :: InfraCli -> IO ()
-infraDump = icontext >=> print . inc_infras
+infraDump = icontext >=> putStrLn . ppShow . inc_infras
 
 infraNix :: InfraCli -> IO ()
 infraNix = infra >=> putStr . machines2nix

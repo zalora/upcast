@@ -118,6 +118,7 @@ executable fgrun
                      , directory
                      , filepath
                      , mtl
+                     , pretty-show
                      , process
                      , random
                      , resourcet

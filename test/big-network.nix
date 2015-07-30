@@ -12,6 +12,7 @@ let
     securityGroups = [ infra.ec2-sg.default ];
     subnet = infra.ec2-subnet.default;
     instanceProfileARN = "arn:aws:iam::555555555555:instance-profile/yay";
+    ami = "ami-0126a576";
   };
 in
 {

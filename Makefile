@@ -2,7 +2,7 @@ ghci:
 	stack ghci
 
 test-tree:
-	NIX_UPCAST=nix upcast infra-tree test/big-network.nix | jq -M -r .
+	NIX_UPCAST=nix upcast infra-tree test/big-network.nix
 
 infra-nix: src/Upcast/Infra/NixTypes.hs
 
