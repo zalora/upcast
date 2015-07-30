@@ -15,7 +15,7 @@ Every Upcast feature so far has appeared from the need to improve day-to-day ope
 
 ### Features
 
-#### Deploying NixOS on Upcast-provisioned AWS infrastructure
+#### Deploying NixOS-based software on Upcast-provisioned AWS infrastructure
 
 ```console
 % cabal install
@@ -23,7 +23,6 @@ Every Upcast feature so far has appeared from the need to improve day-to-day ope
 
 Contents of `infra.nix`:
 ```nix
-{ lib ? import <upcast/lib> }:
 let
   ec2-args = {
     accessKeyId = "default";
@@ -47,9 +46,9 @@ in
     };
   };
 
-  # you need <nixpkgs> and <platform> in your $NIX_PATH to build this, see https://github.com/zalora/platform)
-  # <platform/nixos> is a drop-in replacement for <nixpkgs/nixos>
-  some-image = (import <platform/nixos> {
+  # you need <nixpkgs> and <microgram> in your $NIX_PATH to build this, see https://github.com/zalora/microgram)
+  # <microgram/nixos> is a drop-in replacement for <nixpkgs/nixos>
+  some-image = (import <microgram/nixos> {
     configuration = { config, pkgs, lib, ... }: {
       config.services.nginx.enable = true;
     };
