@@ -61,7 +61,7 @@ main = do
 
         <> command "infra-scan"
            (infraScan <$> infraCliArgs `info`
-            progDesc "scan for existing resources ignoring the state file")
+            progDesc "scan for existing infra")
 
         <> command "build"
            ((putStrLn <=< build) <$> buildCli `info`
