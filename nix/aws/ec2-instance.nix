@@ -54,6 +54,7 @@ in
       description = ''
         EC2 identifier of the AMI disk image used in the virtual
         machine.
+        NixOps default AMIs: https://github.com/NixOS/nixops/blob/master/nix/ec2-amis.nix
       '';
     };
 
@@ -138,34 +139,5 @@ in
     };
   };
 
-  config = {
-    ami = mkDefault (
-      let
-        cfg = config;
-
-        isEc2Hvm =
-            cfg.instanceType == "cc1.4xlarge"
-         || cfg.instanceType == "cc2.8xlarge"
-         || cfg.instanceType == "hs1.8xlarge"
-         || cfg.instanceType == "cr1.8xlarge"
-         || builtins.substring 0 2 cfg.instanceType == "i2"
-         || builtins.substring 0 2 cfg.instanceType == "c3"
-         || builtins.substring 0 2 cfg.instanceType == "r3"
-         || builtins.substring 0 2 cfg.instanceType == "m3"
-         || builtins.substring 0 2 cfg.instanceType == "t2";
-
-        type = if isEc2Hvm then "hvm" else if cfg.ebsBoot then "ebs" else "s3";
-        amis = import ./ec2-amis.nix;
-        amis' = amis."14.12"; # default to 14.12 images
-      in
-        with builtins;
-        if hasAttr cfg.region amis' then
-          let r = amis'."${cfg.region}";
-          in if hasAttr type r then r."${type}" else ""
-        else
-          ""
-      );
-
-    _type = "ec2-instance";
-  };
+  config._type = "ec2-instance";
 }

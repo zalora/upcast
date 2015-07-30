@@ -32,17 +32,16 @@ let
     subnet = "subnet-ffffffff";
     keyPair = "my-keypair";
   };
-  instance = instanceType: ec2-args // { inherit instanceType; };
+  instance = instanceType: ami: ec2-args // { inherit instanceType ami; };
 in
 {
   infra = {
     ec2-instance = {
-      node1 = instance "m3.large";
-      node2 = instance "m3.large";
-      ubuntu = instance "m3.large" // {
-        # http://cloud-images.ubuntu.com/locator/ec2/
-        ami = "ami-befc43c9";
-      };
+      # https://github.com/NixOS/nixops/blob/master/nix/ec2-amis.nix
+      node1 = instance "t2.large" "ami-0126a576";
+      node2 = instance "m4.large" "ami-0126a576";
+      # http://cloud-images.ubuntu.com/locator/ec2/
+      ubuntu = instance "m3.medium" "ami-befc43c9";
     };
   };
 
