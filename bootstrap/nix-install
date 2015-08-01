@@ -19,9 +19,14 @@ oops() {
     exit 1
 }
 
-system=x86_64-linux
-# see https://hydra.nixos.org/job/nix/master/binaryTarball.x86_64-linux#tabs-status
-url="http://hydra.nixos.org/build/17897595/download/1/nix-1.8-x86_64-linux.tar.bz2"
+case "$(uname -s).$(uname -m)" in
+    Linux.x86_64) system=x86_64-linux;;
+    Linux.i?86) system=i686-linux;;
+    Darwin.x86_64) system=x86_64-darwin;;
+    *) oops "sorry, there is no binary distribution of Nix for your platform";;
+esac
+
+url="https://nixos.org/releases/nix/nix-1.9/nix-1.9-$system.tar.bz2"
 
 require_util curl "download the binary tarball"
 require_util bzcat "decompress the binary tarball"
