@@ -27,6 +27,7 @@ import           Control.Monad.Trans.AWS (MonadAWS, AWSRequest, AWSPager, send, 
 import qualified Control.Monad.Trans.AWS as AWS
 import           Control.Monad.Trans.Resource
 import           Data.Aeson
+import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Builder as Build
 import           Data.ByteString.Lazy (toStrict)
 import           Data.Map.Strict (Map)
@@ -40,6 +41,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import           Data.Traversable (traverse)
+import qualified Network.AWS.Data as AWS
 import qualified Network.AWS.EC2 as EC2
 import qualified Network.AWS.EC2.Types as EC2
 import qualified Network.AWS.ELB as ELB
@@ -149,8 +151,6 @@ createVolume defTags aname Ebs{..} = do
   return volumeId
 
 
-textObject = T.decodeUtf8 . toStrict . encode . object
-
 -- we can only handle emphemeral volumes at creation time
 xformMapping :: BlockDeviceMapping -> Maybe EC2.BlockDeviceMapping
 xformMapping BlockDeviceMapping{..} =
@@ -180,11 +180,14 @@ createInstance (unTagged -> subnetId)
                name
                Ec2instance{..} = do
   let bds = Map.toList (xformMapping <$> ec2instance_blockDeviceMapping)
+  let type' = case AWS.fromText ec2instance_instanceType of
+                Left e -> error $ "unknown instance type: " ++ T.unpack ec2instance_instanceType  ++ " " ++ e
+                Right t -> t
+
 
   inst:_ <- view EC2.rirInstances <$> send (
     EC2.runInstances ec2instance_ami 1 1
-    & EC2.riSubnetId .~ subnetId
-    & EC2.riSecurityGroupIds .~ securityGroupIds
+    & EC2.riInstanceType .~ Just type'
     & EC2.riUserData .~ userData name udata
     & EC2.riKeyName .~ keyName
     & EC2.riEbsOptimized .~ Just ec2instance_ebsOptimized
@@ -193,7 +196,10 @@ createInstance (unTagged -> subnetId)
     & EC2.riIamInstanceProfile .~ Just (EC2.iamInstanceProfileSpecification
                                         & EC2.iipsArn .~ ec2instance_instanceProfileARN)
     & EC2.riNetworkInterfaces .~ [EC2.instanceNetworkInterfaceSpecification
-                                  & EC2.inisAssociatePublicIpAddress .~ Just True]
+                                  & EC2.inisAssociatePublicIpAddress .~ Just True
+                                  & EC2.inisSubnetId .~ subnetId
+                                  & EC2.inisGroups .~ securityGroupIds
+                                  & EC2.inisDeviceIndex .~ Just 0]
     & EC2.riMonitoring .~ Just (EC2.runInstancesMonitoringEnabled True)
     & EC2.riBlockDeviceMappings .~ catMaybes (snd <$> bds))
 
@@ -203,11 +209,13 @@ createInstance (unTagged -> subnetId)
 
   return instanceId
   where
+    base64Object = T.decodeUtf8 . Base64.encode . toStrict . encode . object
+
     userData _ Nothing = Nothing
-    userData name udata = Just (textObject (mconcat
-                                            [ [ "hostname" .= name ]
-                                            , maybe [] (Map.toList . fmap String) udata
-                                            ]))
+    userData name udata = Just (base64Object (mconcat
+                                              [ [ "hostname" .= name ]
+                                              , maybe [] (Map.toList . fmap String) udata
+                                              ]))
 
 say :: (MonadAWS m, Show a) => Build.Builder -> a -> m ()
 say msg = info . mappend msg . Build.stringUtf8 . show
