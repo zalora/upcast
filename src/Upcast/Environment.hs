@@ -49,6 +49,7 @@ evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
   value <- expectRight $ return $ nixInfras info
   return InfraContext{ inc_expressionFile = file
                      , inc_infras = value
+                     , inc_verbose = infraCli_verbose
                      }
 
 nixInfras :: ByteString -> Either String Infras

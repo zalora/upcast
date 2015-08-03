@@ -75,7 +75,10 @@ main = do
            (install <$> installCli `info`
             progDesc "copy a store path closure and set it to a profile")
 
-    infraCliArgs = InfraCli <$> argument str exp <*> nixArgs
+    infraCliArgs = InfraCli
+      <$> argument str exp
+      <*> (switch (long "verbose" <> short 'v' <> help "enable extra logging") <|> pure False)
+      <*> nixArgs
 
     installCli = Install
       <$> (Remote <$> (strOption (long "target"

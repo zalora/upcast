@@ -2,6 +2,8 @@
 
 module Upcast.Infra where
 
+import           Control.Exception.Base
+import           Control.Lens
 import qualified Control.Monad.Trans.AWS as AWS
 
 import           Network.AWS.Data (Base64(..))
@@ -14,7 +16,7 @@ import qualified Data.Text.IO as T
 import           Data.Traversable (traverse)
 import           System.FilePath.Posix (splitFileName)
 
-import           Upcast.IO (expectRight)
+import           Upcast.IO (expectRight, stderr)
 import           Upcast.Infra.Amazonka
 import           Upcast.Infra.AmazonkaTypes
 import           Upcast.Infra.NixTypes
@@ -45,8 +47,15 @@ evalInfra InfraContext{..} = do
   userData <- preReadUserData infraEc2instance
   keypairs <- prepareKeyPairs infraEc2keypair
 
-  env <- AWS.getEnv region AWS.Discover
-  Right machines <- AWS.runAWST env (plan name userData keypairs inc_infras)
-  return machines
+  env <- case inc_verbose of
+           False -> AWS.getEnv region AWS.Discover
+           True -> do
+             env <- AWS.getEnv region AWS.Discover
+             logger <- AWS.newLogger AWS.Debug stderr
+             return (env & AWS.envLogger .~ logger)
+  result <- AWS.runAWST env (plan name userData keypairs inc_infras)
+  case result of
+    Left e -> throwIO e
+    Right m -> return m
   where
     name = T.pack $ snd $ splitFileName inc_expressionFile
