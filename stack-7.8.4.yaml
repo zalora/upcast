@@ -1,0 +1,13 @@
+flags: {}
+packages:
+- '.'
+extra-deps:
+- vk-posix-pty-0.2.1
+- amazonka-ec2-0.3.6.1
+- amazonka-route53-0.3.6.1
+- natural-sort-0.1.2
+package-indices:
+- name: hackage.haskell.org
+  download-prefix: https://s3.amazonaws.com/hackage.fpcomplete.com/package/
+  http: https://s3.amazonaws.com/hackage.fpcomplete.com/00-index.tar.gz
+resolver: lts-2.15
