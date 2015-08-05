@@ -66,7 +66,10 @@ class AWSMatchRequest infra where
 
 instance AWSMatchRequest Ec2instance where
   type Rq Ec2instance = EC2.DescribeInstances
-  matchRequest _ tags = EC2.describeInstances & EC2.di1Filters .~ filters tags
+
+  matchRequest _ tags = EC2.describeInstances & EC2.di1Filters .~ alive:(filters tags)
+    where
+      alive = EC2.filter' "instance-state-name" & EC2.fValues .~ ["pending", "running", "stopped"]
   matchIds ids _ = EC2.describeInstances & EC2.di1InstanceIds .~ ids
 
 instance AWSExtractIds EC2.DescribeInstancesResponse where
