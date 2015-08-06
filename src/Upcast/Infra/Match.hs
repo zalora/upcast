@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -14,16 +15,17 @@ import           Control.Lens hiding ((.=))
 
 import           Control.Monad hiding (sequence)
 import           Control.Monad.Catch (MonadCatch)
-import           Control.Monad.Error.Class (MonadError)
+import           Control.Monad.Error.Class (MonadError, throwError)
 import           Control.Monad.Trans.AWS (MonadAWS, AWSRequest, AWSPager)
 import qualified Control.Monad.Trans.AWS as AWS
 import           Control.Monad.Trans.Resource
 
 import           Data.Aeson (ToJSON, Value, object, (.=))
+import qualified Data.Map as Map
 import           Data.Maybe (maybeToList)
 import           Data.Monoid
+import           Data.Proxy
 import           Data.Text (Text)
-import qualified Data.Map as Map
 import           Data.Traversable (sequence, traverse)
 import           GHC.Generics
 
@@ -35,6 +37,7 @@ import qualified Network.AWS.EC2 as EC2
 import qualified Network.AWS.EC2.Types as EC2
 import qualified Network.AWS.ELB as ELB
 import qualified Network.AWS.ELB.Types as ELB
+import           Network.AWS.Error (awsErrorCode)
 
 import           Upcast.Infra.NixTypes
 import           Upcast.Infra.Types
@@ -54,6 +57,7 @@ type CanMatch infra =
   , AWSExtractIds (AWS.Rs (Rq infra))
   , AWSRequest (Rq infra)
   , AWSPager (Rq infra)
+  , AWSExtractResponse infra
   )
 
 class AWSExtractIds a where
@@ -153,6 +157,36 @@ instance AWSPager EC2.DescribeKeyPairs where page _ _ = Nothing
 instance AWSPager EC2.DescribeVolumes where page _ _ = Nothing
 
 
+class AWSExtractResponse infra where
+  extractResponse :: MonadError AWS.Error m => proxy infra -> AWS.Response (Rq infra) -> m [ResourceId]
+
+  default extractResponse :: (AWSExtractIds (AWS.Rs (Rq infra)),
+                              Show (AWS.Er (AWS.Sv (Rq infra))),
+                              MonadError AWS.Error m)
+                          => proxy infra
+                          -> AWS.Response (Rq infra)
+                          -> m [ResourceId]
+  extractResponse _ response = case response of
+    Left a -> AWS.throwAWSError a
+    Right r -> return (extractIds r)
+
+instance AWSExtractResponse Elb where
+  extractResponse _ response = case response of
+    Left error@(AWS.ServiceError _ _ elbError) ->
+      case elbError  ^. AWS.restCode of
+        Just "LoadBalancerNotFound" -> return []
+        Nothing -> AWS.throwAWSError error
+    Left error -> AWS.throwAWSError error
+    Right r -> return (extractIds r)
+
+instance AWSExtractResponse Ec2sg
+instance AWSExtractResponse Ec2subnet
+instance AWSExtractResponse Ec2keypair
+instance AWSExtractResponse Ec2instance
+instance AWSExtractResponse Ec2vpc
+instance AWSExtractResponse Ebs
+
+
 matchTags ::
   forall infra m.
   (CanMatch infra,
@@ -165,8 +199,8 @@ matchTags ::
   -> m [ResourceId]
 matchTags infra tags = C.runConduit conduit
   where
-    conduit = AWS.paginate (matchRequest infra tags) =$=
-              CL.concatMap extractIds =$=
+    conduit = AWS.paginateCatch (matchRequest infra tags) =$=
+              CL.concatMapM (extractResponse (Proxy :: Proxy infra)) =$=
               CL.consume
 
 toDiscovery [one] = Right one
