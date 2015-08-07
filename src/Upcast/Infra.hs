@@ -51,7 +51,7 @@ evalInfra InfraContext{..} = do
            False -> AWS.getEnv region AWS.Discover
            True -> do
              env <- AWS.getEnv region AWS.Discover
-             logger <- AWS.newLogger AWS.Debug stderr
+             logger <- AWS.newLogger AWS.Trace stderr
              return (env & AWS.envLogger .~ logger)
   result <- AWS.runAWST env (plan name userData keypairs inc_infras)
   case result of
