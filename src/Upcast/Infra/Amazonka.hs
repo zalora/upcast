@@ -310,10 +310,12 @@ createElb (unTagged -> secGroupIds)
             "SSL:" <> T.pack (show port)
 
     accessLog AccessLog{..} =
-      ELB.accessLog accessLog_enable
-      & ELB.alEmitInterval .~ Just (fromIntegral accessLog_emitInterval) -- TODO: 5 or 60
-      & ELB.alS3BucketName .~ Just accessLog_s3BucketName
-      & ELB.alS3BucketPrefix .~ Just accessLog_s3BucketPrefix
+      if not accessLog_enable
+      then ELB.accessLog False
+      else ELB.accessLog True
+           & ELB.alEmitInterval .~ Just (fromIntegral accessLog_emitInterval) -- TODO: 5 or 60
+           & ELB.alS3BucketName .~ Just accessLog_s3BucketName
+           & ELB.alS3BucketPrefix .~ Just accessLog_s3BucketPrefix
 
     connectionDraining ConnectionDraining{..} =
       ELB.connectionDraining connectionDraining_enable
