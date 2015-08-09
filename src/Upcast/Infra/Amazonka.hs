@@ -54,10 +54,9 @@ import           Upcast.Infra.NixTypes
 import           Upcast.Infra.Types
 import           Upcast.Shell (exec, fgconsume)
 
+import           Upcast.Infra.Amazonka.UpsertAlias
+import           Upcast.Types (Machine(..))
 
-import           System.IO (stdout)
-import           Upcast.Environment
-import           Upcast.Types
 
 true = Just (EC2.attributeBooleanValue & EC2.abvValue .~ Just True)
 
@@ -347,11 +346,12 @@ createElb (unTagged -> secGroupIds)
     aliasTargets description aname Route53Alias{..} = do
       let Just elbZone = description ^. ELB.lbdCanonicalHostedZoneNameID
       let Just elbDNS = description ^. ELB.lbdDNSName
-      let upsert =
-            R53.change R53.Upsert (R53.resourceRecordSet aname R53.A
-                                   & R53.rrsAliasTarget .~ Just (R53.aliasTarget elbZone elbDNS False))
-      void $ send (R53.changeResourceRecordSets route53Alias_zoneId (R53.changeBatch (upsert :| [])))
-
+      let upsert = UpsertAlias { uaHostedZoneId = route53Alias_zoneId
+                               , uaName = aname
+                               , uaRecordType = R53.A
+                               , uaTarget= R53.aliasTarget elbZone elbDNS False
+                               }
+      void $ send upsert
 
 attachableVolume volumeA BlockDeviceMapping{..} =
   case blockDeviceMapping_disk of

@@ -28,8 +28,7 @@ library
                      , Upcast.Shell
                      , Upcast.Types
 
-  build-depends:       base
-                     , aeson
+  build-depends:       aeson
                      , aeson-pretty
                      , amazonka
                      , amazonka-autoscaling
@@ -39,9 +38,10 @@ library
                      , amazonka-route53 >= 0.3.6.1
                      , async
                      , attoparsec
+                     , base
                      , base64-bytestring
                      , bytestring
-                     , conduit, resourcet
+                     , conduit
                      , conduit-extra
                      , containers
                      , directory
@@ -54,6 +54,7 @@ library
                      , pretty-show
                      , process
                      , random
+                     , resourcet
                      , scientific
                      , semigroups
                      , tagged
@@ -63,12 +64,12 @@ library
                      , unordered-containers
                      , vector
                      , vk-posix-pty >= 0.2.1
+                     , xml-conduit >= 1.2.6
 
 
 executable upcast
   main-is:             upcast.hs
-  build-depends:       base
-                     , aeson
+  build-depends:       aeson
                      , aeson-pretty
                      , amazonka
                      , amazonka-autoscaling
@@ -78,9 +79,10 @@ executable upcast
                      , amazonka-route53 >= 0.3.6.1
                      , async
                      , attoparsec
+                     , base
                      , base64-bytestring
                      , bytestring
-                     , conduit, resourcet
+                     , conduit
                      , conduit-extra
                      , containers
                      , directory
@@ -94,6 +96,7 @@ executable upcast
                      , pretty-show
                      , process
                      , random
+                     , resourcet
                      , scientific
                      , semigroups
                      , tagged
@@ -103,6 +106,7 @@ executable upcast
                      , unordered-containers
                      , vector
                      , vk-posix-pty >= 0.2.1
+                     , xml-conduit >= 1.2.6
 
   hs-source-dirs:      src
   default-language:    Haskell2010
