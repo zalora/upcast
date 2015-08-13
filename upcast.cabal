@@ -1,139 +1,244 @@
-name:                upcast
-version:             0.1.1.0
-license-file:        LICENSE
-license:             MIT
-author:              Vladimir Kirillov
-maintainer:          vlad.ki@zalora.com
-copyright:           2014, 2015 Zalora South East Asia Pte Ltd
-build-type:          Simple
-cabal-version:       >=1.10
-data-files:          nix/*.nix
-                   , nix/aws/*.nix
-                   , nix/lib/*.nix
+-- This file has been generated from package.yaml by hpack version 0.5.4.
+--
+-- see: https://github.com/sol/hpack
+
+name:           upcast
+version:        0.1.1.0
+license-file:   LICENSE
+license:        MIT
+author:         Vladimir Kirillov
+maintainer:     vlad.ki@zalora.com
+copyright:      2014, 2015 Zalora South East Asia Pte Ltd
+build-type:     Simple
+cabal-version:  >= 1.10
+synopsis:       Nix-based Linux deployment platform tools
+description:    Nix-based Linux deployment platform tools
+category:       Automation
+homepage:       https://github.com/zalora/upcast#readme
+bug-reports:    https://github.com/zalora/upcast/issues
+
+data-files:
+    nix/aws/common.nix
+    nix/aws/ebs-volume.nix
+    nix/aws/ec2-instance.nix
+    nix/aws/ec2-keypair.nix
+    nix/aws/ec2-sg.nix
+    nix/aws/ec2-subnet.nix
+    nix/aws/ec2-vpc.nix
+    nix/aws/elb.nix
+    nix/eval-infra.nix
+    nix/extralib.nix
+    nix/infra-base.nix
+    nix/infra-types.nix
+    nix/inspect-types.nix
+    nix/lib/attrsets.nix
+    nix/lib/debug.nix
+    nix/lib/default.nix
+    nix/lib/lists.nix
+    nix/lib/meta.nix
+    nix/lib/misc.nix
+    nix/lib/modules.nix
+    nix/lib/options.nix
+    nix/lib/strings.nix
+    nix/lib/trivial.nix
+    nix/lib/types.nix
+    nix/option-types.nix
+
+source-repository head
+  type: git
+  location: https://github.com/zalora/upcast
 
 library
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-  default-extensions:  OverloadedStrings
-
-  exposed-modules:     Upcast.Deploy
-                     , Upcast.Environment
-                     , Upcast.IO
-                     , Upcast.Infra
-                     , Upcast.Infra.Amazonka
-                     , Upcast.Infra.Match
-                     , Upcast.Infra.NixTypes
-                     , Upcast.Infra.Types
-                     , Upcast.Install
-                     , Upcast.Shell
-                     , Upcast.Types
-
-  build-depends:       aeson
-                     , aeson-pretty
-                     , amazonka
-                     , amazonka-autoscaling
-                     , amazonka-core
-                     , amazonka-ec2 >= 0.3.6.1
-                     , amazonka-elb
-                     , amazonka-route53 >= 0.3.6.1
-                     , async
-                     , attoparsec
-                     , base
-                     , base64-bytestring
-                     , bytestring
-                     , conduit
-                     , conduit-extra
-                     , containers
-                     , directory
-                     , exceptions
-                     , filepath
-                     , lens
-                     , lifted-base
-                     , mtl
-                     , optparse-applicative >= 0.11.0.1
-                     , pretty-show
-                     , process
-                     , random
-                     , resourcet
-                     , scientific
-                     , semigroups
-                     , tagged
-                     , text
-                     , time
-                     , unix
-                     , unordered-containers
-                     , vector
-                     , vk-posix-pty >= 0.2.1
-                     , xml-conduit >= 1.2.6
-
-
-executable upcast
-  main-is:             upcast.hs
-  build-depends:       aeson
-                     , aeson-pretty
-                     , amazonka
-                     , amazonka-autoscaling
-                     , amazonka-core
-                     , amazonka-ec2 >= 0.3.6.1
-                     , amazonka-elb
-                     , amazonka-route53 >= 0.3.6.1
-                     , async
-                     , attoparsec
-                     , base
-                     , base64-bytestring
-                     , bytestring
-                     , conduit
-                     , conduit-extra
-                     , containers
-                     , directory
-                     , exceptions
-                     , filepath
-                     , lens
-                     , lifted-base
-                     , mtl
-                     , natural-sort
-                     , optparse-applicative >= 0.11.0.1
-                     , pretty-show
-                     , process
-                     , random
-                     , resourcet
-                     , scientific
-                     , semigroups
-                     , tagged
-                     , text
-                     , time
-                     , unix
-                     , unordered-containers
-                     , vector
-                     , vk-posix-pty >= 0.2.1
-                     , xml-conduit >= 1.2.6
-
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-  default-extensions:  OverloadedStrings
+  hs-source-dirs:
+      src
+  default-extensions: OverloadedStrings
+  build-depends:
+      base < 5
+    , aeson
+    , aeson-pretty
+    , amazonka
+    , amazonka-autoscaling
+    , amazonka-core
+    , amazonka-ec2 >= 0.3.6.1
+    , amazonka-elb
+    , amazonka-route53 >= 0.3.6.1
+    , async
+    , attoparsec
+    , base64-bytestring
+    , bytestring
+    , conduit
+    , resourcet
+    , conduit-extra
+    , containers
+    , directory
+    , exceptions
+    , filepath
+    , lens
+    , lifted-base
+    , mtl
+    , natural-sort
+    , optparse-applicative >= 0.11.0.1
+    , pretty-show
+    , process
+    , random
+    , scientific
+    , semigroups
+    , tagged
+    , text
+    , time
+    , unix
+    , unordered-containers
+    , vector
+    , vk-posix-pty >= 0.2.1
+    , xml-conduit
+  exposed-modules:
+      Upcast.Deploy
+      Upcast.Environment
+      Upcast.IO
+      Upcast.Infra
+      Upcast.Infra.Amazonka
+      Upcast.Infra.Match
+      Upcast.Infra.NixTypes
+      Upcast.Infra.Types
+      Upcast.Install
+      Upcast.Shell
+      Upcast.Types
+  other-modules:
+      Upcast.Infra.Amazonka.UpsertAlias
+      Upcast.Infra.AmazonkaTypes
+      Upcast.Monad
+      Upcast.Outputs
+      Upcast.Shell.Run
+      Upcast.Shell.Temp
+      Upcast.Shell.Types
+  default-language: Haskell2010
 
 executable fgrun
-  main-is:             fgrun.hs
-  build-depends:       base
-                     , aeson
-                     , aeson-pretty
-                     , bytestring
-                     , conduit
-                     , directory
-                     , filepath
-                     , mtl
-                     , pretty-show
-                     , process
-                     , random
-                     , resourcet
-                     , semigroups
-                     , text
-                     , time
-                     , unix
-                     , unordered-containers
-                     , vector
-                     , vk-posix-pty >= 0.2.1
+  main-is: fgrun.hs
+  hs-source-dirs:
+      src
+  default-extensions: OverloadedStrings
+  build-depends:
+      base < 5
+    , aeson
+    , aeson-pretty
+    , amazonka
+    , amazonka-autoscaling
+    , amazonka-core
+    , amazonka-ec2 >= 0.3.6.1
+    , amazonka-elb
+    , amazonka-route53 >= 0.3.6.1
+    , async
+    , attoparsec
+    , base64-bytestring
+    , bytestring
+    , conduit
+    , resourcet
+    , conduit-extra
+    , containers
+    , directory
+    , exceptions
+    , filepath
+    , lens
+    , lifted-base
+    , mtl
+    , natural-sort
+    , optparse-applicative >= 0.11.0.1
+    , pretty-show
+    , process
+    , random
+    , scientific
+    , semigroups
+    , tagged
+    , text
+    , time
+    , unix
+    , unordered-containers
+    , vector
+    , vk-posix-pty >= 0.2.1
+    , xml-conduit
+  other-modules:
+      Upcast.Deploy
+      Upcast.Environment
+      Upcast.Infra
+      Upcast.Infra.Amazonka
+      Upcast.Infra.Amazonka.UpsertAlias
+      Upcast.Infra.AmazonkaTypes
+      Upcast.Infra.Match
+      Upcast.Infra.NixTypes
+      Upcast.Infra.Types
+      Upcast.Install
+      Upcast.IO
+      Upcast.Monad
+      Upcast.Outputs
+      Upcast.Shell
+      Upcast.Shell.Run
+      Upcast.Shell.Temp
+      Upcast.Shell.Types
+      Upcast.Types
+  default-language: Haskell2010
 
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-  default-extensions:  OverloadedStrings
+executable upcast
+  main-is: upcast.hs
+  hs-source-dirs:
+      src
+  default-extensions: OverloadedStrings
+  build-depends:
+      base < 5
+    , aeson
+    , aeson-pretty
+    , amazonka
+    , amazonka-autoscaling
+    , amazonka-core
+    , amazonka-ec2 >= 0.3.6.1
+    , amazonka-elb
+    , amazonka-route53 >= 0.3.6.1
+    , async
+    , attoparsec
+    , base64-bytestring
+    , bytestring
+    , conduit
+    , resourcet
+    , conduit-extra
+    , containers
+    , directory
+    , exceptions
+    , filepath
+    , lens
+    , lifted-base
+    , mtl
+    , natural-sort
+    , optparse-applicative >= 0.11.0.1
+    , pretty-show
+    , process
+    , random
+    , scientific
+    , semigroups
+    , tagged
+    , text
+    , time
+    , unix
+    , unordered-containers
+    , vector
+    , vk-posix-pty >= 0.2.1
+    , xml-conduit
+  other-modules:
+      Upcast.Deploy
+      Upcast.Environment
+      Upcast.Infra
+      Upcast.Infra.Amazonka
+      Upcast.Infra.Amazonka.UpsertAlias
+      Upcast.Infra.AmazonkaTypes
+      Upcast.Infra.Match
+      Upcast.Infra.NixTypes
+      Upcast.Infra.Types
+      Upcast.Install
+      Upcast.IO
+      Upcast.Monad
+      Upcast.Outputs
+      Upcast.Shell
+      Upcast.Shell.Run
+      Upcast.Shell.Temp
+      Upcast.Shell.Types
+      Upcast.Types
+  default-language: Haskell2010

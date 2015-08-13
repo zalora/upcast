@@ -1,0 +1,76 @@
+name: upcast
+version: 0.1.1.0
+category: Automation
+github: zalora/upcast
+author: Vladimir Kirillov
+maintainer: vlad.ki@zalora.com
+copyright: 2014, 2015 Zalora South East Asia Pte Ltd
+license: MIT
+source-dirs: src
+default-extensions: OverloadedStrings
+
+synopsis:    Nix-based Linux deployment platform tools
+description: Nix-based Linux deployment platform tools
+
+data-files:
+  - nix/**/*.nix
+
+dependencies:
+  - base < 5
+  - aeson
+  - aeson-pretty
+  - amazonka
+  - amazonka-autoscaling
+  - amazonka-core
+  - amazonka-ec2 >= 0.3.6.1
+  - amazonka-elb
+  - amazonka-route53 >= 0.3.6.1
+  - async
+  - attoparsec
+  - base64-bytestring
+  - bytestring
+  - conduit
+  - resourcet
+  - conduit-extra
+  - containers
+  - directory
+  - exceptions
+  - filepath
+  - lens
+  - lifted-base
+  - mtl
+  - natural-sort
+  - optparse-applicative >= 0.11.0.1
+  - pretty-show
+  - process
+  - random
+  - scientific
+  - semigroups
+  - tagged
+  - text
+  - time
+  - unix
+  - unordered-containers
+  - vector
+  - vk-posix-pty >= 0.2.1
+  - xml-conduit
+
+library:
+    exposed-modules:
+      - Upcast.Deploy
+      - Upcast.Environment
+      - Upcast.IO
+      - Upcast.Infra
+      - Upcast.Infra.Amazonka
+      - Upcast.Infra.Match
+      - Upcast.Infra.NixTypes
+      - Upcast.Infra.Types
+      - Upcast.Install
+      - Upcast.Shell
+      - Upcast.Types
+
+executables:
+    upcast:
+        main: upcast.hs
+    fgrun:
+        main: fgrun.hs
