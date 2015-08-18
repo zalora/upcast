@@ -56,12 +56,12 @@ library
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka
-    , amazonka-autoscaling
-    , amazonka-core
-    , amazonka-ec2 >= 0.3.6.1
-    , amazonka-elb
-    , amazonka-route53 >= 0.3.6.1
+    , amazonka >= 1.0.0
+    , amazonka-autoscaling >= 1.0.0
+    , amazonka-core >= 1.0.0
+    , amazonka-ec2 >= 1.0.0
+    , amazonka-elb >= 1.0.0
+    , amazonka-route53 >= 1.0.0
     , async
     , attoparsec
     , base64-bytestring
@@ -73,6 +73,7 @@ library
     , directory
     , exceptions
     , filepath
+    , free
     , lens
     , lifted-base
     , mtl
@@ -122,12 +123,12 @@ executable fgrun
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka
-    , amazonka-autoscaling
-    , amazonka-core
-    , amazonka-ec2 >= 0.3.6.1
-    , amazonka-elb
-    , amazonka-route53 >= 0.3.6.1
+    , amazonka >= 1.0.0
+    , amazonka-autoscaling >= 1.0.0
+    , amazonka-core >= 1.0.0
+    , amazonka-ec2 >= 1.0.0
+    , amazonka-elb >= 1.0.0
+    , amazonka-route53 >= 1.0.0
     , async
     , attoparsec
     , base64-bytestring
@@ -139,6 +140,7 @@ executable fgrun
     , directory
     , exceptions
     , filepath
+    , free
     , lens
     , lifted-base
     , mtl
@@ -187,12 +189,12 @@ executable upcast
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka
-    , amazonka-autoscaling
-    , amazonka-core
-    , amazonka-ec2 >= 0.3.6.1
-    , amazonka-elb
-    , amazonka-route53 >= 0.3.6.1
+    , amazonka >= 1.0.0
+    , amazonka-autoscaling >= 1.0.0
+    , amazonka-core >= 1.0.0
+    , amazonka-ec2 >= 1.0.0
+    , amazonka-elb >= 1.0.0
+    , amazonka-route53 >= 1.0.0
     , async
     , attoparsec
     , base64-bytestring
@@ -204,6 +206,7 @@ executable upcast
     , directory
     , exceptions
     , filepath
+    , free
     , lens
     , lifted-base
     , mtl

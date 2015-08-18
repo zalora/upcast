@@ -19,12 +19,12 @@ dependencies:
   - base < 5
   - aeson
   - aeson-pretty
-  - amazonka
-  - amazonka-autoscaling
-  - amazonka-core
-  - amazonka-ec2 >= 0.3.6.1
-  - amazonka-elb
-  - amazonka-route53 >= 0.3.6.1
+  - amazonka >= 1.0.0
+  - amazonka-autoscaling >= 1.0.0
+  - amazonka-core >= 1.0.0
+  - amazonka-ec2 >= 1.0.0
+  - amazonka-elb >= 1.0.0
+  - amazonka-route53 >= 1.0.0
   - async
   - attoparsec
   - base64-bytestring
@@ -36,6 +36,7 @@ dependencies:
   - directory
   - exceptions
   - filepath
+  - free
   - lens
   - lifted-base
   - mtl
