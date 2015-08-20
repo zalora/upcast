@@ -175,7 +175,7 @@ instance AWSExtractResponse Elb where
     Left error@(AWS.ServiceError _ _ elbError) ->
       case elbError  ^. AWS.restCode of
         Just "LoadBalancerNotFound" -> return []
-        Nothing -> AWS.throwAWSError error
+        _ -> AWS.throwAWSError error
     Left error -> AWS.throwAWSError error
     Right r -> return (extractIds r)
 
