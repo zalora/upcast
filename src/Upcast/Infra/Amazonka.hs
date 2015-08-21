@@ -24,7 +24,7 @@ import           Control.Monad
 import           Control.Monad.Catch (MonadCatch)
 import           Control.Monad.Error.Class (MonadError)
 import           Control.Monad.Reader.Class (MonadReader)
-import           Control.Monad.Trans.AWS (AWST, HasEnv, AWSRequest, AWSPager, send)
+import           Control.Monad.Trans.AWS (AWST, HasEnv, AWSRequest, AWSPager, send, await)
 import qualified Control.Monad.Trans.AWS as AWS
 import           Control.Monad.Trans.Resource
 import           Data.Aeson
@@ -46,6 +46,7 @@ import           Network.AWS (MonadAWS)
 import qualified Network.AWS.Data as AWS
 import qualified Network.AWS.EC2 as EC2
 import qualified Network.AWS.EC2.Types as EC2
+import qualified Network.AWS.EC2.Waiters as EC2
 import qualified Network.AWS.ELB as ELB
 import qualified Network.AWS.ELB.Types as ELB
 import qualified Network.AWS.Route53 as R53
@@ -421,7 +422,8 @@ plan expressionName userData keypairs Infras{..} =
                                          k
                                          v)
 
-    void $ send (EC2.describeInstanceStatus & EC2.disInstanceIds .~ map snd instanceA)
+    void $ await EC2.instanceRunning (EC2.describeInstances
+                                      & EC2.diiInstanceIds .~ map snd instanceA)
 
     forAttrs infraEc2instance $ \aname Ec2instance{..} ->
       forAttrs ec2instance_blockDeviceMapping $ \vname bdev ->
