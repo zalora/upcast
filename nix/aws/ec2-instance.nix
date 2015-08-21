@@ -12,11 +12,10 @@ let
         type = infra "ebs";
         description = ''
           EC2 identifier of the disk to be mounted.  This can be an
-          ephemeral disk (e.g. <literal>ephemeral0</literal>), a
-          snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
-          volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
-          empty to create an EBS volume automatically.  It can also be
-          an EBS infra (e.g. <literal>infras.ebsVolumes.big-disk</literal>).
+          ephemeral disk (e.g. <literal>ephemeral0</literal>) or a
+          volume ID (e.g. <literal>vol-d04895b8</literal>).
+          It can be an EBS infra
+          (e.g. <literal>infra.ebs.big-disk</literal>).
           '';
       };
 
