@@ -23,8 +23,8 @@ import           Control.Lens hiding ((.=))
 import           Control.Monad
 import           Control.Monad.Catch (MonadCatch)
 import           Control.Monad.Error.Class (MonadError)
-import           Control.Monad.Free.Class (MonadFree)
-import           Control.Monad.Trans.AWS (AWST, AWSRequest, AWSPager, send)
+import           Control.Monad.Reader.Class (MonadReader)
+import           Control.Monad.Trans.AWS (AWST, HasEnv, AWSRequest, AWSPager, send)
 import qualified Control.Monad.Trans.AWS as AWS
 import           Control.Monad.Trans.Resource
 import           Data.Aeson
@@ -48,7 +48,6 @@ import qualified Network.AWS.EC2 as EC2
 import qualified Network.AWS.EC2.Types as EC2
 import qualified Network.AWS.ELB as ELB
 import qualified Network.AWS.ELB.Types as ELB
-import           Network.AWS.Free (Command)
 import qualified Network.AWS.Route53 as R53
 import qualified Network.AWS.Route53.Types as R53
 import           Upcast.IO (expectRight)
@@ -57,10 +56,14 @@ import           Upcast.Infra.NixTypes
 import           Upcast.Infra.Types
 import           Upcast.Shell (exec, fgconsume)
 
---import           Upcast.Infra.Amazonka.UpsertAlias
 import           Upcast.Types (Machine(..))
 
-type AWSC m = (MonadFree Command m, MonadCatch m, MonadResource m)
+type AWSC m = ( MonadCatch m
+              , MonadThrow m
+              , MonadResource m
+              , MonadBaseControl IO m
+              , MonadReader AWS.Env m
+              )
 
 true = Just (EC2.attributeBooleanValue & EC2.abvValue .~ Just True)
 
@@ -225,8 +228,6 @@ createInstance (unTagged -> subnetId)
 say :: AWSC m => a -> m ()
 say = return . const ()
 
-_AttachError = _ServiceError . hasCode "VolumeInUse"
-
 attachVolume :: AWSC m
                 => Tagged Ec2instance ResourceId
                 -> Tagged Ebs ResourceId
@@ -239,6 +240,9 @@ attachVolume (unTagged -> instanceId) (unTagged -> volumeId) device = do
     Left _ ->
      say "Did not attach volume: "
          --(instanceId, (sve ^. EC2.errErrors & head) ^. EC2.msgMessage)
+  where
+    _AttachError = _ServiceError . hasCode "VolumeInUse"
+
 
 importKeypair :: AWSC m => ByteString -> Tags -> Text -> Ec2keypair -> m ResourceId
 importKeypair pubkey _ _ Ec2keypair{..} = do

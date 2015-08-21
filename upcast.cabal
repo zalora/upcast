@@ -56,12 +56,11 @@ library
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka >= 1.0.0
-    , amazonka-autoscaling >= 1.0.0
-    , amazonka-core >= 1.0.0
-    , amazonka-ec2 >= 1.0.0
-    , amazonka-elb >= 1.0.0
-    , amazonka-route53 >= 1.0.0
+    , amazonka >= 1.1
+    , amazonka-core >= 1.1
+    , amazonka-ec2 >= 1.1
+    , amazonka-elb >= 1.1
+    , amazonka-route53 >= 1.1
     , async
     , attoparsec
     , base64-bytestring
@@ -73,7 +72,6 @@ library
     , directory
     , exceptions
     , filepath
-    , free
     , lens
     , lifted-base
     , mtl
@@ -105,7 +103,6 @@ library
       Upcast.Shell
       Upcast.Types
   other-modules:
-      Upcast.Infra.Amazonka.UpsertAlias
       Upcast.Infra.AmazonkaTypes
       Upcast.Monad
       Upcast.Outputs
@@ -123,12 +120,11 @@ executable fgrun
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka >= 1.0.0
-    , amazonka-autoscaling >= 1.0.0
-    , amazonka-core >= 1.0.0
-    , amazonka-ec2 >= 1.0.0
-    , amazonka-elb >= 1.0.0
-    , amazonka-route53 >= 1.0.0
+    , amazonka >= 1.1
+    , amazonka-core >= 1.1
+    , amazonka-ec2 >= 1.1
+    , amazonka-elb >= 1.1
+    , amazonka-route53 >= 1.1
     , async
     , attoparsec
     , base64-bytestring
@@ -140,7 +136,6 @@ executable fgrun
     , directory
     , exceptions
     , filepath
-    , free
     , lens
     , lifted-base
     , mtl
@@ -164,7 +159,6 @@ executable fgrun
       Upcast.Environment
       Upcast.Infra
       Upcast.Infra.Amazonka
-      Upcast.Infra.Amazonka.UpsertAlias
       Upcast.Infra.AmazonkaTypes
       Upcast.Infra.Match
       Upcast.Infra.NixTypes
@@ -189,12 +183,11 @@ executable upcast
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka >= 1.0.0
-    , amazonka-autoscaling >= 1.0.0
-    , amazonka-core >= 1.0.0
-    , amazonka-ec2 >= 1.0.0
-    , amazonka-elb >= 1.0.0
-    , amazonka-route53 >= 1.0.0
+    , amazonka >= 1.1
+    , amazonka-core >= 1.1
+    , amazonka-ec2 >= 1.1
+    , amazonka-elb >= 1.1
+    , amazonka-route53 >= 1.1
     , async
     , attoparsec
     , base64-bytestring
@@ -206,7 +199,6 @@ executable upcast
     , directory
     , exceptions
     , filepath
-    , free
     , lens
     , lifted-base
     , mtl
@@ -230,7 +222,6 @@ executable upcast
       Upcast.Environment
       Upcast.Infra
       Upcast.Infra.Amazonka
-      Upcast.Infra.Amazonka.UpsertAlias
       Upcast.Infra.AmazonkaTypes
       Upcast.Infra.Match
       Upcast.Infra.NixTypes

@@ -1,6 +1,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -15,8 +16,8 @@ import           Control.Lens hiding ((.=))
 
 import           Control.Monad hiding (sequence)
 import           Control.Monad.Catch (MonadCatch, try, throwM)
+import           Control.Monad.Reader.Class (MonadReader)
 import           Control.Monad.Error.Class (MonadError, throwError)
-import           Control.Monad.Free.Class (MonadFree)
 import           Control.Monad.Trans.AWS (AWSRequest, AWSPager, AWST)
 import qualified Control.Monad.Trans.AWS as AWS
 import           Control.Monad.Trans.Resource
@@ -39,7 +40,6 @@ import qualified Network.AWS.EC2 as EC2
 import qualified Network.AWS.EC2.Types as EC2
 import qualified Network.AWS.ELB as ELB
 import qualified Network.AWS.ELB.Types as ELB
-import           Network.AWS.Free (Command)
 import           Network.AWS.Pager
 
 import           Upcast.Infra.NixTypes
@@ -183,22 +183,25 @@ instance AWSExtractResponse Ec2vpc
 instance AWSExtractResponse Ebs
 
 matchTags ::
-  forall infra m.
+  forall infra m r.
   (CanMatch infra,
    MonadCatch m,
    MonadResource m,
-   MonadFree Command m)
+   MonadReader r m,
+   AWS.HasEnv r,
+   MonadBaseControl IO m)
   => infra
   -> Tags
   -> m [ResourceId]
-matchTags infra tags = try (C.runConduit conduit) >>= extractResponse (Proxy :: Proxy infra)
+matchTags infra tags = C.runConduit (C.tryC conduit) >>= extractResponse (Proxy :: Proxy infra)
   where
     conduit = AWS.paginate (matchRequest infra tags) =$= CL.consume
 
 toDiscovery :: [Text] -> Either DiscoveryError Text
-toDiscovery [one] = Right one
-toDiscovery [] = Left NotFound
-toDiscovery many = Left (Ambiguous many)
+toDiscovery = \case
+  [one] -> Right one
+  []    -> Left NotFound
+  many  -> Left (Ambiguous many)
 
 discover i t = toDiscovery <$> matchTags i t
 
@@ -221,7 +224,7 @@ matchInfras infras@Infras{..} = object <$> do
              ]
   where
     match, matchWithName ::
-      (CanMatch a, Applicative f, MonadCatch f, MonadResource f)
+      (CanMatch a, Applicative f, MonadCatch f, MonadResource f, MonadBaseControl IO f)
       => Attrs a -> AWST f (Attrs (Either DiscoveryError ResourceId))
     match = traverse (`discover` [realmName])
     matchWithName = Map.traverseWithKey (\k v -> discover v [realmName, ("Name", k)])
