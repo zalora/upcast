@@ -224,26 +224,16 @@ createInstance (unTagged -> subnetId)
                                               , maybe [] (Map.toList . fmap String) udata
                                               ]))
 
---say :: (AWSC m, Show a) => Build.Builder -> a -> m ()
---say msg = logInfo . mappend msg . Build.stringUtf8 . show
-say :: AWSC m => a -> m ()
-say = return . const ()
-
 attachVolume :: AWSC m
                 => Tagged Ec2instance ResourceId
                 -> Tagged Ebs ResourceId
                 -> Text
                 -> m ()
-attachVolume (unTagged -> instanceId) (unTagged -> volumeId) device = do
-  result <- AWS.trying _AttachError $ send $ EC2.attachVolume volumeId instanceId device
-  case result of
-    Right _ -> return ()
-    Left _ ->
-     say "Did not attach volume: "
-         --(instanceId, (sve ^. EC2.errErrors & head) ^. EC2.msgMessage)
+attachVolume (unTagged -> instanceId) (unTagged -> volumeId) device =
+  AWS.trying _VolumeInUse $ send $ EC2.attachVolume volumeId instanceId device
   where
-    _AttachError = _ServiceError . hasCode "VolumeInUse"
-
+    -- XXX: check whether it's attached to the right place
+    _VolumeInUse = _ServiceError . hasCode "VolumeInUse"
 
 importKeypair :: AWSC m => ByteString -> Tags -> Text -> Ec2keypair -> m ResourceId
 importKeypair pubkey _ _ Ec2keypair{..} = do
