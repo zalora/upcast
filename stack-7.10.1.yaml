@@ -9,6 +9,7 @@ extra-deps:
 - amazonka-route53-1.1.0
 - amazonka-1.1.0
 - amazonka-core-1.1.0
+- cryptonite-0.6
 package-indices:
 - name: hackage.haskell.org
   download-prefix: https://s3.amazonaws.com/hackage.fpcomplete.com/package/
