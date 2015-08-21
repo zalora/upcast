@@ -230,7 +230,7 @@ attachVolume :: AWSC m
                 -> Text
                 -> m ()
 attachVolume (unTagged -> instanceId) (unTagged -> volumeId) device =
-  AWS.trying _VolumeInUse $ send $ EC2.attachVolume volumeId instanceId device
+  void . AWS.trying _VolumeInUse $ send $ EC2.attachVolume volumeId instanceId device
   where
     -- XXX: check whether it's attached to the right place
     _VolumeInUse = _ServiceError . hasCode "VolumeInUse"
