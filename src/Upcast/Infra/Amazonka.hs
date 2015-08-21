@@ -10,7 +10,7 @@
 
 module Upcast.Infra.Amazonka where
 
-import           Prelude (error)
+import           Prelude
 import           Network.AWS.Prelude
 
 import           Data.List.NonEmpty (head, nonEmpty)
@@ -23,7 +23,8 @@ import           Control.Lens hiding ((.=))
 import           Control.Monad
 import           Control.Monad.Catch (MonadCatch)
 import           Control.Monad.Error.Class (MonadError)
-import           Control.Monad.Trans.AWS (MonadAWS, AWSRequest, AWSPager, send, sendCatch, info)
+import           Control.Monad.Reader.Class (MonadReader)
+import           Control.Monad.Trans.AWS (AWST, HasEnv, AWSRequest, AWSPager, send, await)
 import qualified Control.Monad.Trans.AWS as AWS
 import           Control.Monad.Trans.Resource
 import           Data.Aeson
@@ -41,9 +42,11 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import           Data.Traversable (traverse)
+import           Network.AWS (MonadAWS)
 import qualified Network.AWS.Data as AWS
 import qualified Network.AWS.EC2 as EC2
 import qualified Network.AWS.EC2.Types as EC2
+import qualified Network.AWS.EC2.Waiters as EC2
 import qualified Network.AWS.ELB as ELB
 import qualified Network.AWS.ELB.Types as ELB
 import qualified Network.AWS.Route53 as R53
@@ -54,42 +57,47 @@ import           Upcast.Infra.NixTypes
 import           Upcast.Infra.Types
 import           Upcast.Shell (exec, fgconsume)
 
-import           Upcast.Infra.Amazonka.UpsertAlias
 import           Upcast.Types (Machine(..))
 
+type AWSC m = ( MonadCatch m
+              , MonadThrow m
+              , MonadResource m
+              , MonadBaseControl IO m
+              , MonadReader AWS.Env m
+              )
 
 true = Just (EC2.attributeBooleanValue & EC2.abvValue .~ Just True)
 
 createTags xs tags =
-  void . send $ EC2.createTags & EC2.ct1Resources .~ xs
-                               & EC2.ct1Tags .~ map (uncurry EC2.tag) tags
+  void . send $ EC2.createTags & EC2.cResources .~ xs
+                               & EC2.cTags .~ map (uncurry EC2.tag) tags
 
-createVpc :: MonadAWS m => Tags -> Text -> Ec2vpc -> m ResourceId
+createVpc :: AWSC m => Tags -> Text -> Ec2vpc -> m ResourceId
 createVpc defTags aname Ec2vpc{..} = do
-  Just vpc <- view EC2.cvrVpc <$> send (EC2.createVpc ec2vpc_cidrBlock)
-  let vpcId = vpc ^. EC2.vpcVpcId
+  Just vpc <- view EC2.cvrsVPC <$> send (EC2.createVPC ec2vpc_cidrBlock)
+  let vpcId = vpc ^. EC2.vpcVPCId
 
-  void . send $ EC2.describeVpcs & EC2.dv1VpcIds .~ [vpcId]
+  void . send $ EC2.describeVPCs & EC2.dvsVPCIds .~ [vpcId]
   createTags [vpcId] (("Name", aname):defTags)
 
   internetAccess defTags vpcId
   return vpcId
 
-internetAccess :: MonadAWS m => Tags -> ResourceId -> m ()
+internetAccess :: AWSC m => Tags -> ResourceId -> m ()
 internetAccess defTags vpcId = do
-  void . send $ EC2.modifyVpcAttribute vpcId
-    & EC2.mvaEnableDnsHostnames .~ true
-    & EC2.mvaEnableDnsSupport .~ true
+  void . send $ EC2.modifyVPCAttribute vpcId
+    & EC2.mvaEnableDNSHostnames .~ true
+    & EC2.mvaEnableDNSSupport .~ true
 
-  Just igw <- view EC2.cigrInternetGateway <$> send EC2.createInternetGateway
+  Just igw <- view EC2.cigrsInternetGateway <$> send EC2.createInternetGateway
   let gwId = igw ^. EC2.igInternetGatewayId
 
   void . send $ EC2.attachInternetGateway gwId vpcId
 
   createTags [gwId] defTags
 
-  rtb:_rtbs <- view EC2.drtrRouteTables <$>
-          send (EC2.describeRouteTables & EC2.drt2Filters .~ filterIds "vpc-id" [vpcId])
+  rtb:_rtbs <- view EC2.drtrsRouteTables <$>
+          send (EC2.describeRouteTables & EC2.drtsFilters .~ filterIds "vpc-id" [vpcId])
 
   let Just rtbId = rtb ^. EC2.rtRouteTableId
 
@@ -97,53 +105,53 @@ internetAccess defTags vpcId = do
 
   createTags [rtbId] defTags
 
-createSubnet :: MonadAWS m =>  ResourceId -> Tags -> Text -> Ec2subnet -> m ResourceId
+createSubnet :: AWSC m =>  ResourceId -> Tags -> Text -> Ec2subnet -> m ResourceId
 createSubnet vpcId defTags aname Ec2subnet{..} = do
-  Just subnet <- view EC2.csrSubnet <$>
+  Just subnet <- view EC2.crsSubnet <$>
                  send (EC2.createSubnet vpcId ec2subnet_cidrBlock
-                       & EC2.cs1AvailabilityZone .~ Just ec2subnet_zone)
+                       & EC2.cssAvailabilityZone .~ Just ec2subnet_zone)
 
-  let subnetId = subnet ^. EC2.s1SubnetId
+  let subnetId = subnet ^. EC2.subSubnetId
   void . send $ matchIds [subnetId] (Proxy :: Proxy Ec2subnet)
   createTags [subnetId] defTags
   return subnetId
 
-ruleToPermission :: Rule -> EC2.IpPermission
+ruleToPermission :: Rule -> EC2.IPPermission
 ruleToPermission Rule{..} = EC2.ipPermission rule_protocol
                             & EC2.ipFromPort .~ (fromIntegral <$> rule_fromPort)
                             & EC2.ipToPort .~ (fromIntegral <$> rule_toPort)
-                            & EC2.ipIpRanges .~ (EC2.ipRange <$> maybeToList rule_sourceIp)
+                            & EC2.ipIPRanges .~ (EC2.ipRange <$> maybeToList rule_sourceIp)
 
-createSecurityGroup :: MonadAWS m => Maybe ResourceId -> Tags -> Text -> Ec2sg -> m ResourceId
+createSecurityGroup :: AWSC m => Maybe ResourceId -> Tags -> Text -> Ec2sg -> m ResourceId
 createSecurityGroup vpcId defTags aname Ec2sg{..} = do
-  groupId <- view EC2.csgrGroupId <$>
+  groupId <- view EC2.csgrsGroupId <$>
              send (EC2.createSecurityGroup ec2sg_name ec2sg_description
-                   & EC2.csgVpcId .~ vpcId)
+                   & EC2.csgVPCId .~ vpcId)
 
   void . send $ matchIds [groupId] (Proxy :: Proxy Ec2sg)
 
   void . send $ EC2.authorizeSecurityGroupIngress
     & EC2.asgiGroupId .~ Just groupId
-    & EC2.asgiIpPermissions .~ map ruleToPermission ec2sg_rules
+    & EC2.asgiIPPermissions .~ map ruleToPermission ec2sg_rules
 
   createTags [groupId] defTags
 
   return groupId
 
-toVolumeType Gp2 = EC2.Gp2
-toVolumeType (Iop _) = EC2.Io1
+toVolumeType Gp2 = EC2.GP2
+toVolumeType (Iop _) = EC2.IO1
 toVolumeType Standard = EC2.Standard
 
-createVolume :: MonadAWS m => Tags -> Text -> Ebs -> m ResourceId
+createVolume :: AWSC m => Tags -> Text -> Ebs -> m ResourceId
 createVolume defTags aname Ebs{..} = do
-  volumeId <- view EC2.cvrVolumeId <$>
+  volumeId <- view EC2.vVolumeId <$>
               send (EC2.createVolume ebs_zone
-                    & EC2.cv1SnapshotId .~ ebs_snapshot
-                    & EC2.cv1VolumeType .~ Just (toVolumeType ebs_volumeType)
-                    & EC2.cv1Iops .~ (case ebs_volumeType of
+                    & EC2.creSnapshotId .~ ebs_snapshot
+                    & EC2.creVolumeType .~ Just (toVolumeType ebs_volumeType)
+                    & EC2.creIOPS .~ (case ebs_volumeType of
                                        Iop n -> Just (fromIntegral n)
                                        _ -> Nothing)
-                    & EC2.cv1Size .~ Just (fromIntegral ebs_size))
+                    & EC2.creSize .~ Just (fromIntegral ebs_size))
 
   void . send $ matchIds [volumeId] (Proxy :: Proxy Ebs)
   createTags [volumeId] (("Name", ebs_name):defTags)
@@ -162,7 +170,7 @@ xformMapping BlockDeviceMapping{..} =
                  fail "ignore (not implemented)"
 
 
-createInstance :: MonadAWS m
+createInstance :: AWSC m
                   => Tagged Ec2subnet (Maybe ResourceId)
                   -> Tagged Ec2sg [ResourceId]
                   -> Maybe (Attrs Text) -- | UserData
@@ -184,25 +192,25 @@ createInstance (unTagged -> subnetId)
                 Right t -> t
 
 
-  inst:_ <- view EC2.rirInstances <$> send (
+  inst:_ <- view EC2.rInstances <$> send (
     EC2.runInstances ec2instance_ami 1 1
-    & EC2.riInstanceType .~ Just type'
-    & EC2.riUserData .~ userData name udata
-    & EC2.riKeyName .~ keyName
-    & EC2.riEbsOptimized .~ Just ec2instance_ebsOptimized
-    & EC2.riPlacement .~ Just (EC2.placement
+    & EC2.rInstanceType .~ Just type'
+    & EC2.rUserData .~ userData name udata
+    & EC2.rKeyName .~ keyName
+    & EC2.rEBSOptimized .~ Just ec2instance_ebsOptimized
+    & EC2.rPlacement .~ Just (EC2.placement
                                & EC2.pAvailabilityZone .~ Just ec2instance_zone)
-    & EC2.riIamInstanceProfile .~ Just (EC2.iamInstanceProfileSpecification
-                                        & EC2.iipsArn .~ ec2instance_instanceProfileARN)
-    & EC2.riNetworkInterfaces .~ [EC2.instanceNetworkInterfaceSpecification
-                                  & EC2.inisAssociatePublicIpAddress .~ Just True
+    & EC2.rIAMInstanceProfile .~ Just (EC2.iamInstanceProfileSpecification
+                                        & EC2.iapsARN .~ ec2instance_instanceProfileARN)
+    & EC2.rNetworkInterfaces .~ [EC2.instanceNetworkInterfaceSpecification
+                                  & EC2.inisAssociatePublicIPAddress .~ Just True
                                   & EC2.inisSubnetId .~ subnetId
                                   & EC2.inisGroups .~ securityGroupIds
                                   & EC2.inisDeviceIndex .~ Just 0]
-    & EC2.riMonitoring .~ Just (EC2.runInstancesMonitoringEnabled True)
-    & EC2.riBlockDeviceMappings .~ catMaybes (snd <$> bds))
+    & EC2.rMonitoring .~ Just (EC2.runInstancesMonitoringEnabled True)
+    & EC2.rBlockDeviceMappings .~ catMaybes (snd <$> bds))
 
-  let instanceId = inst ^. EC2.i1InstanceId
+  let instanceId = inst ^. EC2.insInstanceId
 
   createTags [instanceId] (("Name", name):defTags)
 
@@ -216,31 +224,26 @@ createInstance (unTagged -> subnetId)
                                               , maybe [] (Map.toList . fmap String) udata
                                               ]))
 
-say :: (MonadAWS m, Show a) => Build.Builder -> a -> m ()
-say msg = info . mappend msg . Build.stringUtf8 . show
-
-attachVolume :: MonadAWS m
+attachVolume :: AWSC m
                 => Tagged Ec2instance ResourceId
                 -> Tagged Ebs ResourceId
                 -> Text
                 -> m ()
-attachVolume (unTagged -> instanceId) (unTagged -> volumeId) device = do
-  result <- sendCatch $ EC2.attachVolume volumeId instanceId device
-  case result of
-   Right _ -> return ()
-   Left e@(AWS.ServiceError _ _ sve :: AWS.ServiceError EC2.EC2Error) ->
-     say "Did not attach volume: "
-         (instanceId, (sve ^. EC2.errErrors & head) ^. EC2.msgMessage)
+attachVolume (unTagged -> instanceId) (unTagged -> volumeId) device =
+  void . AWS.trying _VolumeInUse $ send $ EC2.attachVolume volumeId instanceId device
+  where
+    -- XXX: check whether it's attached to the right place
+    _VolumeInUse = _ServiceError . hasCode "VolumeInUse"
 
-importKeypair :: MonadAWS m => Base64 -> Tags -> Text -> Ec2keypair -> m ResourceId
-importKeypair base64 _ _ Ec2keypair{..} = do
-  response <- send $ EC2.importKeyPair ec2keypair_name base64
-  let Just name = response ^. EC2.ikprKeyName
+importKeypair :: AWSC m => ByteString -> Tags -> Text -> Ec2keypair -> m ResourceId
+importKeypair pubkey _ _ Ec2keypair{..} = do
+  response <- send $ EC2.importKeyPair ec2keypair_name pubkey
+  let Just name = response ^. EC2.ikprsKeyName
   return name
 
-elbTags = fromJust . nonEmpty . map (\(k, v) -> ELB.tag k & ELB.tagValue .~ Just v)
+elbTags = nonEmpty . map (\(k, v) -> ELB.tag k & ELB.tagValue .~ Just v)
 
-createElb :: MonadAWS m
+createElb :: AWSC m
              => Tagged Ec2sg [ResourceId]
              -> Tagged Ec2subnet [ResourceId]
              -> Tagged Ec2instance [ResourceId]
@@ -254,7 +257,8 @@ createElb (unTagged -> secGroupIds)
           (elbTags -> tags)
           aname
           Elb{..} = do
-  send (ELB.createLoadBalancer elb_name tags
+  send (ELB.createLoadBalancer elb_name
+        & ELB.clbTags .~ tags
         & ELB.clbScheme .~ (if elb_internal then Just "internal" else Nothing)
         & ELB.clbSecurityGroups .~ secGroupIds
         & ELB.clbSubnets .~ subnetIds
@@ -276,7 +280,7 @@ createElb (unTagged -> secGroupIds)
               & ELB.lbaCrossZoneLoadBalancing .~ Just (ELB.crossZoneLoadBalancing elb_crossZoneLoadBalancing)
   send $ ELB.modifyLoadBalancerAttributes elb_name attrs
 
-  let [description] = describe ^. ELB.dlbrLoadBalancerDescriptions
+  let [description] = describe ^. ELB.dlbrsLoadBalancerDescriptions
   _ <- forAttrs elb_route53Aliases (aliasTargets description)
 
   return elb_name
@@ -344,14 +348,11 @@ createElb (unTagged -> secGroupIds)
          return ()
 
     aliasTargets description aname Route53Alias{..} = do
-      let Just elbZone = description ^. ELB.lbdCanonicalHostedZoneNameID
+      let Just elbZone = description ^. ELB.lbdCanonicalHostedZoneNameId
       let Just elbDNS = description ^. ELB.lbdDNSName
-      let upsert = UpsertAlias { uaHostedZoneId = route53Alias_zoneId
-                               , uaName = aname
-                               , uaRecordType = R53.A
-                               , uaTarget= R53.aliasTarget elbZone elbDNS False
-                               }
-      void $ send upsert
+      let upsert = R53.change R53.Upsert (R53.resourceRecordSet aname R53.A
+                       & R53.rrsAliasTarget .~ Just (R53.aliasTarget elbZone elbDNS False))
+      void $ send (R53.changeResourceRecordSets route53Alias_zoneId (R53.changeBatch (upsert :| [])))
 
 attachableVolume volumeA BlockDeviceMapping{..} =
   case blockDeviceMapping_disk of
@@ -360,6 +361,16 @@ attachableVolume volumeA BlockDeviceMapping{..} =
                | "vol-" `T.isPrefixOf` x -> return x
                | otherwise -> error $ "can't handle disk: " ++ T.unpack x
 
+ensure :: (AWSC m,
+           AWSPager (Rq infra),
+           AWSExtractResponse infra,
+           AWSMatchRequest infra,
+           AWSExtractIds (Rs (Rq infra)))
+          => (Tags -> Text -> infra -> m ResourceId)
+          -> Tags
+          -> Text
+          -> infra
+          -> m ResourceId
 ensure create tags k v = do
   discovery <- discover v (("Name", k):tags)
   case discovery of
@@ -368,10 +379,10 @@ ensure create tags k v = do
    Left (Ambiguous many) ->
      error $ "required intervention, ambiguous results: " ++ show (k, many)
 
-plan :: MonadAWS m
+plan :: AWSC m
         => Text
         -> Attrs (Attrs Text)
-        -> Attrs (Ec2keypair, Base64)
+        -> Attrs (Ec2keypair, ByteString)
         -> Infras
         -> m [Machine]
 plan expressionName userData keypairs Infras{..} =
@@ -390,7 +401,7 @@ plan expressionName userData keypairs Infras{..} =
     volumeA <-
       forAttrs infraEbs (ensure createVolume defTags)
     keypairA <-
-      forAttrs keypairs (\k (v, base64) -> ensure (importKeypair base64) defTags k v)
+      forAttrs keypairs (\k (v, pubkey) -> ensure (importKeypair pubkey) defTags k v)
     instanceA <-
       forAttrs infraEc2instance (\k v -> ensure (createInstance
                                                  (instanceLookupSubnet subnetA v)
@@ -401,7 +412,8 @@ plan expressionName userData keypairs Infras{..} =
                                          k
                                          v)
 
-    void $ send (EC2.describeInstanceStatus & EC2.disInstanceIds .~ map snd instanceA)
+    void $ await EC2.instanceRunning (EC2.describeInstances
+                                      & EC2.diiInstanceIds .~ map snd instanceA)
 
     forAttrs infraEc2instance $ \aname Ec2instance{..} ->
       forAttrs ec2instance_blockDeviceMapping $ \vname bdev ->
@@ -424,19 +436,19 @@ plan expressionName userData keypairs Infras{..} =
 machines [] _ _ = return []
 machines instanceA keypairs infraEc2instance = fmap toMachine (send request)
   where
-    request = EC2.describeInstances & EC2.di1InstanceIds .~ map fst nameById
+    request = EC2.describeInstances & EC2.diiInstanceIds .~ map fst nameById
     nameById = map (\(k, v) -> (v, k)) instanceA
     keypairFileByName =
       map (\(Ec2keypair{..}, _) -> (ec2keypair_name, ec2keypair_privateKeyFile)) $ Map.elems keypairs
 
     toMachine resp = do
-      rs <- resp ^. EC2.dirReservations
+      rs <- resp ^. EC2.dirsReservations
       inst <- rs ^. EC2.rInstances
-      let id = inst ^. EC2.i1InstanceId
+      let id = inst ^. EC2.insInstanceId
       let Just name = lookup id nameById
-      let Just publicIp = inst ^. EC2.i1PublicIpAddress
-      let Just privateIp = inst ^. EC2.i1PrivateIpAddress
-      let keyFile = inst ^. EC2.i1KeyName >>= (`lookup` keypairFileByName)
+      let Just publicIp = inst ^. EC2.insPublicIPAddress
+      let Just privateIp = inst ^. EC2.insPrivateIPAddress
+      let keyFile = inst ^. EC2.insKeyName >>= (`lookup` keypairFileByName)
       return $ Machine name publicIp privateIp id keyFile
 
 

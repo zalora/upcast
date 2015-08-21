@@ -1,13 +1,29 @@
-flags: {}
+flags:
+  amazonka-core:
+    old-locale: true
 packages:
 - '.'
+# - location: ../amazonka-1/amazonka-ec2
+#   extra-dep: true
+# - location: ../amazonka-1/amazonka
+#   extra-dep: true
+# - location: ../amazonka-1/core
+#   extra-dep: true
+# - location: ../amazonka-1/amazonka-elb
+#   extra-dep: true
+# - location: ../amazonka-1/amazonka-route53
+#   extra-dep: true
 extra-deps:
 - vk-posix-pty-0.2.1
-- amazonka-ec2-0.3.6.1
-- amazonka-route53-0.3.6.1
 - natural-sort-0.1.2
+- amazonka-ec2-1.1.0
+- amazonka-elb-1.1.0
+- amazonka-route53-1.1.0
+- amazonka-1.1.0
+- amazonka-core-1.1.0
+- cryptonite-0.6
 package-indices:
 - name: hackage.haskell.org
   download-prefix: https://s3.amazonaws.com/hackage.fpcomplete.com/package/
   http: https://s3.amazonaws.com/hackage.fpcomplete.com/00-index.tar.gz
-resolver: lts-2.15
+resolver: lts-2.21

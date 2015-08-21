@@ -56,12 +56,11 @@ library
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka
-    , amazonka-autoscaling
-    , amazonka-core
-    , amazonka-ec2 >= 0.3.6.1
-    , amazonka-elb
-    , amazonka-route53 >= 0.3.6.1
+    , amazonka >= 1.1
+    , amazonka-core >= 1.1
+    , amazonka-ec2 >= 1.1
+    , amazonka-elb >= 1.1
+    , amazonka-route53 >= 1.1
     , async
     , attoparsec
     , base64-bytestring
@@ -104,7 +103,6 @@ library
       Upcast.Shell
       Upcast.Types
   other-modules:
-      Upcast.Infra.Amazonka.UpsertAlias
       Upcast.Infra.AmazonkaTypes
       Upcast.Monad
       Upcast.Outputs
@@ -122,12 +120,11 @@ executable fgrun
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka
-    , amazonka-autoscaling
-    , amazonka-core
-    , amazonka-ec2 >= 0.3.6.1
-    , amazonka-elb
-    , amazonka-route53 >= 0.3.6.1
+    , amazonka >= 1.1
+    , amazonka-core >= 1.1
+    , amazonka-ec2 >= 1.1
+    , amazonka-elb >= 1.1
+    , amazonka-route53 >= 1.1
     , async
     , attoparsec
     , base64-bytestring
@@ -162,7 +159,6 @@ executable fgrun
       Upcast.Environment
       Upcast.Infra
       Upcast.Infra.Amazonka
-      Upcast.Infra.Amazonka.UpsertAlias
       Upcast.Infra.AmazonkaTypes
       Upcast.Infra.Match
       Upcast.Infra.NixTypes
@@ -187,12 +183,11 @@ executable upcast
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka
-    , amazonka-autoscaling
-    , amazonka-core
-    , amazonka-ec2 >= 0.3.6.1
-    , amazonka-elb
-    , amazonka-route53 >= 0.3.6.1
+    , amazonka >= 1.1
+    , amazonka-core >= 1.1
+    , amazonka-ec2 >= 1.1
+    , amazonka-elb >= 1.1
+    , amazonka-route53 >= 1.1
     , async
     , attoparsec
     , base64-bytestring
@@ -227,7 +222,6 @@ executable upcast
       Upcast.Environment
       Upcast.Infra
       Upcast.Infra.Amazonka
-      Upcast.Infra.Amazonka.UpsertAlias
       Upcast.Infra.AmazonkaTypes
       Upcast.Infra.Match
       Upcast.Infra.NixTypes
