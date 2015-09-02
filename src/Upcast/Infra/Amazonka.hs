@@ -412,8 +412,9 @@ plan expressionName userData keypairs Infras{..} =
                                          k
                                          v)
 
-    void $ await EC2.instanceRunning (EC2.describeInstances
-                                      & EC2.diiInstanceIds .~ map snd instanceA)
+    unless (null instanceA) $
+      await EC2.instanceRunning (EC2.describeInstances
+                                 & EC2.diiInstanceIds .~ map snd instanceA)
 
     forAttrs infraEc2instance $ \aname Ec2instance{..} ->
       forAttrs ec2instance_blockDeviceMapping $ \vname bdev ->
