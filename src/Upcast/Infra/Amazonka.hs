@@ -87,6 +87,7 @@ internetAccess :: AWSC m => Tags -> ResourceId -> m ()
 internetAccess defTags vpcId = do
   void . send $ EC2.modifyVPCAttribute vpcId
     & EC2.mvaEnableDNSHostnames .~ true
+  void . send $ EC2.modifyVPCAttribute vpcId
     & EC2.mvaEnableDNSSupport .~ true
 
   Just igw <- view EC2.cigrsInternetGateway <$> send EC2.createInternetGateway
