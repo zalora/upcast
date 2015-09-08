@@ -77,7 +77,7 @@ createVpc defTags aname Ec2vpc{..} = do
   Just vpc <- view EC2.cvrsVPC <$> send (EC2.createVPC ec2vpc_cidrBlock)
   let vpcId = vpc ^. EC2.vpcVPCId
 
-  void . send $ EC2.describeVPCs & EC2.dvsVPCIds .~ [vpcId]
+  await EC2.vpcAvailable (EC2.describeVPCs & EC2.dvsVPCIds .~ [vpcId])
   createTags [vpcId] (("Name", aname):defTags)
 
   internetAccess defTags vpcId
