@@ -1,14 +1,18 @@
 flags: {}
 packages:
 - '.'
+- location:
+    git: git://github.com/brendanhay/amazonka.git
+    commit: 03e5452ac0a861e29bd7159f35089f67cd74422f
+  subdirs:
+  - core
+  - amazonka
+  - amazonka-ec2
+  - amazonka-route53
+  - amazonka-elb
 extra-deps:
 - vk-posix-pty-0.2.1
 - natural-sort-0.1.2
-- amazonka-ec2-1.1.0
-- amazonka-elb-1.1.0
-- amazonka-route53-1.1.0
-- amazonka-1.1.0
-- amazonka-core-1.1.0
 - cryptonite-0.6
 package-indices:
 - name: hackage.haskell.org
