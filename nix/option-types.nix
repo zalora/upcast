@@ -10,7 +10,10 @@ if (lib._upcast-option-types or false) != false then lib._upcast-option-types el
   infra = type: mkOptionType {
     name = "infra of type ‘${type}’ or remote resource id";
     check = x: x._type or "" == type || isString x;
-    merge = mergeOneTransform (x: if x ? _type then { local = x._name; } else { remote = x; });
+    merge = mergeOneTransform (x: if x ? local then x else (if x ? _type then {
+      local = x._name;
+      inherit (x) _type;
+    } else { remote = x; }));
   };
 
   # ctor-set is a set from ctor names to the contained type. For example,

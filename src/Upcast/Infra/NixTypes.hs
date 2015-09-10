@@ -316,10 +316,10 @@ instance ToJSON VolumeType where
 data InfraRef a = RefLocal Text | RefRemote Text deriving (Show, Generic)
 
 instance FromJSON (InfraRef a) where
-  parseJSON = genericParseJSON defaultOptions
-              { sumEncoding = ObjectWithSingleField
-              , constructorTagModifier = drop 3 . map toLower
-              }
+  parseJSON (Object o) =
+    (RefLocal <$> o .: "local") <|>
+    (RefRemote <$> o .: "remote")
+  parseJSON _ = empty
 
 instance ToJSON (InfraRef a) where
   toJSON = genericToJSON defaultOptions
