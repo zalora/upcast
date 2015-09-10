@@ -87,13 +87,14 @@ env = Env
 ssh = SSH
 
 sha :: Expr [String] -> Arg
-sha (E exec args')   = arg exec <> args args'
-sha (Pipe l r)       = sha l <> "|" <> sha r
-sha (Seq l r)        = "{" <> sha l <> ";" <> sha r <> "; }"
-sha (Env xs exp)     = env' xs <> sha exp
-sha (Sudo exp)       = "sudo sh -c" <> arg (sh exp)
-sha (Redir exp file) = "{" <> sha exp <> ">" <> arg file <> "; }"
-sha (SSH host op exp)= "ssh" <> args op <> arg host <> arg (sh exp)
+sha (E exec args')          = arg exec <> args args'
+sha (Pipe l r)              = sha l <> "|" <> sha r
+sha (Seq l r)               = "{" <> sha l <> ";" <> sha r <> "; }"
+sha (Env xs exp)            = env' xs <> sha exp
+sha (Sudo exp)              = "sudo sh -c" <> arg (sh exp)
+sha (Redir exp file)        = "{" <> sha exp <> ">" <> arg file <> "; }"
+sha (SSH "localhost" _ exp) = sha exp
+sha (SSH host op exp)       = "ssh" <> args op <> arg host <> arg (sh exp)
 
 sh :: Expr [String] -> String
 sh = render . sha
