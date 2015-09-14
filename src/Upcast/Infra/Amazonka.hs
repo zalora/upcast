@@ -135,7 +135,7 @@ createSecurityGroup vpcId defTags aname Ec2sg{..} = do
     & EC2.asgiGroupId .~ Just groupId
     & EC2.asgiIPPermissions .~ map ruleToPermission ec2sg_rules
 
-  createTags [groupId] defTags
+  createTags [groupId] (("Name", aname):defTags)
 
   return groupId
 
