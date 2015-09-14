@@ -62,10 +62,6 @@ let
           parseJSON = genericParseJSON defaultOptions
                       { fieldLabelModifier = drop ${toString (stringLength _prefix)} }
 
-        instance ToJSON ${_name} where
-          toJSON = genericToJSON defaultOptions
-                   { fieldLabelModifier = drop ${toString (stringLength _prefix)} }
-
       '';
     } else if (v._type == "List") then v // rec {
       _repr = "[${type-tag _arg}]";
@@ -98,11 +94,6 @@ let
           parseJSON = genericParseJSON defaultOptions
                       { sumEncoding = ObjectWithSingleField
                       , constructorTagModifier = map toLower }
-
-        instance ToJSON ${_tag} where
-          toJSON = genericToJSON defaultOptions
-                   { sumEncoding = ObjectWithSingleField
-                   , constructorTagModifier = map toLower }
       '';
     } else v;
 
@@ -192,12 +183,6 @@ let
         (RefLocal <$> o .: "local") <|>
         (RefRemote <$> o .: "remote")
       parseJSON _ = empty
-
-    instance ToJSON (InfraRef a) where
-      toJSON = genericToJSON defaultOptions
-               { sumEncoding = ObjectWithSingleField
-               , constructorTagModifier = drop 3 . map toLower
-               }
 
     data Infras = Infras
           { infraRealmName :: Text

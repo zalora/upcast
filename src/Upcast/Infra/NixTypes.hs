@@ -27,10 +27,6 @@ instance FromJSON AccessLog where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 10 }
 
-instance ToJSON AccessLog where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 10 }
-
 
 data BlockDeviceMapping = BlockDeviceMapping
      { blockDeviceMapping_blockDeviceMappingName :: Text
@@ -42,10 +38,6 @@ instance FromJSON BlockDeviceMapping where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 19 }
 
-instance ToJSON BlockDeviceMapping where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 19 }
-
 
 data ConnectionDraining = ConnectionDraining
      { connectionDraining_enable :: Bool
@@ -55,10 +47,6 @@ data ConnectionDraining = ConnectionDraining
 instance FromJSON ConnectionDraining where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 19 }
-
-instance ToJSON ConnectionDraining where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 19 }
 
 
 data Ebs = Ebs
@@ -74,10 +62,6 @@ data Ebs = Ebs
 instance FromJSON Ebs where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 4 }
-
-instance ToJSON Ebs where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 4 }
 
 
 data Ec2instance = Ec2instance
@@ -100,10 +84,6 @@ instance FromJSON Ec2instance where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 12 }
 
-instance ToJSON Ec2instance where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 12 }
-
 
 data Ec2keypair = Ec2keypair
      { ec2keypair_accessKeyId :: Text
@@ -115,10 +95,6 @@ data Ec2keypair = Ec2keypair
 instance FromJSON Ec2keypair where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 11 }
-
-instance ToJSON Ec2keypair where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 11 }
 
 
 data Ec2sg = Ec2sg
@@ -134,10 +110,6 @@ instance FromJSON Ec2sg where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 6 }
 
-instance ToJSON Ec2sg where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 6 }
-
 
 data Ec2subnet = Ec2subnet
      { ec2subnet_accessKeyId :: Text
@@ -151,10 +123,6 @@ instance FromJSON Ec2subnet where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 10 }
 
-instance ToJSON Ec2subnet where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 10 }
-
 
 data Ec2vpc = Ec2vpc
      { ec2vpc_accessKeyId :: Text
@@ -165,10 +133,6 @@ data Ec2vpc = Ec2vpc
 instance FromJSON Ec2vpc where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 7 }
-
-instance ToJSON Ec2vpc where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 7 }
 
 
 data Elb = Elb
@@ -191,10 +155,6 @@ instance FromJSON Elb where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 4 }
 
-instance ToJSON Elb where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 4 }
-
 
 data HealthCheck = HealthCheck
      { healthCheck_healthyThreshold :: Integer
@@ -208,10 +168,6 @@ instance FromJSON HealthCheck where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 12 }
 
-instance ToJSON HealthCheck where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 12 }
-
 
 data HealthCheckPathTarget = HealthCheckPathTarget
      { healthCheckPathTarget_path :: Text
@@ -221,10 +177,6 @@ data HealthCheckPathTarget = HealthCheckPathTarget
 instance FromJSON HealthCheckPathTarget where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 22 }
-
-instance ToJSON HealthCheckPathTarget where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 22 }
 
 
 data Listener = Listener
@@ -240,10 +192,6 @@ instance FromJSON Listener where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 9 }
 
-instance ToJSON Listener where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 9 }
-
 
 data Route53Alias = Route53Alias
      { route53Alias_zoneId :: Text
@@ -252,10 +200,6 @@ data Route53Alias = Route53Alias
 instance FromJSON Route53Alias where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 13 }
-
-instance ToJSON Route53Alias where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 13 }
 
 
 data Rule = Rule
@@ -271,10 +215,6 @@ instance FromJSON Rule where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 5 }
 
-instance ToJSON Rule where
-  toJSON = genericToJSON defaultOptions
-           { fieldLabelModifier = drop 5 }
-
 
 data Stickiness = App Text | Lb (Maybe Integer) deriving (Show, Generic)
 
@@ -283,11 +223,6 @@ instance FromJSON Stickiness where
               { sumEncoding = ObjectWithSingleField
               , constructorTagModifier = map toLower }
 
-instance ToJSON Stickiness where
-  toJSON = genericToJSON defaultOptions
-           { sumEncoding = ObjectWithSingleField
-           , constructorTagModifier = map toLower }
-
 data Target = Http HealthCheckPathTarget | Https HealthCheckPathTarget | Ssl Integer | Tcp Integer deriving (Show, Generic)
 
 instance FromJSON Target where
@@ -295,22 +230,12 @@ instance FromJSON Target where
               { sumEncoding = ObjectWithSingleField
               , constructorTagModifier = map toLower }
 
-instance ToJSON Target where
-  toJSON = genericToJSON defaultOptions
-           { sumEncoding = ObjectWithSingleField
-           , constructorTagModifier = map toLower }
-
 data VolumeType = Gp2 | Iop Integer | Standard deriving (Show, Generic)
 
 instance FromJSON VolumeType where
   parseJSON = genericParseJSON defaultOptions
               { sumEncoding = ObjectWithSingleField
               , constructorTagModifier = map toLower }
-
-instance ToJSON VolumeType where
-  toJSON = genericToJSON defaultOptions
-           { sumEncoding = ObjectWithSingleField
-           , constructorTagModifier = map toLower }
 
 
 data InfraRef a = RefLocal Text | RefRemote Text deriving (Show, Generic)
@@ -320,12 +245,6 @@ instance FromJSON (InfraRef a) where
     (RefLocal <$> o .: "local") <|>
     (RefRemote <$> o .: "remote")
   parseJSON _ = empty
-
-instance ToJSON (InfraRef a) where
-  toJSON = genericToJSON defaultOptions
-           { sumEncoding = ObjectWithSingleField
-           , constructorTagModifier = drop 3 . map toLower
-           }
 
 data Infras = Infras
       { infraRealmName :: Text
