@@ -3,7 +3,7 @@ packages:
 - '.'
 - location:
     git: git://github.com/brendanhay/amazonka.git
-    commit: 03e5452ac0a861e29bd7159f35089f67cd74422f
+    commit: e63bc91ef89b9b743a2732fe90f1621c7abf3d97
   subdirs:
   - core
   - amazonka
