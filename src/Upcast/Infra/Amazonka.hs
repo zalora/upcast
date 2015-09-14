@@ -114,7 +114,7 @@ createSubnet vpcId defTags aname Ec2subnet{..} = do
 
   let subnetId = subnet ^. EC2.subSubnetId
   void . send $ matchIds [subnetId] (Proxy :: Proxy Ec2subnet)
-  createTags [subnetId] defTags
+  createTags [subnetId] (("Name", aname):defTags)
   return subnetId
 
 ruleToPermission :: Rule -> EC2.IPPermission
