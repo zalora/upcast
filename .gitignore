@@ -1,6 +1,7 @@
 /result
 /dist
 /.cabal-sandbox*
+/shell.nix
 *.aterm
 *.hp
 *.prof
