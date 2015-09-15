@@ -174,7 +174,7 @@ xformMapping BlockDeviceMapping{..} =
 createInstance :: AWSC m
                   => Tagged Ec2subnet (Maybe ResourceId)
                   -> Tagged Ec2sg [ResourceId]
-                  -> Maybe (Attrs Text) -- | UserData
+                  -> Maybe (Attrs Text) -- ^ UserData
                   -> Tagged Ec2keypair (Maybe ResourceId)
                   -> Tags
                   -> Text

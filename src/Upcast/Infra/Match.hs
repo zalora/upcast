@@ -63,13 +63,27 @@ type CanMatch infra =
   , AWSExtractResponse infra
   )
 
-class AWSExtractIds a where
-  extractIds :: a -> [ResourceId]
-
 class AWSMatchRequest infra where
+  -- | The API action called to describe your 'infra's. Usually an instance of
+  -- Amazonka's 'AWSRequest'.
   type Rq infra
+
+  -- | Construct a 'Rq' 'infra' constrained to fetch matching 'infra's with the
+  -- given 'Tags'.
   matchRequest :: infra -> Tags -> Rq infra
+
+  -- | Construct a 'Rq' 'infra' constrained so to only 'infra's matching the given
+  -- 'ResourceId'.
+  --
+  -- Mostly useless: occurences in '<Infra/Amazonka>' should be replaced by
+  -- waiters; but can help for external consumers (Upcast-as-a-library).. also
+  -- may prove valuable when we start supporting updates.
   matchIds :: [ResourceId] -> proxy infra -> Rq infra
+
+class AWSExtractIds a where
+  -- | Given a successful (Amazonka-typed) response from some AWS action, yield a
+  -- list of 'ResourceId's/names.
+  extractIds :: a -> [ResourceId]
 
 instance AWSMatchRequest Ec2instance where
   type Rq Ec2instance = EC2.DescribeInstances
@@ -161,8 +175,13 @@ instance AWSPager EC2.DescribeVolumes where page _ _ = Nothing
 
 
 class AWSExtractResponse infra where
+  -- | Given a /potentially/ successful (Amazonka-typed) response from some AWS
+  -- action, yield a list of 'ResourceId's/names.
   extractResponse :: MonadThrow m => proxy infra -> Either Error [AWS.Rs (Rq infra)]-> m [ResourceId]
 
+  -- | Default implementation for types implementing 'AWSExtractIds' in some
+  -- 'MonadThrow m': if the request was unsuccessful, hand off the exception
+  -- to 'm'; if successful, extract 'ResourceIds' with 'extractIds'.
   default extractResponse :: (AWSExtractIds (AWS.Rs (Rq infra)),
                               MonadThrow m)
                           => proxy infra
