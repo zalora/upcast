@@ -259,14 +259,12 @@ instance ToJSON Route53Alias where
 
 
 data Rule = Rule
-     { rule_codeNumber :: Maybe Integer
-     , rule_fromPort :: Maybe Integer
+     { rule_fromPort :: Maybe Integer
      , rule_protocol :: Text
      , rule_sourceGroupName :: Maybe Text
      , rule_sourceGroupOwnerId :: Maybe Text
      , rule_sourceIp :: Maybe Text
      , rule_toPort :: Maybe Integer
-     , rule_typeNumber :: Maybe Integer
      } deriving (Show, Generic)
 
 instance FromJSON Rule where

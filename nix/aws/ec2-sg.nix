@@ -33,25 +33,21 @@ in
 
           fromPort = mkOption {
             default = null;
-            description = "The bottom of the allowed port range for this rule (TCP/UDP only).";
+            description = ''
+              The start of port range for the TCP and UDP protocols, or an ICMP
+              type number. For the ICMP type number, use -1 to specify all ICMP
+              types.
+            '';
             type = types.uniq (types.nullOr types.int);
           };
 
           toPort = mkOption {
             default = null;
-            description = "The top of the allowed port range for this rule (TCP/UDP only).";
-            type = types.uniq (types.nullOr types.int);
-          };
-
-          typeNumber = mkOption {
-            default = null;
-            description = "ICMP type number (ICMP only, -1 for all).";
-            type = types.uniq (types.nullOr types.int);
-          };
-
-          codeNumber = mkOption {
-            default = null;
-            description = "ICMP code number (ICMP only, -1 for all).";
+            description = ''
+              The end of port range for the TCP and UDP protocols, or an ICMP
+              code number. For the ICMP code number, use -1 to specify all ICMP
+              codes for the ICMP type.
+            '';
             type = types.uniq (types.nullOr types.int);
           };
 
