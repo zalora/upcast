@@ -57,7 +57,7 @@ import           Upcast.Infra.NixTypes
 import           Upcast.Infra.Types
 import           Upcast.Shell (exec, fgconsume)
 
-import           Upcast.Types (Machine(..))
+import           Upcast.Types (Machine(..), Hostname)
 
 type AWSC m = ( MonadCatch m
               , MonadThrow m
@@ -433,10 +433,11 @@ plan expressionName userData keypairs Infras{..} =
                                  k
                                  v)
 
-    machines instanceA keypairs infraEc2instance
+    machines instanceA keypairs
 
-machines [] _ _ = return []
-machines instanceA keypairs infraEc2instance = fmap toMachine (send request)
+machines :: AWSC m => [(Hostname, ResourceId)] -> Attrs (Ec2keypair, ByteString) -> m [Machine]
+machines [] _ = return []
+machines instanceA keypairs = fmap toMachine (send request)
   where
     request = EC2.describeInstances & EC2.diiInstanceIds .~ map fst nameById
     nameById = map (\(k, v) -> (v, k)) instanceA
