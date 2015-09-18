@@ -21,12 +21,8 @@ import           Data.Foldable (for_)
 import           Control.Applicative
 import           Control.Lens hiding ((.=))
 import           Control.Monad
-import           Control.Monad.Catch (MonadCatch)
-import           Control.Monad.Error.Class (MonadError)
-import           Control.Monad.Reader.Class (MonadReader)
-import           Control.Monad.Trans.AWS (AWST, HasEnv, AWSRequest, AWSPager, send, await)
+import           Control.Monad.Trans.AWS (AWSPager, send, await)
 import qualified Control.Monad.Trans.AWS as AWS
-import           Control.Monad.Trans.Resource
 import           Data.Aeson
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Builder as Build
@@ -57,14 +53,8 @@ import           Upcast.Infra.NixTypes
 import           Upcast.Infra.Types
 import           Upcast.Shell (exec, fgconsume)
 
-import           Upcast.Types (Machine(..), Hostname)
-
-type AWSC m = ( MonadCatch m
-              , MonadThrow m
-              , MonadResource m
-              , MonadBaseControl IO m
-              , MonadReader AWS.Env m
-              )
+import           Upcast.Infra.AmazonkaTypes
+import           Upcast.Types (Hostname)
 
 true = Just (EC2.attributeBooleanValue & EC2.abvValue .~ Just True)
 
@@ -385,7 +375,7 @@ plan :: AWSC m
         -> Attrs (Attrs Text)
         -> Attrs (Ec2keypair, ByteString)
         -> Infras
-        -> m [Machine]
+        -> m [(Hostname, ResourceId)]
 plan expressionName userData keypairs Infras{..} =
   let
     defTags = [ ("created-using", "upcast")
@@ -433,26 +423,7 @@ plan expressionName userData keypairs Infras{..} =
                                  k
                                  v)
 
-    machines instanceA keypairs
-
-machines :: AWSC m => [(Hostname, ResourceId)] -> Attrs (Ec2keypair, ByteString) -> m [Machine]
-machines [] _ = return []
-machines instanceA keypairs = fmap toMachine (send request)
-  where
-    request = EC2.describeInstances & EC2.diiInstanceIds .~ map fst nameById
-    nameById = map (\(k, v) -> (v, k)) instanceA
-    keypairFileByName =
-      map (\(Ec2keypair{..}, _) -> (ec2keypair_name, ec2keypair_privateKeyFile)) $ Map.elems keypairs
-
-    toMachine resp = do
-      rs <- resp ^. EC2.dirsReservations
-      inst <- rs ^. EC2.rInstances
-      let id = inst ^. EC2.insInstanceId
-      let Just name = lookup id nameById
-      let Just publicIp = inst ^. EC2.insPublicIPAddress
-      let Just privateIp = inst ^. EC2.insPrivateIPAddress
-      let keyFile = inst ^. EC2.insKeyName >>= (`lookup` keypairFileByName)
-      return $ Machine name publicIp privateIp id keyFile
+    return instanceA
 
 
 -- These have to be removed first thing:
