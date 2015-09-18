@@ -115,6 +115,7 @@ library
 
 executable fgrun
   main-is: fgrun.hs
+  buildable: False
   hs-source-dirs:
       src
   default-extensions: OverloadedStrings

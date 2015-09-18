@@ -75,3 +75,4 @@ executables:
         main: upcast.hs
     fgrun:
         main: fgrun.hs
+        buildable: false
