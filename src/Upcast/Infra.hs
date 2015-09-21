@@ -18,6 +18,7 @@ import           System.FilePath.Posix (splitFileName)
 import           Upcast.IO (expectRight, stderr)
 import           Upcast.Infra.Amazonka
 import           Upcast.Infra.AmazonkaTypes
+import           Upcast.Infra.Machine
 import           Upcast.Infra.NixTypes
 import           Upcast.Infra.Types
 import           Upcast.Shell
@@ -51,6 +52,8 @@ evalInfra InfraContext{..} = do
     if not inc_verbose then return env else do
       logger <- AWS.newLogger AWS.Trace stderr
       return (env & AWS.envLogger .~ logger)
-  runResourceT $ AWS.runAWST env (plan name userData keypairs inc_infras)
+  runResourceT $ AWS.runAWST env $ do
+    instanceA <- plan name userData keypairs inc_infras
+    machines instanceA keypairs
   where
     name = T.pack $ snd $ splitFileName inc_expressionFile

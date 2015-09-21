@@ -1,11 +1,28 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Upcast.Infra.AmazonkaTypes where
 
-import Data.Monoid (mconcat)
-import Data.Text (unpack)
-import Network.AWS.Types
-import Upcast.Infra.NixTypes (Infras(..))
+import           Control.Monad.Catch (MonadCatch)
+import           Control.Monad.Error.Class (MonadError)
+import           Control.Monad.Reader.Class (MonadReader)
+import           Control.Monad.Trans.AWS (AWST, HasEnv, AWSRequest, AWSPager, send, await)
+import qualified Control.Monad.Trans.AWS as AWS
+import           Control.Monad.Trans.Resource
+
+import           Data.Monoid (mconcat)
+import           Data.Text (Text, unpack)
+import           Network.AWS.Types
+import           Upcast.Infra.NixTypes (Infras(..))
+
+type ResourceId = Text
+
+type AWSC m = ( MonadCatch m
+              , MonadThrow m
+              , MonadResource m
+              , MonadBaseControl IO m
+              , MonadReader AWS.Env m
+              )
 
 readRegion s =
   case unpack s of

@@ -61,6 +61,8 @@ library:
       - Upcast.IO
       - Upcast.Infra
       - Upcast.Infra.Amazonka
+      - Upcast.Infra.AmazonkaTypes
+      - Upcast.Infra.Machine
       - Upcast.Infra.Match
       - Upcast.Infra.NixTypes
       - Upcast.Infra.Types
@@ -73,3 +75,4 @@ executables:
         main: upcast.hs
     fgrun:
         main: fgrun.hs
+        buildable: false

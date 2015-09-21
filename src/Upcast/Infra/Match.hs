@@ -15,10 +15,8 @@ import           Control.Applicative
 import           Control.Lens hiding ((.=))
 
 import           Control.Monad hiding (sequence)
-import           Control.Monad.Catch (MonadCatch, try, throwM)
-import           Control.Monad.Reader.Class (MonadReader)
-import           Control.Monad.Error.Class (MonadError, throwError)
-import           Control.Monad.Trans.AWS (AWSRequest, AWSPager, AWST)
+import           Control.Monad.Catch (throwM)
+import           Control.Monad.Trans.AWS (AWSRequest, AWSPager)
 import qualified Control.Monad.Trans.AWS as AWS
 import           Control.Monad.Trans.Resource
 
@@ -35,7 +33,7 @@ import           Data.Conduit (($$), (=$=))
 import qualified Data.Conduit as C
 import qualified Data.Conduit.List as CL
 
-import           Network.AWS (MonadAWS, Error)
+import           Network.AWS (Error)
 import qualified Network.AWS.EC2 as EC2
 import qualified Network.AWS.EC2.Types as EC2
 import qualified Network.AWS.ELB as ELB
@@ -45,15 +43,13 @@ import           Network.AWS.Pager
 import           Upcast.Infra.NixTypes
 import           Upcast.Infra.Types
 import           Upcast.IO (expectRight)
-import           Upcast.Infra.AmazonkaTypes (validateRegion)
+import           Upcast.Infra.AmazonkaTypes (AWSC, ResourceId, validateRegion)
 
 
 data DiscoveryError = NotFound
                     | Ambiguous [Text]
                     deriving (Show, Generic)
 instance ToJSON DiscoveryError
-
-type ResourceId = Text
 
 type CanMatch infra =
   ( AWSMatchRequest infra
@@ -202,13 +198,7 @@ instance AWSExtractResponse Ec2vpc
 instance AWSExtractResponse Ebs
 
 matchTags ::
-  forall infra m r.
-  (CanMatch infra,
-   MonadCatch m,
-   MonadResource m,
-   MonadReader r m,
-   AWS.HasEnv r,
-   MonadBaseControl IO m)
+  forall infra m. (CanMatch infra, AWSC m)
   => infra
   -> Tags
   -> m [ResourceId]
@@ -243,8 +233,9 @@ matchInfras infras@Infras{..} = object <$> do
              ]
   where
     match, matchWithName ::
-      (CanMatch a, Applicative f, MonadCatch f, MonadResource f, MonadBaseControl IO f)
-      => Attrs a -> AWST f (Attrs (Either DiscoveryError ResourceId))
+      (CanMatch a, Applicative f, AWSC f)
+      => Attrs a
+      -> f (Attrs (Either DiscoveryError ResourceId))
     match = traverse (`discover` [realmName])
     matchWithName = Map.traverseWithKey (\k v -> discover v [realmName, ("Name", k)])
 

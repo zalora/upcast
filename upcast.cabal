@@ -95,7 +95,9 @@ library
       Upcast.Environment
       Upcast.IO
       Upcast.Infra
+      Upcast.Infra.AmazonkaTypes
       Upcast.Infra.Amazonka
+      Upcast.Infra.Machine
       Upcast.Infra.Match
       Upcast.Infra.NixTypes
       Upcast.Infra.Types
@@ -103,7 +105,6 @@ library
       Upcast.Shell
       Upcast.Types
   other-modules:
-      Upcast.Infra.AmazonkaTypes
       Upcast.Monad
       Upcast.Outputs
       Upcast.Shell.Run
@@ -114,6 +115,7 @@ library
 
 executable fgrun
   main-is: fgrun.hs
+  buildable: False
   hs-source-dirs:
       src
   default-extensions: OverloadedStrings
@@ -224,6 +226,7 @@ executable upcast
       Upcast.Infra
       Upcast.Infra.Amazonka
       Upcast.Infra.AmazonkaTypes
+      Upcast.Infra.Machine
       Upcast.Infra.Match
       Upcast.Infra.NixTypes
       Upcast.Infra.Types
