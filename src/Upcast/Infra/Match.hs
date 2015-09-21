@@ -219,25 +219,28 @@ filters tags = toFilter <$> tags
 
 filterIds tag ids = [EC2.filter' tag & EC2.fValues .~ ids]
 
+match, matchWithName ::
+  (CanMatch a, Applicative f, AWSC f)
+  => Tags
+  -> Attrs a
+  -> f (Attrs (Either DiscoveryError ResourceId))
+match tags =
+  traverse (`discover` tags)
+matchWithName tags =
+  Map.traverseWithKey (\k v -> discover v (("Name", k):tags))
+
 matchInfras :: Infras -> IO Value
 matchInfras infras@Infras{..} = object <$> do
   env <- AWS.newEnv region AWS.Discover
   runResourceT $ AWS.runAWST env $
-    sequence [ ("vpc" .=)      <$> matchWithName infraEc2vpc
-             , ("subnet" .=)   <$> match infraEc2subnet
-             , ("sg" .=)       <$> match infraEc2sg
-             , ("keypair" .=)  <$> match infraEc2keypair
-             , ("ebs" .=)      <$> match infraEbs
-             , ("instance" .=) <$> matchWithName infraEc2instance
-             , ("elb" .=)      <$> match infraElb
+    sequence [ ("vpc" .=)      <$> matchWithName tags infraEc2vpc
+             , ("subnet" .=)   <$> match tags infraEc2subnet
+             , ("sg" .=)       <$> match tags infraEc2sg
+             , ("keypair" .=)  <$> match tags infraEc2keypair
+             , ("ebs" .=)      <$> match tags infraEbs
+             , ("instance" .=) <$> matchWithName tags infraEc2instance
+             , ("elb" .=)      <$> match tags infraElb
              ]
   where
-    match, matchWithName ::
-      (CanMatch a, Applicative f, AWSC f)
-      => Attrs a
-      -> f (Attrs (Either DiscoveryError ResourceId))
-    match = traverse (`discover` [realmName])
-    matchWithName = Map.traverseWithKey (\k v -> discover v [realmName, ("Name", k)])
-
-    realmName = ("realm", infraRealmName)
+    tags = [("realm", infraRealmName)]
     region = validateRegion infras
