@@ -8,6 +8,7 @@ import Control.Exception (bracket)
 import Control.Monad (replicateM)
 
 import System.Directory (removeFile, getTemporaryDirectory)
+import System.Exit (ExitCode(..))
 import System.FilePath ((</>))
 import System.Posix.Files (readSymbolicLink)
 import System.Random (randomRIO)
