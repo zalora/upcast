@@ -143,28 +143,27 @@ sourcePty proc pty = loop ""
            push xs >>= loop
 
 pipeProcess :: String -> CreateProcess
-pipeProcess s = CreateProcess { cmdspec = ShellCommand s
-                              , cwd = Nothing
-                              , env = Nothing
-                              , std_in = CreatePipe
-                              , std_out = CreatePipe
-                              , std_err = CreatePipe
-                              , close_fds = True
-                              , create_group = True
-                              , delegate_ctlc = False
-                              }
+pipeProcess s = (shell s) { cwd = Nothing
+                          , env = Nothing
+                          , std_in = CreatePipe
+                          , std_out = CreatePipe
+                          , std_err = CreatePipe
+                          , close_fds = True
+                          , create_group = True
+                          , delegate_ctlc = False
+                          }
 
 interactiveProcess :: String -> CreateProcess
-interactiveProcess s = CreateProcess { cmdspec = ShellCommand s
-                                     , cwd = Nothing
-                                     , env = Nothing
-                                     , std_in = Inherit
-                                     , std_out = UseHandle IO.stderr
-                                     , std_err = UseHandle IO.stderr
-                                     , close_fds = True
-                                     , create_group = False
-                                     , delegate_ctlc = True
-                                     }
+interactiveProcess s = (shell s) { cmdspec = ShellCommand s
+                                 , cwd = Nothing
+                                 , env = Nothing
+                                 , std_in = Inherit
+                                 , std_out = UseHandle IO.stderr
+                                 , std_err = UseHandle IO.stderr
+                                 , close_fds = True
+                                 , create_group = False
+                                 , delegate_ctlc = True
+                                 }
 
 roProcessSource
   :: MonadResource m =>
