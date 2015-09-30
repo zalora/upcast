@@ -13,6 +13,7 @@ module Upcast.Shell.Types (
 , Commandline
 , (|:)
 , (|>)
+, (<||>)
 , exec
 , env
 , ssh
@@ -68,6 +69,7 @@ data Expr :: * -> * where
   E     :: Executable -> e -> Expr e
   Pipe  :: Expr e -> Expr e -> Expr e
   Seq   :: Expr e -> Expr e -> Expr e
+  Or    :: Expr e -> Expr e -> Expr e
   Redir :: Expr e -> FilePath -> Expr e
   Env   :: [Pair] -> Expr e -> Expr e
   Sudo  :: Expr e -> Expr e
@@ -82,6 +84,7 @@ type Commandline = Expr [String]
 exec = E
 (|>) = Redir
 (|:) = Pipe
+(<||>) = Or
 sudo = Sudo
 env = Env
 ssh = SSH
@@ -90,6 +93,7 @@ sha :: Expr [String] -> Arg
 sha (E exec args')          = arg exec <> args args'
 sha (Pipe l r)              = sha l <> "|" <> sha r
 sha (Seq l r)               = "{" <> sha l <> "&&" <> sha r <> "; }"
+sha (Or l r)                = "{" <> sha l <> "||" <> sha r <> "; }"
 sha (Env xs exp)            = env' xs <> sha exp
 sha (Sudo exp)              = "sudo sh -c" <> arg (sh exp)
 sha (Redir exp file)        = "{" <> sha exp <> ">" <> arg file <> "; }"
