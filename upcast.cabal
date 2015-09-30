@@ -103,13 +103,13 @@ library
       Upcast.Infra.Types
       Upcast.Install
       Upcast.Shell
+      Upcast.Shell.Run
+      Upcast.Shell.Temp
+      Upcast.Shell.Types
       Upcast.Types
   other-modules:
       Upcast.Monad
       Upcast.Outputs
-      Upcast.Shell.Run
-      Upcast.Shell.Temp
-      Upcast.Shell.Types
       Paths_upcast
   default-language: Haskell2010
 
