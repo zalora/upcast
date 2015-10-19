@@ -3,25 +3,22 @@ flags:
     old-locale: true
 packages:
 - '.'
-# - location: ../amazonka-1
-#   #  git: git://github.com/brendanhay/amazonka.git
-#   #  commit: e63bc91ef89b9b743a2732fe90f1621c7abf3d97
-#   extra-dep: true
-#   subdirs:
-#   - core
-#   - amazonka
-#   - amazonka-ec2
-#   - amazonka-route53
-#   - amazonka-elb
+- location:
+    git: git://github.com/brendanhay/amazonka.git
+    commit: 134c8b4992107d24dd78eaf1d7f702e2bfdf1d56
+  subdirs:
+  - core
+  - amazonka
+  - amazonka-ec2
+  - amazonka-route53
+  - amazonka-elb
 extra-deps:
 - vk-posix-pty-0.2.1
 - natural-sort-0.1.2
 - cryptonite-0.6
-- amazonka-1.3.2.1
-- amazonka-core-1.3.2
-- amazonka-elb-1.3.2
-- amazonka-route53-1.3.2
-- amazonka-ec2-1.3.2
+- base-orphans-0.4.4
+- witherable-0.1.3.2
+- iproute-1.7.0
 package-indices:
 - name: hackage.haskell.org
   download-prefix: https://s3.amazonaws.com/hackage.fpcomplete.com/package/

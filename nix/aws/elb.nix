@@ -131,6 +131,7 @@ in
     route53Aliases = mkOption {
       type = types.attrsOf (submodule ({ lib, name, ... }: {
         options = {
+          name = mkOption { type = types.string; default = name; };
           zoneId = mkOption { type = types.string; example = "ZOZONEZONEZONE"; };
         };
         config._type = "route53Alias";

@@ -62,6 +62,7 @@ let
           parseJSON = genericParseJSON defaultOptions
                       { fieldLabelModifier = drop ${toString (stringLength _prefix)} }
 
+        instance Hashable ${_name}
       '';
     } else if (v._type == "List") then v // rec {
       _repr = "[${type-tag _arg}]";
@@ -94,6 +95,8 @@ let
           parseJSON = genericParseJSON defaultOptions
                       { sumEncoding = ObjectWithSingleField
                       , constructorTagModifier = map toLower }
+
+        instance Hashable ${_tag}
       '';
     } else v;
 
@@ -167,14 +170,18 @@ let
     import GHC.Generics
     import Control.Applicative
     import Data.Char (toLower)
+    import Data.Hashable (Hashable(..))
     import Data.Text (Text)
-    import Data.Map.Strict (Map)
+    import Data.Map.Strict (Map, foldlWithKey)
     import Data.Aeson
     import Data.Aeson.Types
 
     type Attrs = Map Text
 
     ${cat uniq-decls}
+
+    instance (Hashable a, Hashable b) => Hashable (Map a b) where
+      hashWithSalt = foldlWithKey (\b k v -> hashWithSalt b (k,v))
 
     data InfraRef a = RefLocal Text | RefRemote Text deriving (Show, Generic)
 
@@ -184,18 +191,5 @@ let
         (RefRemote <$> o .: "remote")
       parseJSON _ = empty
 
-    data Infras = Infras
-          { infraRealmName :: Text
-          , infraRegions :: [Text]
-          , ${infras}
-          } deriving (Show, Generic)
-
-    instance FromJSON Infras where
-      parseJSON (Object o) =
-          Infras <$>
-          o .: "realm-name" <*>
-          o .: "regions" <*>
-          ${concatStringsSep " <*>\n      " (map (x: "o .: \"${x}\"") toplevel-keys)}
-      parseJSON _ = empty
-   '';
+    instance Hashable (InfraRef a)'';
 in template

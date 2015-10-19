@@ -1,10 +1,10 @@
-{ config, lib, ... }: with lib;
+{ config, name, lib, ... }: with lib;
 
 let
   common = import ./common.nix { inherit lib; };
   inherit (common) infra;
 
-  ec2DiskOptions = { config, ... }: {
+  ec2DiskOptions = { name, config, ... }: {
     options = {
       disk = mkOption {
         default = "";
@@ -20,7 +20,7 @@ let
       };
 
       blockDeviceMappingName = mkOption {
-        default = "";
+        default = name;
         type = types.str;
         example = "/dev/sdb";
         description = ''
@@ -46,6 +46,12 @@ in
     inherit (import ./common.nix { inherit lib; }) accessKeyId region zone;
 
     subnet = common.nullOr common.subnet;
+
+    name = mkOption {
+      default = name;
+      type = types.str;
+      description = "Name of the instance";
+    };
 
     ami = mkOption {
       example = "ami-ecb49e98";

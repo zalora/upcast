@@ -5,23 +5,19 @@
 module Upcast.Environment where
 
 import           Control.Applicative
+import           Control.Lens ((<&>), (&))
 import           System.Directory (canonicalizePath)
 import           System.Posix.Env (getEnv)
 
-import           Data.Aeson (eitherDecodeStrict, Value)
-import           Data.ByteString.Char8 (ByteString)
+import           Data.Aeson (eitherDecodeStrict)
 import qualified Data.ByteString.Char8 as B8
-import           Data.Maybe (catMaybes, isJust, fromJust)
-import           Data.Monoid (mempty)
-import           Data.Text (Text)
-import qualified Data.Text as T
+import           Data.Maybe (isJust, fromJust)
 
 import           Upcast.Deploy (nixCopyClosureTo, nixRealise, nixSetProfile)
 import           Upcast.IO (expectRight, srsly)
-import           Upcast.Infra.NixTypes (Infras)
 import           Upcast.Monad (sequenceMaybe, when)
 import           Upcast.Shell
-import           Upcast.Types (StorePath, NixContext(..), InfraCli(..),
+import           Upcast.Types (NixContext(..), InfraCli(..),
                                InfraContext(..), Build(..))
 
 import           Paths_upcast (getDataFileName)
@@ -40,20 +36,9 @@ nixContext file args = do
     return NixContext{..}
 
 icontext :: InfraCli -> IO InfraContext
-icontext infraCli@InfraCli{..} =
-  nixContext infraCli_expressionFile infraCli_extra >>= evalInfraContext infraCli
-
-evalInfraContext :: InfraCli -> NixContext -> IO InfraContext
-evalInfraContext InfraCli{..} nix@NixContext{nix_expressionFile=file} = do
-  info <- fgconsume_ (nixInfraInfo nix)
-  value <- expectRight $ return $ nixInfras info
-  return InfraContext{ inc_expressionFile = file
-                     , inc_infras = value
-                     , inc_verbose = infraCli_verbose
-                     }
-
-nixInfras :: ByteString -> Either String Infras
-nixInfras = eitherDecodeStrict
+icontext InfraCli{..} = nixContext infraCli_expressionFile infraCli_extra >>= \nix -> do
+  infras <- fgconsume_ (nixInfraInfo nix) <&> eitherDecodeStrict & expectRight
+  return $ InfraContext infraCli_expressionFile infras infraCli_verbose
 
 nixInfraInfo :: NixContext -> Commandline
 nixInfraInfo NixContext{..} =

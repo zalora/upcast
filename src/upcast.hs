@@ -1,34 +1,16 @@
 module Main where
 
+import           Control.Monad (void)
 import           Options.Applicative
-
 import           Upcast.Deploy (nixSystemProfile)
 import           Upcast.Environment (nixPath, icontext, build)
 import           Upcast.IO
-import           Upcast.Infra (evalInfra)
-import           Upcast.Infra.Match (matchInfras)
+import qualified Upcast.Infra as Infra (scan, accum, dump)
+import           Upcast.Infra.Types (Reference(..))
 import           Upcast.Install (install)
 import           Upcast.Monad
 import           Upcast.Outputs (machines2ssh, machines2nix)
 import           Upcast.Types
-
-infra :: InfraCli -> IO [Machine]
-infra = icontext >=> evalInfra
-
-infraDump :: InfraCli -> IO ()
-infraDump = icontext >=> putStrLn . ppShow . inc_infras
-
-infraNix :: InfraCli -> IO ()
-infraNix = infra >=> putStr . machines2nix
-
-infraScan :: InfraCli -> IO ()
-infraScan = icontext >=> matchInfras . inc_infras >=> pprint
-
-sshConfig :: InfraCli -> IO ()
-sshConfig = infra >=> putStr . machines2ssh
-
-printNixPath :: IO ()
-printNixPath = nixPath >>= putStrLn
 
 main :: IO ()
 main = do
@@ -48,19 +30,19 @@ main = do
     opts = subparser cmds `info` header "upcast - infrastructure orchestration"
 
     cmds = command "infra"
-           (sshConfig <$> infraCliArgs `info`
+           ((putStrLn . machines2ssh <=< Infra.accum <=< icontext) <$> infraCliArgs `info`
             progDesc "evaluate infrastructure and output ssh_config(5)")
 
         <> command "infra-tree"
-           (infraDump <$> infraCliArgs `info`
+           ((void . Infra.dump (\(Reference _ k) i -> putStrLn $ ppShow (k,i)) <=< icontext) <$> infraCliArgs `info`
             progDesc "dump infrastructure tree in json format")
 
         <> command "infra-nix"
-           (infraNix <$> infraCliArgs `info`
+           ((putStr . machines2nix <=< Infra.accum <=< icontext) <$> infraCliArgs `info`
             progDesc "evaluate infrastructure and print the nix description")
 
         <> command "infra-scan"
-           (infraScan <$> infraCliArgs `info`
+           ((pprint <=< Infra.scan <=< icontext) <$> infraCliArgs `info`
             progDesc "scan for existing infra")
 
         <> command "build"
@@ -68,7 +50,7 @@ main = do
             progDesc "nix-build with remote forwarding")
 
         <> command "nix-path"
-           (pure printNixPath `info`
+           (pure (nixPath >>= putStrLn) `info`
             progDesc "print effective path to upcast nix expressions")
 
         <> command "install"

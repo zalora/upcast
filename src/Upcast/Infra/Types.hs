@@ -1,31 +1,56 @@
-module Upcast.Infra.Types where
+{-# LANGUAGE FlexibleInstances #-}
 
-import Control.Applicative
+module Upcast.Infra.Types
+( module Upcast.Infra.Types.Common
+, module Upcast.Infra.Types.Amazonka
+, module Upcast.Infra.Types.Graph
+, module Upcast.Infra.Types.Infra
+, module Upcast.Infra.Types.Resource
+, Infras(..)
+) where
 
+import Upcast.Infra.Types.Common
+import Upcast.Infra.Types.Amazonka
+import Upcast.Infra.Types.Graph
+import Upcast.Infra.Types.Infra
+import Upcast.Infra.Types.Resource
+
+import Control.Applicative ((<$>),(<*>),pure,empty)
+import Control.Lens -- (*)
+import Data.Aeson (Value(..), FromJSON(..), (.:), object)
+import Data.Aeson.Types (Parser(..), parseMaybe)
+import Data.Graph (vertices, graphFromEdges', topSort)
+import Data.HashMap.Strict (elems)
 import Data.Text (Text)
 
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
+data Infras = Infras
+  { realmName :: Text
+  , regions :: [Text]
+  , resources :: Graph Reference Infra
+  }
 
-import Upcast.Types
-import Upcast.Infra.NixTypes
+parseReference :: Value -> Parser Reference
+parseReference (Object h) = Reference <$> h .: "_type" <*> h .: "local"
+parseReference _ = empty
 
-type Tags = [(Text, Text)]
+parseVertex :: Value -> Parser (Infra, Reference, [Reference])
+parseVertex o@(Object h) = (,,)
+  <$> parseJSON o
+  <*> (Reference <$> h .: "_type" <*> h .: "_name") -- Top-level / non-canonical.
+  <*> (concatMap (deep (to (parseMaybe parseReference) . _Just) & toListOf)
+  <$> pure (elems h))
+parseVertex _ = empty
 
+instance FromJSON (Graph Reference Infra) where
+  parseJSON o@(Object _) = pure . Graph
+                         . (\(g,h) -> (g, \v -> if v `elem` vertices g then Just (h v) else Nothing))
+                         . graphFromEdges'
+                         $ o ^.. deep (to (parseMaybe parseVertex) . _Just)
+  parseJSON _ = empty
 
-type K = Text
-type V = Text
-type IDAlist = [(K, V)]
-
-lookupOrId :: IDAlist -> InfraRef a -> Maybe V
-lookupOrId alist (RefLocal x) = lookup x alist
-lookupOrId alist (RefRemote x) = Just x
-
-lookup_ :: IDAlist -> InfraRef a -> V
-lookup_ alist ref = case lookupOrId alist ref of
-                     Just x -> x
-                     Nothing -> error $ "could not lookup resource for ref: " ++ show ref
-
-
-forAttrs :: Applicative f => Map k v -> (k -> v -> f x) -> f [(k, x)]
-forAttrs xs f = Map.toList <$> Map.traverseWithKey f xs
+instance FromJSON Infras where
+  parseJSON obj@(Object o) = Infras
+                         <$> o .: "realm-name"
+                         <*> o .: "regions"
+                         <*> parseJSON obj
+  parseJSON _ = empty
