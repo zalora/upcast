@@ -163,7 +163,6 @@ data Elb = Elb
      , elb_connectionDraining :: ConnectionDraining
      , elb_crossZoneLoadBalancing :: Bool
      , elb_healthCheck :: HealthCheck
-     , elb_instances :: [InfraRef Ec2instance]
      , elb_internal :: Bool
      , elb_listeners :: [Listener]
      , elb_name :: Text
@@ -178,6 +177,17 @@ instance FromJSON Elb where
               { fieldLabelModifier = drop 4 }
 
 instance Hashable Elb
+
+data Elbinstanceset = Elbinstanceset
+     { elbinstanceset_elb :: InfraRef Elb
+     , elbinstanceset_instances :: [InfraRef Ec2instance]
+     } deriving (Show, Generic)
+
+instance FromJSON Elbinstanceset where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 15 }
+
+instance Hashable Elbinstanceset
 
 data HealthCheck = HealthCheck
      { healthCheck_healthyThreshold :: Integer

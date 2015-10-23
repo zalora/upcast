@@ -252,6 +252,11 @@ toPermission Rule{..} = EC2.ipPermission rule_protocol
                           & EC2.ipToPort .~ (fromIntegral <$> rule_toPort)
                           & EC2.ipIPRanges .~ (EC2.ipRange <$> maybeToList rule_sourceIp)
 
+converge :: Eq a => [a] -> [a] -> ([a], [a])
+converge from to = (add, remove)
+  where (keep, remove) = partition (`elem` to) from
+        add = filter (`notElem` keep) to
+
 instance Resource Ec2sgruleset where
   match :: AWS m => Ec2sgruleset -> m (Either DiscoveryError MatchResult)
   match = const . return . Right $ NeedsUpdate "(virtual)"
@@ -267,16 +272,15 @@ instance Resource Ec2sgruleset where
       & EC2.dsgsGroupIds .~ [fromRefRemote ec2sgruleset_securityGroup]
       & send <&> view (EC2.dsgrsSecurityGroups . folded . EC2.sgIPPermissions)
     let intendedRules = map toPermission ec2sgruleset_rules
-        (aight, drop) = partition (`elem` intendedRules) currentRules
-        authorizeThem = filter (`notElem` aight) intendedRules
+        (authorize, revoke) = currentRules `converge` intendedRules
     EC2.authorizeSecurityGroupIngress
       & EC2.asgiGroupId ?~ fromRefRemote ec2sgruleset_securityGroup
-      & EC2.asgiIPPermissions .~ authorizeThem
-      & unless (null authorizeThem) . void . send
+      & EC2.asgiIPPermissions .~ authorize
+      & unless (null authorize) . void . send
     EC2.revokeSecurityGroupIngress
       & EC2.rsgiGroupId ?~ fromRefRemote ec2sgruleset_securityGroup
-      & EC2.rsgiIPPermissions .~ drop
-      & unless (null drop) . void . send
+      & EC2.rsgiIPPermissions .~ revoke
+      & unless (null revoke) . void . send
   reify :: Map Reference ResourceId -> (Ec2sgruleset -> Either Missing Ec2sgruleset)
   reify (lookup_ -> lookup_) Ec2sgruleset{..} = do
     ec2sgruleset_securityGroup <- lookup_ (Reference "ec2-sg") ec2sgruleset_securityGroup
@@ -540,11 +544,6 @@ toElbHealthcheck HealthCheck{..} = ELB.healthCheck
   (fromIntegral healthCheck_unhealthyThreshold)
   (fromIntegral healthCheck_healthyThreshold)
 
-toElbInstance :: InfraRef Ec2instance -> ELB.Instance
-toElbInstance ref = ELB.instance' & ELB.iInstanceId .~ case ref of
-  RefRemote r -> Just r
-  RefLocal  _ -> Nothing
-
 toElbAccessLog :: AccessLog -> ELB.AccessLog
 toElbAccessLog AccessLog{..} = if not accessLog_enable then ELB.accessLog False else ELB.accessLog True
   & ELB.alEmitInterval ?~ fromIntegral accessLog_emitInterval
@@ -596,9 +595,6 @@ instance Resource Elb where
        & send
     forM elb_listeners $ setElbStickinessPolicy elb_name'
     toElbHealthcheck elb_healthCheck & ELB.configureHealthCheck elb_name' & send
-    unless (null elb_instances) $ ELB.registerInstancesWithLoadBalancer elb_name'
-      & ELB.riwlbInstances .~ map toElbInstance elb_instances
-      & void . send
     ELB.loadBalancerAttributes
       & ELB.lbaAccessLog ?~ toElbAccessLog elb_accessLog
       & ELB.lbaConnectionDraining ?~ toElbConnectionDraining elb_connectionDraining
@@ -613,7 +609,34 @@ instance Resource Elb where
     return elb
   reify :: Map Reference ResourceId -> (Elb -> Either Missing Elb)
   reify ledger Elb{..} = do
-    elb_instances <- lookup_ ledger (Reference "ec2-instance") `mapM` elb_instances
     elb_securityGroups <- lookup_ ledger (Reference "ec2-sg") `mapM` elb_securityGroups
     elb_subnets <- lookup_ ledger (Reference "ec2-subnet") `mapM` elb_subnets
     return Elb{..}
+
+toElbInstance :: InfraRef Ec2instance -> ELB.Instance
+toElbInstance ref = ELB.instance' & ELB.iInstanceId .~ case ref of
+  RefRemote r -> Just r
+  RefLocal  _ -> Nothing
+
+instance Resource Elbinstanceset where
+  match = const . return . Right $ NeedsUpdate "(virtual)"
+  create Elbinstanceset{..} = "(virtual)" <$ do
+    ELB.registerInstancesWithLoadBalancer (fromRefRemote elbinstanceset_elb)
+      & ELB.riwlbInstances .~ map toElbInstance elbinstanceset_instances
+      & unless (null elbinstanceset_instances) . void . send
+  update _ Elbinstanceset{..} = "(virtual)" <$ do
+    currentInstances <- ELB.describeLoadBalancers
+      & ELB.dlbLoadBalancerNames .~ [fromRefRemote elbinstanceset_elb]
+      & send <&> view (ELB.dlbrsLoadBalancerDescriptions . folded . ELB.lbdInstances)
+    let intendedInstances = map toElbInstance elbinstanceset_instances
+        (attach, detach) = currentInstances `converge` intendedInstances
+    ELB.registerInstancesWithLoadBalancer (fromRefRemote elbinstanceset_elb)
+      & ELB.riwlbInstances .~ attach
+      & unless (null attach) . void . send
+    ELB.deregisterInstancesFromLoadBalancer (fromRefRemote elbinstanceset_elb)
+      & ELB.diflbInstances .~ detach
+      & unless (null detach) . void . send
+  reify ledger Elbinstanceset{..} = do
+    elbinstanceset_elb <- lookup_ ledger (Reference "elb") elbinstanceset_elb
+    elbinstanceset_instances <- lookup_ ledger (Reference "ec2-instance") `mapM` elbinstanceset_instances
+    return Elbinstanceset{..}
