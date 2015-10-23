@@ -110,7 +110,6 @@ data Ec2sg = Ec2sg
      , ec2sg_description :: Text
      , ec2sg_name :: Text
      , ec2sg_region :: Text
-     , ec2sg_rules :: [Rule]
      , ec2sg_vpc :: Maybe (InfraRef Ec2vpc)
      } deriving (Show, Generic)
 
@@ -119,6 +118,17 @@ instance FromJSON Ec2sg where
               { fieldLabelModifier = drop 6 }
 
 instance Hashable Ec2sg
+
+data Ec2sgruleset = Ec2sgruleset
+     { ec2sgruleset_rules :: [Rule]
+     , ec2sgruleset_securityGroup :: InfraRef Ec2sg
+     } deriving (Show, Generic)
+
+instance FromJSON Ec2sgruleset where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 13 }
+
+instance Hashable Ec2sgruleset
 
 data Ec2subnet = Ec2subnet
      { ec2subnet_accessKeyId :: Text

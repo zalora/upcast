@@ -27,6 +27,7 @@ instance FromJSON Infra where
                 <|> (Infra <$> (parseJSON value :: Parser Ec2keypair))
                 <|> (Infra <$> (parseJSON value :: Parser Ec2subnet))
                 <|> (Infra <$> (parseJSON value :: Parser Ec2sg))
+                <|> (Infra <$> (parseJSON value :: Parser Ec2sgruleset))
                 <|> (Infra <$> (parseJSON value :: Parser Ec2vpc))
                 <|> (Infra <$> (parseJSON value :: Parser Elb))
 

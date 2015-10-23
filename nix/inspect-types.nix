@@ -7,7 +7,7 @@ let
     filter last hasPrefix
     stringToCharacters optionalString toUpper concatStrings replaceChars stringLength
     splitString
-    catAttrs concatMap attrValues isAttrs optionalAttrs;
+    catAttrs concatMap attrValues isAttrs optionalAttrs foldAttrs filterAttrs;
 
   inherit (import <upcast/extralib.nix>) collect;
 
@@ -116,7 +116,8 @@ let
     };
 
     mkOptionType = abort "not enough overrides";
-    mkOption = as: as.type;
+    mkOption = as: if as ? internal && as.internal then { _type = "Internal"; } else as.type;
+    mkForce = lib.id;
 
     types = {
       nullOr = fake-type-of "Maybe";
@@ -131,18 +132,27 @@ let
       unspecified = fake-type "Value";
       submodule = function:
         let
-          exp = function { lib = inspectlib; name = ""; config = {}; };
+          exp = function { lib = inspectlib; name = ""; config = {}; infra = {}; };
           self = optionalAttrs (exp ? config && exp.config ? _type) {
             _name = exp.config._type;
           };
-        in { _type = "Record"; options = exp.options; } // self;
+        in { _type = "Record"; options = filterAttrs record-hack exp.options; } // self;
     };
   };
 
-  toplevel-keys = attrNames toplevel;
-  toplevel-map = _: { baseModules, ... }: inspectlib.types.submodule (import (head baseModules));
-  toplevel = mapAttrs toplevel-map (import ./infra-types.nix);
-  out = mapAttrs augment toplevel;
+  # XXX: The 'Internal' trick seems unavoidable, but we should rig a way
+  # to drop '_name' and '_type'.
+  record-hack = n: v:
+    n != "_name" &&
+    n != "_type" &&
+    (v ? _type && v._type != "Internal");
+
+  toplevel = map (x:
+    ((if builtins.typeOf x == "path" then import x else x)
+     { infra = {}; config = {}; lib = inspectlib; }
+    ).options
+  ) (import <upcast/infra-types.nix>).imports;
+  out = mapAttrs augment (foldAttrs (x: y: x // y) {} toplevel);
 
   cat = concatStringsSep "\n";
   decls =
@@ -151,12 +161,6 @@ let
     in to-as (collect (as: as ? _decl) out);
   # may also want a real uniqueness check here
   uniq-decls = attrNames decls;
-
-  infra-refs = collect (as: as ? _type && as._type == "InfraRef") out;
-
-  infras =
-    concatStringsSep comma-prefix
-    (map (x: "infra${to-identifier x} :: Attrs ${to-identifier x}") toplevel-keys);
 
   template = ''
     {-# LANGUAGE DeriveGeneric #-}

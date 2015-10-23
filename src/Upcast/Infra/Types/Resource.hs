@@ -40,6 +40,7 @@ import Data.ByteString.Lazy (toStrict)
 import Data.Conduit (runConduit, tryC, fuse)
 import Data.Conduit.List (consume)
 import Data.IP ((>:>), AddrRange(..), IPv4)
+import Data.List (partition)
 import Data.List.NonEmpty (NonEmpty((:|)), nonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty (toList)
 import Data.Map (Map, toList, insert, elems)
@@ -219,12 +220,6 @@ instance Matcher Ec2sg EC2.SecurityGroup where
   hashesTo group = any (isTag "hash" $ hashOf group) . view EC2.sgTags
   extractId = EC2.sgGroupId
 
-toPermission :: Rule -> EC2.IPPermission
-toPermission Rule{..} = EC2.ipPermission rule_protocol
-                            & EC2.ipFromPort .~ (fromIntegral <$> rule_fromPort)
-                            & EC2.ipToPort .~ (fromIntegral <$> rule_toPort)
-                            & EC2.ipIPRanges .~ (EC2.ipRange <$> maybeToList rule_sourceIp)
-
 lookup_ :: Map Reference ResourceId -> (Text -> Reference) -> InfraRef a -> Either Missing (InfraRef a)
 lookup_ ledger report = \case
   RefLocal n -> case Map.lookup (report n) ledger of
@@ -239,10 +234,6 @@ instance Resource Ec2sg where
     group <- EC2.createSecurityGroup name ec2sg_description
            & case ec2sg_vpc of { Just (RefRemote vpc) -> EC2.csgVPCId ?~ vpc; Nothing -> id; }
            & send <&> view EC2.csgrsGroupId
-    EC2.authorizeSecurityGroupIngress
-      & EC2.asgiGroupId ?~ group
-      & EC2.asgiIPPermissions .~ map toPermission ec2sg_rules
-      & send
     asks ctxTags >>= toEc2Tags [group] . (("hash", hashOf Ec2sg{..}):)
     return group
   update :: AWS m => ResourceId -> Ec2sg -> m ResourceId
@@ -254,6 +245,42 @@ instance Resource Ec2sg where
   reify (lookup_ -> lookup_) Ec2sg{..} = do
     ec2sg_vpc <- forM ec2sg_vpc $ lookup_ (Reference "ec2-vpc")
     return Ec2sg{..}
+
+toPermission :: Rule -> EC2.IPPermission
+toPermission Rule{..} = EC2.ipPermission rule_protocol
+                          & EC2.ipFromPort .~ (fromIntegral <$> rule_fromPort)
+                          & EC2.ipToPort .~ (fromIntegral <$> rule_toPort)
+                          & EC2.ipIPRanges .~ (EC2.ipRange <$> maybeToList rule_sourceIp)
+
+instance Resource Ec2sgruleset where
+  match :: AWS m => Ec2sgruleset -> m (Either DiscoveryError MatchResult)
+  match = const . return . Right $ NeedsUpdate "(virtual)"
+  create :: AWS m => Ec2sgruleset -> m ResourceId
+  create Ec2sgruleset{..} = "(virtual)" <$ do
+    EC2.authorizeSecurityGroupIngress
+      & EC2.asgiGroupId ?~ fromRefRemote ec2sgruleset_securityGroup
+      & EC2.asgiIPPermissions .~ map toPermission ec2sgruleset_rules
+      & unless (null ec2sgruleset_rules) . void . send
+  update :: AWS m => ResourceId -> Ec2sgruleset -> m ResourceId
+  update _ Ec2sgruleset{..} = "(virtual)" <$ do
+    currentRules <- EC2.describeSecurityGroups
+      & EC2.dsgsGroupIds .~ [fromRefRemote ec2sgruleset_securityGroup]
+      & send <&> view (EC2.dsgrsSecurityGroups . folded . EC2.sgIPPermissions)
+    let intendedRules = map toPermission ec2sgruleset_rules
+        (aight, drop) = partition (`elem` intendedRules) currentRules
+        authorizeThem = filter (`notElem` aight) intendedRules
+    EC2.authorizeSecurityGroupIngress
+      & EC2.asgiGroupId ?~ fromRefRemote ec2sgruleset_securityGroup
+      & EC2.asgiIPPermissions .~ authorizeThem
+      & unless (null authorizeThem) . void . send
+    EC2.revokeSecurityGroupIngress
+      & EC2.rsgiGroupId ?~ fromRefRemote ec2sgruleset_securityGroup
+      & EC2.rsgiIPPermissions .~ drop
+      & unless (null drop) . void . send
+  reify :: Map Reference ResourceId -> (Ec2sgruleset -> Either Missing Ec2sgruleset)
+  reify (lookup_ -> lookup_) Ec2sgruleset{..} = do
+    ec2sgruleset_securityGroup <- lookup_ (Reference "ec2-sg") ec2sgruleset_securityGroup
+    return Ec2sgruleset{..}
 
 instance AWSPager EC2.DescribeVolumes where page _ _ = Nothing
 
