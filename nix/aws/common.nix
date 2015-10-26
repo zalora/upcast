@@ -1,7 +1,7 @@
 { lib }:
 
 let
-  inherit (lib) mkOption types;
+  inherit (lib) mkOption types id;
 in rec {
   inherit (import <upcast/option-types.nix> { inherit lib; }) infra sum submodule;
 
@@ -45,4 +45,14 @@ in rec {
     type = types.nullOr (option.type or option);
     apply = x: if x == null then null else option.apply x;
   };
+
+  mkInternalOption = args@{...}: mkOption (args // {
+    apply = value: { _internal = (args.apply or id) value; }; # Hack for consumer 'eval-infra'.
+    internal = true; # Hack for consumer 'inspectlib'.
+  });
+
+  infra-submodule = fn-or-attrs: lib.types.submodule (args@{name,...}: let
+    module  = if builtins.isFunction fn-or-attrs then fn-or-attrs args else fn-or-attrs;
+    options = (import <upcast/infra-base.nix> args).options // module.options;
+  in { config = module.config or {}; inherit options; });
 }

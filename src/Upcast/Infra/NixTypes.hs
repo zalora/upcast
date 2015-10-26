@@ -9,8 +9,9 @@ module Upcast.Infra.NixTypes where
 import GHC.Generics
 import Control.Applicative
 import Data.Char (toLower)
+import Data.Hashable (Hashable(..))
 import Data.Text (Text)
-import Data.Map.Strict (Map)
+import Data.Map.Strict (Map, foldlWithKey)
 import Data.Aeson
 import Data.Aeson.Types
 
@@ -27,6 +28,7 @@ instance FromJSON AccessLog where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 10 }
 
+instance Hashable AccessLog
 
 data BlockDeviceMapping = BlockDeviceMapping
      { blockDeviceMapping_blockDeviceMappingName :: Text
@@ -38,6 +40,7 @@ instance FromJSON BlockDeviceMapping where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 19 }
 
+instance Hashable BlockDeviceMapping
 
 data ConnectionDraining = ConnectionDraining
      { connectionDraining_enable :: Bool
@@ -48,6 +51,7 @@ instance FromJSON ConnectionDraining where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 19 }
 
+instance Hashable ConnectionDraining
 
 data Ebs = Ebs
      { ebs_accessKeyId :: Text
@@ -63,6 +67,7 @@ instance FromJSON Ebs where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 4 }
 
+instance Hashable Ebs
 
 data Ec2instance = Ec2instance
      { ec2instance_accessKeyId :: Text
@@ -73,6 +78,7 @@ data Ec2instance = Ec2instance
      , ec2instance_instanceProfileARN :: Maybe Text
      , ec2instance_instanceType :: Text
      , ec2instance_keyPair :: InfraRef Ec2keypair
+     , ec2instance_name :: Text
      , ec2instance_region :: Text
      , ec2instance_securityGroups :: [InfraRef Ec2sg]
      , ec2instance_subnet :: Maybe (InfraRef Ec2subnet)
@@ -84,6 +90,7 @@ instance FromJSON Ec2instance where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 12 }
 
+instance Hashable Ec2instance
 
 data Ec2keypair = Ec2keypair
      { ec2keypair_accessKeyId :: Text
@@ -96,13 +103,13 @@ instance FromJSON Ec2keypair where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 11 }
 
+instance Hashable Ec2keypair
 
 data Ec2sg = Ec2sg
      { ec2sg_accessKeyId :: Text
      , ec2sg_description :: Text
      , ec2sg_name :: Text
      , ec2sg_region :: Text
-     , ec2sg_rules :: [Rule]
      , ec2sg_vpc :: Maybe (InfraRef Ec2vpc)
      } deriving (Show, Generic)
 
@@ -110,10 +117,23 @@ instance FromJSON Ec2sg where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 6 }
 
+instance Hashable Ec2sg
+
+data Ec2sgruleset = Ec2sgruleset
+     { ec2sgruleset_rules :: [Rule]
+     , ec2sgruleset_securityGroup :: InfraRef Ec2sg
+     } deriving (Show, Generic)
+
+instance FromJSON Ec2sgruleset where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 13 }
+
+instance Hashable Ec2sgruleset
 
 data Ec2subnet = Ec2subnet
      { ec2subnet_accessKeyId :: Text
      , ec2subnet_cidrBlock :: Text
+     , ec2subnet_name :: Text
      , ec2subnet_region :: Text
      , ec2subnet_vpc :: InfraRef Ec2vpc
      , ec2subnet_zone :: Text
@@ -123,6 +143,7 @@ instance FromJSON Ec2subnet where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 10 }
 
+instance Hashable Ec2subnet
 
 data Ec2vpc = Ec2vpc
      { ec2vpc_accessKeyId :: Text
@@ -134,6 +155,7 @@ instance FromJSON Ec2vpc where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 7 }
 
+instance Hashable Ec2vpc
 
 data Elb = Elb
      { elb_accessKeyId :: Text
@@ -141,7 +163,6 @@ data Elb = Elb
      , elb_connectionDraining :: ConnectionDraining
      , elb_crossZoneLoadBalancing :: Bool
      , elb_healthCheck :: HealthCheck
-     , elb_instances :: [InfraRef Ec2instance]
      , elb_internal :: Bool
      , elb_listeners :: [Listener]
      , elb_name :: Text
@@ -155,6 +176,18 @@ instance FromJSON Elb where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 4 }
 
+instance Hashable Elb
+
+data Elbinstanceset = Elbinstanceset
+     { elbinstanceset_elb :: InfraRef Elb
+     , elbinstanceset_instances :: [InfraRef Ec2instance]
+     } deriving (Show, Generic)
+
+instance FromJSON Elbinstanceset where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 15 }
+
+instance Hashable Elbinstanceset
 
 data HealthCheck = HealthCheck
      { healthCheck_healthyThreshold :: Integer
@@ -168,6 +201,7 @@ instance FromJSON HealthCheck where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 12 }
 
+instance Hashable HealthCheck
 
 data HealthCheckPathTarget = HealthCheckPathTarget
      { healthCheckPathTarget_path :: Text
@@ -178,6 +212,7 @@ instance FromJSON HealthCheckPathTarget where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 22 }
 
+instance Hashable HealthCheckPathTarget
 
 data Listener = Listener
      { listener_instancePort :: Integer
@@ -192,15 +227,18 @@ instance FromJSON Listener where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 9 }
 
+instance Hashable Listener
 
 data Route53Alias = Route53Alias
-     { route53Alias_zoneId :: Text
+     { route53Alias_name :: Text
+     , route53Alias_zoneId :: Text
      } deriving (Show, Generic)
 
 instance FromJSON Route53Alias where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 13 }
 
+instance Hashable Route53Alias
 
 data Rule = Rule
      { rule_fromPort :: Maybe Integer
@@ -215,6 +253,7 @@ instance FromJSON Rule where
   parseJSON = genericParseJSON defaultOptions
               { fieldLabelModifier = drop 5 }
 
+instance Hashable Rule
 
 data Stickiness = App Text | Lb (Maybe Integer) deriving (Show, Generic)
 
@@ -223,12 +262,16 @@ instance FromJSON Stickiness where
               { sumEncoding = ObjectWithSingleField
               , constructorTagModifier = map toLower }
 
+instance Hashable Stickiness
+
 data Target = Http HealthCheckPathTarget | Https HealthCheckPathTarget | Ssl Integer | Tcp Integer deriving (Show, Generic)
 
 instance FromJSON Target where
   parseJSON = genericParseJSON defaultOptions
               { sumEncoding = ObjectWithSingleField
               , constructorTagModifier = map toLower }
+
+instance Hashable Target
 
 data VolumeType = Gp2 | Iop Integer | Standard deriving (Show, Generic)
 
@@ -237,6 +280,11 @@ instance FromJSON VolumeType where
               { sumEncoding = ObjectWithSingleField
               , constructorTagModifier = map toLower }
 
+instance Hashable VolumeType
+
+
+instance (Hashable a, Hashable b) => Hashable (Map a b) where
+  hashWithSalt = foldlWithKey (\b k v -> hashWithSalt b (k,v))
 
 data InfraRef a = RefLocal Text | RefRemote Text deriving (Show, Generic)
 
@@ -246,29 +294,4 @@ instance FromJSON (InfraRef a) where
     (RefRemote <$> o .: "remote")
   parseJSON _ = empty
 
-data Infras = Infras
-      { infraRealmName :: Text
-      , infraRegions :: [Text]
-      , infraEbs :: Attrs Ebs
-     , infraEc2instance :: Attrs Ec2instance
-     , infraEc2keypair :: Attrs Ec2keypair
-     , infraEc2sg :: Attrs Ec2sg
-     , infraEc2subnet :: Attrs Ec2subnet
-     , infraEc2vpc :: Attrs Ec2vpc
-     , infraElb :: Attrs Elb
-      } deriving (Show, Generic)
-
-instance FromJSON Infras where
-  parseJSON (Object o) =
-      Infras <$>
-      o .: "realm-name" <*>
-      o .: "regions" <*>
-      o .: "ebs" <*>
-      o .: "ec2-instance" <*>
-      o .: "ec2-keypair" <*>
-      o .: "ec2-sg" <*>
-      o .: "ec2-subnet" <*>
-      o .: "ec2-vpc" <*>
-      o .: "elb"
-  parseJSON _ = empty
-
+instance Hashable (InfraRef a)

@@ -3,8 +3,7 @@ module Upcast.Types where
 import Data.Text (Text)
 import Data.Aeson (Value)
 import Data.ByteString.Char8 (ByteString)
-
-import Upcast.Infra.NixTypes (Infras)
+import Upcast.Infra.Types (Infras(..))
 
 newtype Remote = Remote String
                  deriving Show
@@ -20,12 +19,11 @@ data NixContext =
   , nix_args :: [String]
   } deriving (Show)
 
-data InfraContext
-  = InfraContext
-    { inc_expressionFile :: String
-    , inc_infras :: Infras
-    , inc_verbose :: Bool
-    } deriving (Show)
+data InfraContext = InfraContext
+  { inc_expressionFile :: String
+  , inc_infras :: Infras
+  , inc_verbose :: Bool
+  }
 
 -- | Structure used to pass arguments between evaluation and installation phases.
 data Machine =

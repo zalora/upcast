@@ -61,9 +61,11 @@ library
     , amazonka-ec2 >= 1.1
     , amazonka-elb >= 1.1
     , amazonka-route53 >= 1.1
+    , array
     , async
     , attoparsec
     , base64-bytestring
+    , bifunctors
     , bytestring
     , conduit
     , resourcet
@@ -72,7 +74,11 @@ library
     , directory
     , exceptions
     , filepath
+    , hashable
+    , iproute
     , lens
+    , lens-action
+    , lens-aeson
     , lifted-base
     , mtl
     , natural-sort
@@ -80,6 +86,7 @@ library
     , pretty-show
     , process
     , random
+    , resourcet
     , scientific
     , semigroups
     , tagged
@@ -89,18 +96,21 @@ library
     , unordered-containers
     , vector
     , vk-posix-pty >= 0.2.1
+    , witherable
     , xml-conduit
   exposed-modules:
       Upcast.Deploy
       Upcast.Environment
       Upcast.IO
       Upcast.Infra
-      Upcast.Infra.AmazonkaTypes
-      Upcast.Infra.Amazonka
       Upcast.Infra.Machine
-      Upcast.Infra.Match
       Upcast.Infra.NixTypes
       Upcast.Infra.Types
+      Upcast.Infra.Types.Amazonka
+      Upcast.Infra.Types.Common
+      Upcast.Infra.Types.Graph
+      Upcast.Infra.Types.Infra
+      Upcast.Infra.Types.Resource
       Upcast.Install
       Upcast.Shell
       Upcast.Shell.Run
@@ -128,9 +138,11 @@ executable fgrun
     , amazonka-ec2 >= 1.1
     , amazonka-elb >= 1.1
     , amazonka-route53 >= 1.1
+    , array
     , async
     , attoparsec
     , base64-bytestring
+    , bifunctors
     , bytestring
     , conduit
     , resourcet
@@ -139,7 +151,11 @@ executable fgrun
     , directory
     , exceptions
     , filepath
+    , hashable
+    , iproute
     , lens
+    , lens-action
+    , lens-aeson
     , lifted-base
     , mtl
     , natural-sort
@@ -147,6 +163,7 @@ executable fgrun
     , pretty-show
     , process
     , random
+    , resourcet
     , scientific
     , semigroups
     , tagged
@@ -156,16 +173,21 @@ executable fgrun
     , unordered-containers
     , vector
     , vk-posix-pty >= 0.2.1
+    , witherable
     , xml-conduit
   other-modules:
       Upcast.Deploy
       Upcast.Environment
       Upcast.Infra
       Upcast.Infra.Amazonka
-      Upcast.Infra.AmazonkaTypes
       Upcast.Infra.Match
       Upcast.Infra.NixTypes
       Upcast.Infra.Types
+      Upcast.Infra.Amazonka
+      Upcast.Infra.Types.Common
+      Upcast.Infra.Types.Graph
+      Upcast.Infra.Types.Infra
+      Upcast.Infra.Types.Resource
       Upcast.Install
       Upcast.IO
       Upcast.Monad
@@ -191,9 +213,11 @@ executable upcast
     , amazonka-ec2 >= 1.1
     , amazonka-elb >= 1.1
     , amazonka-route53 >= 1.1
+    , array
     , async
     , attoparsec
     , base64-bytestring
+    , bifunctors
     , bytestring
     , conduit
     , resourcet
@@ -202,7 +226,11 @@ executable upcast
     , directory
     , exceptions
     , filepath
+    , hashable
+    , iproute
     , lens
+    , lens-action
+    , lens-aeson
     , lifted-base
     , mtl
     , natural-sort
@@ -210,6 +238,7 @@ executable upcast
     , pretty-show
     , process
     , random
+    , resourcet
     , scientific
     , semigroups
     , tagged
@@ -219,17 +248,20 @@ executable upcast
     , unordered-containers
     , vector
     , vk-posix-pty >= 0.2.1
+    , witherable
     , xml-conduit
   other-modules:
       Upcast.Deploy
       Upcast.Environment
       Upcast.Infra
-      Upcast.Infra.Amazonka
-      Upcast.Infra.AmazonkaTypes
       Upcast.Infra.Machine
-      Upcast.Infra.Match
       Upcast.Infra.NixTypes
       Upcast.Infra.Types
+      Upcast.Infra.Types.Common
+      Upcast.Infra.Types.Amazonka
+      Upcast.Infra.Types.Graph
+      Upcast.Infra.Types.Infra
+      Upcast.Infra.Types.Resource
       Upcast.Install
       Upcast.IO
       Upcast.Monad
