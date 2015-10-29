@@ -59,6 +59,7 @@ import qualified Network.AWS.EC2 as EC2 -- (*)
 import qualified Network.AWS.ELB as ELB -- (*)
 import qualified Network.AWS.Route53 as R53 -- (*)
 import Network.AWS.Types (Error)
+import Network.AWS.Waiter (Wait(_waitAttempts), Accept(..))
 import Upcast.IO (expectRight)
 import Upcast.Infra.Types.Amazonka (ResourceId)
 import Upcast.Infra.NixTypes -- (*)
@@ -286,8 +287,6 @@ instance Resource Ec2sgruleset where
     ec2sgruleset_securityGroup <- lookup_ (Reference "ec2-sg") ec2sgruleset_securityGroup
     return Ec2sgruleset{..}
 
-instance AWSPager EC2.DescribeVolumes where page _ _ = Nothing
-
 instance Matcher Ebs EC2.Volume where
   type Rq Ebs = EC2.DescribeVolumes
   request = act (\Ebs{..} -> cons ("Name", ebs_name) <$> asks ctxTags)
@@ -474,9 +473,15 @@ instance Resource Ec2instance where
       . EC2.ibdmEBS . folded . filtered ((/= Just True) . view EC2.eibdDeleteOnTermination)
       . EC2.eibdVolumeId . _Just
       )
-    mapM (send . EC2.detachVolume) currentVolumes
-    unless (null currentVolumes) $
-      await EC2.volumeAvailable (EC2.describeVolumes & EC2.desVolumeIds .~ currentVolumes)
+    forM currentVolumes $ \volume -> do
+      EC2.detachVolume volume & send
+      let describeVolumes = EC2.describeVolumes & EC2.desVolumeIds .~ [volume]
+          waiter = await (EC2.volumeAvailable { _waitAttempts = 5 }) describeVolumes
+      waiter >>= \case { AcceptSuccess -> return (); _ -> do
+        EC2.detachVolume volume & EC2.dvForce ?~ True & send
+        AcceptSuccess <- waiter
+        return ()
+      }
     EC2.terminateInstances & EC2.tiInstanceIds .~ [current] & defer . send
     create inst
   reify :: Map Reference ResourceId -> (Ec2instance -> Either Missing Ec2instance)
