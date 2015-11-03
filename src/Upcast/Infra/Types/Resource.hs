@@ -247,6 +247,16 @@ instance Resource Ec2sg where
     ec2sg_vpc <- forM ec2sg_vpc $ lookup_ (Reference "ec2-vpc")
     return Ec2sg{..}
 
+-- If permission's EC2.ipIPRanges contains multiple IP ranges,
+-- it will be break down into list of same permissions with a single
+-- IP range each, for correct diff in the 'converge' function.    
+singlifyIPRanges :: EC2.IPPermission -> [EC2.IPPermission]
+singlifyIPRanges permission =
+  let ipRanges = view EC2.ipIPRanges permission in
+  if length ipRanges > 1
+    then [permission & EC2.ipIPRanges .~ [range] | range <- ipRanges]
+    else [permission]
+
 toPermission :: Rule -> EC2.IPPermission
 toPermission Rule{..} = EC2.ipPermission rule_protocol
                           & EC2.ipFromPort .~ (fromIntegral <$> rule_fromPort)
@@ -261,19 +271,22 @@ converge from to = (add, remove)
 instance Resource Ec2sgruleset where
   match :: AWS m => Ec2sgruleset -> m (Either DiscoveryError MatchResult)
   match = const . return . Right $ NeedsUpdate "(virtual)"
+
   create :: AWS m => Ec2sgruleset -> m ResourceId
   create Ec2sgruleset{..} = "(virtual)" <$ do
     EC2.authorizeSecurityGroupIngress
       & EC2.asgiGroupId ?~ fromRefRemote ec2sgruleset_securityGroup
       & EC2.asgiIPPermissions .~ map toPermission ec2sgruleset_rules
       & unless (null ec2sgruleset_rules) . void . send
+
   update :: AWS m => ResourceId -> Ec2sgruleset -> m ResourceId
   update _ Ec2sgruleset{..} = "(virtual)" <$ do
     currentRules <- EC2.describeSecurityGroups
       & EC2.dsgsGroupIds .~ [fromRefRemote ec2sgruleset_securityGroup]
       & send <&> view (EC2.dsgrsSecurityGroups . folded . EC2.sgIPPermissions)
-    let intendedRules = map toPermission ec2sgruleset_rules
-        (authorize, revoke) = currentRules `converge` intendedRules
+    let currentRulesWithSingleIPRange = concatMap singlifyIPRanges currentRules
+        intendedRules = map toPermission ec2sgruleset_rules
+        (authorize, revoke) = currentRulesWithSingleIPRange `converge` intendedRules
     EC2.authorizeSecurityGroupIngress
       & EC2.asgiGroupId ?~ fromRefRemote ec2sgruleset_securityGroup
       & EC2.asgiIPPermissions .~ authorize
@@ -282,6 +295,7 @@ instance Resource Ec2sgruleset where
       & EC2.rsgiGroupId ?~ fromRefRemote ec2sgruleset_securityGroup
       & EC2.rsgiIPPermissions .~ revoke
       & unless (null revoke) . void . send
+
   reify :: Map Reference ResourceId -> (Ec2sgruleset -> Either Missing Ec2sgruleset)
   reify (lookup_ -> lookup_) Ec2sgruleset{..} = do
     ec2sgruleset_securityGroup <- lookup_ (Reference "ec2-sg") ec2sgruleset_securityGroup
