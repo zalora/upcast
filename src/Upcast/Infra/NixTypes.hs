@@ -214,6 +214,26 @@ instance FromJSON HealthCheckPathTarget where
 
 instance Hashable HealthCheckPathTarget
 
+data Launchconfiguration = Launchconfiguration
+     { launchconfiguration_accessKeyId :: Text
+     , launchconfiguration_ami :: Text
+     , launchconfiguration_associatePublicIPAddress :: Bool
+     , launchconfiguration_ebsOptimized :: Bool
+     , launchconfiguration_instanceProfileARN :: Maybe Text
+     , launchconfiguration_instanceType :: Text
+     , launchconfiguration_keyName :: Maybe (InfraRef Ec2keypair)
+     , launchconfiguration_prefix :: Text
+     , launchconfiguration_region :: Text
+     , launchconfiguration_securityGroups :: [InfraRef Ec2sg]
+     , launchconfiguration_zone :: Text
+     } deriving (Show, Generic)
+
+instance FromJSON Launchconfiguration where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 20 }
+
+instance Hashable Launchconfiguration
+
 data Listener = Listener
      { listener_instancePort :: Integer
      , listener_instanceProtocol :: Text

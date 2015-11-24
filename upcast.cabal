@@ -61,6 +61,7 @@ library
     , amazonka-ec2 >= 1.1
     , amazonka-elb >= 1.1
     , amazonka-route53 >= 1.1
+    , amazonka-autoscaling >= 1.1
     , array
     , async
     , attoparsec
@@ -138,6 +139,7 @@ executable fgrun
     , amazonka-ec2 >= 1.1
     , amazonka-elb >= 1.1
     , amazonka-route53 >= 1.1
+    , amazonka-autoscaling >= 1.1
     , array
     , async
     , attoparsec
@@ -213,6 +215,7 @@ executable upcast
     , amazonka-ec2 >= 1.1
     , amazonka-elb >= 1.1
     , amazonka-route53 >= 1.1
+    , amazonka-autoscaling >= 1.1
     , array
     , async
     , attoparsec
