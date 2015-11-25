@@ -701,3 +701,44 @@ instance Resource Launchconfiguration where
     launchconfiguration_keyName <- lookup_ ledger (Reference "ec2-keypair") `mapM` launchconfiguration_keyName
     launchconfiguration_securityGroups <- lookup_ ledger (Reference "ec2-sg") `mapM` launchconfiguration_securityGroups
     return Launchconfiguration{..}
+
+getAutoScalingGroupName :: AWS m => Autoscalinggroup -> (Text -> m ResourceId)
+getAutoScalingGroupName Autoscalinggroup{..} fin = asks ctxTags <&> \tags ->
+  T.intercalate "-" $ sort (map snd tags) ++ [ autoscalinggroup_name, fin ]
+
+instance Matcher Autoscalinggroup AS.AutoScalingGroup where
+  type Rq Autoscalinggroup = AS.DescribeAutoScalingGroups
+  request :: AWS m => Action m Autoscalinggroup (Rq Autoscalinggroup)
+  request = \f s -> const s <$> f AS.describeAutoScalingGroups
+  candidates :: AWS m => Autoscalinggroup -> AS.DescribeAutoScalingGroupsResponse -> m [AS.AutoScalingGroup]
+  candidates Autoscalinggroup{..} response = getAutoScalingGroupName Autoscalinggroup{..} "" <&> \prefix ->
+    response ^.. AS.dasgrsAutoScalingGroups . folded . filtered (view $ AS.asgAutoScalingGroupName . to (T.isPrefixOf prefix))
+  hashesTo :: Autoscalinggroup -> AS.AutoScalingGroup -> Bool
+  hashesTo (hashOf -> hash) = view $ AS.asgAutoScalingGroupName . to (T.isSuffixOf hash)
+  extractId = AS.asgAutoScalingGroupName
+
+instance Resource Autoscalinggroup where
+  create :: AWS m => Autoscalinggroup -> m ResourceId
+  create Autoscalinggroup{..} = do
+    autoscalinggroup_full_name <- getAutoScalingGroupName Autoscalinggroup{..} $ hashOf Autoscalinggroup{..}
+    AS.createAutoScalingGroup autoscalinggroup_full_name
+                              (fromIntegral autoscalinggroup_minSize)
+                              (fromIntegral autoscalinggroup_maxSize)
+      & AS.casgHealthCheckGracePeriod ?~ fromIntegral autoscalinggroup_healthcheckGracePeriod
+      & AS.casgHealthCheckType .~ fmap (pack . show) autoscalinggroup_healthcheckType
+      & AS.casgLaunchConfigurationName ?~ fromRefRemote autoscalinggroup_launchConfiguration
+      & AS.casgLoadBalancerNames .~ fmap fromRefRemote autoscalinggroup_loadBalancers
+      & AS.casgVPCZoneIdentifier ?~ T.intercalate "," (fmap fromRefRemote autoscalinggroup_subnets)
+      & AS.casgTags .~ fmap
+          (\Tag{..} -> AS.tag tag_key autoscalinggroup_full_name "auto-scaling-group" tag_propagateAtLaunch tag_value)
+          autoscalinggroup_tag
+      & send
+    return autoscalinggroup_full_name
+  update :: AWS m => ResourceId -> Autoscalinggroup -> m ResourceId
+  update current new = do AS.deleteAutoScalingGroup current & defer . send; create new
+  reify :: Map Reference ResourceId -> Autoscalinggroup -> Either Missing Autoscalinggroup
+  reify ledger Autoscalinggroup{..} = do
+    autoscalinggroup_launchConfiguration <- lookup_ ledger (Reference "launch-configuration") autoscalinggroup_launchConfiguration
+    autoscalinggroup_loadBalancers <- lookup_ ledger (Reference "elb") `mapM` autoscalinggroup_loadBalancers
+    autoscalinggroup_subnets <- lookup_ ledger (Reference "ec2-subnet") `mapM` autoscalinggroup_subnets
+    return Autoscalinggroup{..}

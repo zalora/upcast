@@ -32,6 +32,7 @@ instance FromJSON Infra where
                 <|> (Infra <$> (parseJSON value :: Parser Elb))
                 <|> (Infra <$> (parseJSON value :: Parser Elbinstanceset))
                 <|> (Infra <$> (parseJSON value :: Parser Launchconfiguration))
+                <|> (Infra <$> (parseJSON value :: Parser Autoscalinggroup))
 
 instance Show Infra where
   showsPrec n (Infra a) = showsPrec n a

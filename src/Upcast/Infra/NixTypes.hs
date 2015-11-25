@@ -30,6 +30,27 @@ instance FromJSON AccessLog where
 
 instance Hashable AccessLog
 
+data Autoscalinggroup = Autoscalinggroup
+     { autoscalinggroup_accessKeyId :: Text
+     , autoscalinggroup_healthcheckGracePeriod :: Integer
+     , autoscalinggroup_healthcheckType :: Maybe HealthcheckType
+     , autoscalinggroup_launchConfiguration :: InfraRef Launchconfiguration
+     , autoscalinggroup_loadBalancers :: [InfraRef Elb]
+     , autoscalinggroup_maxSize :: Integer
+     , autoscalinggroup_minSize :: Integer
+     , autoscalinggroup_name :: Text
+     , autoscalinggroup_region :: Text
+     , autoscalinggroup_subnets :: [InfraRef Ec2subnet]
+     , autoscalinggroup_tag :: [Tag]
+     , autoscalinggroup_zone :: Text
+     } deriving (Show, Generic)
+
+instance FromJSON Autoscalinggroup where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 17 }
+
+instance Hashable Autoscalinggroup
+
 data BlockDeviceMapping = BlockDeviceMapping
      { blockDeviceMapping_blockDeviceMappingName :: Text
      , blockDeviceMapping_disk :: InfraRef Ebs
@@ -214,6 +235,15 @@ instance FromJSON HealthCheckPathTarget where
 
 instance Hashable HealthCheckPathTarget
 
+data HealthcheckType = EC2 | ELB deriving (Show, Generic)
+
+instance FromJSON HealthcheckType where
+  parseJSON (String "EC2") = pure EC2
+  parseJSON (String "ELB") = pure ELB
+  parseJSON _ = empty
+
+instance Hashable HealthcheckType
+
 data Launchconfiguration = Launchconfiguration
      { launchconfiguration_accessKeyId :: Text
      , launchconfiguration_ami :: Text
@@ -283,6 +313,18 @@ instance FromJSON Stickiness where
               , constructorTagModifier = map toLower }
 
 instance Hashable Stickiness
+
+data Tag = Tag
+     { tag_key :: Text
+     , tag_propagateAtLaunch :: Bool
+     , tag_value :: Text
+     } deriving (Show, Generic)
+
+instance FromJSON Tag where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 4 }
+
+instance Hashable Tag
 
 data Target = Http HealthCheckPathTarget | Https HealthCheckPathTarget | Ssl Integer | Tcp Integer deriving (Show, Generic)
 

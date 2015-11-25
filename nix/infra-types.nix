@@ -17,6 +17,7 @@ in {
     <upcast/aws/ec2-sg.nix> # -> {ec2-sg, ec2-sg-ruleset}
     <upcast/aws/elb.nix> # -> {elb, elb-instance-set}
     <upcast/aws/launch-configuration.nix>
+    <upcast/aws/autoscaling-group.nix>
   ] ++ attrValues (mapAttrs modernise-infra {
     ebs          = <upcast/aws/ebs-volume.nix>;
     ec2-keypair  = <upcast/aws/ec2-keypair.nix>;
