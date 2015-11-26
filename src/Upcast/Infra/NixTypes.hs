@@ -51,6 +51,7 @@ instance Hashable Autoscalinggroup
 
 data Autoscalingoptions = Autoscalingoptions
      { autoscalingoptions_autoScalingGroup :: InfraRef Autoscalinggroup
+     , autoscalingoptions_launchConfiguration :: InfraRef Launchconfiguration
      , autoscalingoptions_maxSize :: Integer
      , autoscalingoptions_minSize :: Integer
      } deriving (Show, Generic)

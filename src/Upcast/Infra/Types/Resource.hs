@@ -706,6 +706,12 @@ getAutoScalingGroupName :: AWS m => Autoscalinggroup -> (Text -> m ResourceId)
 getAutoScalingGroupName Autoscalinggroup{..} fin = asks ctxTags <&> \tags ->
   T.intercalate "-" $ sort (map snd tags) ++ [ autoscalinggroup_name, fin ]
 
+-- Don't update when 'launchConfiguration' changes; that's managed by -options.
+-- (But we need one on initial 'create'. Awkward.)
+getAutoScalingGroupHash :: Autoscalinggroup -> Text
+getAutoScalingGroupHash group = hashOf $ group
+  { autoscalinggroup_launchConfiguration = RefRemote "" }
+
 instance Matcher Autoscalinggroup AS.AutoScalingGroup where
   type Rq Autoscalinggroup = AS.DescribeAutoScalingGroups
   request :: AWS m => Action m Autoscalinggroup (Rq Autoscalinggroup)
@@ -714,13 +720,13 @@ instance Matcher Autoscalinggroup AS.AutoScalingGroup where
   candidates Autoscalinggroup{..} response = getAutoScalingGroupName Autoscalinggroup{..} "" <&> \prefix ->
     response ^.. AS.dasgrsAutoScalingGroups . folded . filtered (view $ AS.asgAutoScalingGroupName . to (T.isPrefixOf prefix))
   hashesTo :: Autoscalinggroup -> AS.AutoScalingGroup -> Bool
-  hashesTo (hashOf -> hash) = view $ AS.asgAutoScalingGroupName . to (T.isSuffixOf hash)
+  hashesTo group = view $ AS.asgAutoScalingGroupName . to (T.isSuffixOf $ getAutoScalingGroupHash group)
   extractId = AS.asgAutoScalingGroupName
 
 instance Resource Autoscalinggroup where
   create :: AWS m => Autoscalinggroup -> m ResourceId
-  create Autoscalinggroup{..} = do
-    autoscalinggroup_full_name <- getAutoScalingGroupName Autoscalinggroup{..} $ hashOf Autoscalinggroup{..}
+  create group@Autoscalinggroup{..} = do
+    autoscalinggroup_full_name <- getAutoScalingGroupName group (getAutoScalingGroupHash group)
     AS.createAutoScalingGroup autoscalinggroup_full_name 0 0
       & AS.casgHealthCheckGracePeriod ?~ fromIntegral autoscalinggroup_healthcheckGracePeriod
       & AS.casgHealthCheckType .~ fmap (pack . show) autoscalinggroup_healthcheckType
@@ -745,10 +751,14 @@ instance Resource Autoscalingoptions where
   match = const . return . Right $ NeedsUpdate "(virtual)"
   create Autoscalingoptions{..} = "(virtual)" <$ do
     AS.updateAutoScalingGroup (fromRefRemote autoscalingoptions_autoScalingGroup)
+      & AS.uasgLaunchConfigurationName ?~ fromRefRemote autoscalingoptions_launchConfiguration
       & AS.uasgMinSize ?~ fromIntegral autoscalingoptions_minSize
       & AS.uasgMaxSize ?~ fromIntegral autoscalingoptions_maxSize
       & send
   update _ = (<$) "(virtual)" . create
-  reify (lookup_ -> lookup) Autoscalingoptions{..} = do
-    autoscalingoptions_autoScalingGroup <- lookup (Reference "autoscaling-group") autoscalingoptions_autoScalingGroup
+  reify ledger Autoscalingoptions{..} = do
+    autoscalingoptions_autoScalingGroup <-
+      lookup_ ledger (Reference "autoscaling-group") autoscalingoptions_autoScalingGroup
+    autoscalingoptions_launchConfiguration <-
+      lookup_ ledger (Reference "launch-configuration") autoscalingoptions_launchConfiguration
     return Autoscalingoptions{..}

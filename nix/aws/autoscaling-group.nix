@@ -108,6 +108,12 @@ in {
              Largest number of instances admitted in the ASG.
            '';
           };
+          launchConfiguration = mkOption {
+            type = common.infra "launch-configuration";
+            description = ''
+              Launch configuration describing the template for spawned instances.
+            '';
+          };
         };
         config._type = "autoscaling-options";
       }));
@@ -118,6 +124,7 @@ in {
       autoScalingGroup = infra.autoscaling-group.${k};
       minSize = v.minSize._internal;
       maxSize = v.maxSize._internal;
+      launchConfiguration = v.launchConfiguration;
     }) config.autoscaling-group);
   };
 }
