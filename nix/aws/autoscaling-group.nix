@@ -1,7 +1,7 @@
-{ config, lib, ... }: let
+{ infra, config, lib, ... }: let
   inherit (lib) types mkOption mapAttrs mkOverride;
   common = (import ./common.nix { inherit lib; });
-  inherit (common) infra infra-submodule;
+  inherit (common) infra-submodule mkInternalOption;
 in {
   options = {
     autoscaling-group = mkOption {
@@ -16,32 +16,32 @@ in {
             '';
           };
           launchConfiguration = mkOption {
-            type = infra "launch-configuration";
+            type = common.infra "launch-configuration";
             description = ''
               Launch configuration describing the template for spawned instances.
             '';
           };
-          minSize = mkOption {
+          minSize = mkInternalOption {
            type = types.int;
            description = ''
              Minimum number of instances admitted in the ASG.
            '';
           };
-          maxSize = mkOption {
+          maxSize = mkInternalOption {
            type = types.int;
            description = ''
              Largest number of instances admitted in the ASG.
            '';
           };
           subnets = mkOption {
-            type = types.nonEmptyListOf (infra "ec2-subnet");
+            type = types.nonEmptyListOf (common.infra "ec2-subnet");
             description = ''
               Subnets to distribute instances between.
             '';
           };
           loadBalancers = mkOption {
             default = [];
-            type = types.listOf (infra "elb");
+            type = types.listOf (common.infra "elb");
             description = ''
               Load balancers in which to assign spawned instances.
             '';
@@ -90,5 +90,34 @@ in {
       }));
       default = {};
     };
+    autoscaling-options = mkOption {
+      type = types.attrsOf (infra-submodule (args@{...}: {
+        options = {
+          autoScalingGroup = mkOption {
+            type = common.infra "autoscaling-group";
+          };
+          minSize = mkOption {
+           type = types.int;
+           description = ''
+             Minimum number of instances admitted in the ASG.
+           '';
+          };
+          maxSize = mkOption {
+           type = types.int;
+           description = ''
+             Largest number of instances admitted in the ASG.
+           '';
+          };
+        };
+        config._type = "autoscaling-options";
+      }));
+    };
+  };
+  config = {
+    autoscaling-options = mkOverride 0 (mapAttrs (k: v: {
+      autoScalingGroup = infra.autoscaling-group.${k};
+      minSize = v.minSize._internal;
+      maxSize = v.maxSize._internal;
+    }) config.autoscaling-group);
   };
 }

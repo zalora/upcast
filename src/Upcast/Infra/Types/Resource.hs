@@ -721,9 +721,7 @@ instance Resource Autoscalinggroup where
   create :: AWS m => Autoscalinggroup -> m ResourceId
   create Autoscalinggroup{..} = do
     autoscalinggroup_full_name <- getAutoScalingGroupName Autoscalinggroup{..} $ hashOf Autoscalinggroup{..}
-    AS.createAutoScalingGroup autoscalinggroup_full_name
-                              (fromIntegral autoscalinggroup_minSize)
-                              (fromIntegral autoscalinggroup_maxSize)
+    AS.createAutoScalingGroup autoscalinggroup_full_name 0 0
       & AS.casgHealthCheckGracePeriod ?~ fromIntegral autoscalinggroup_healthcheckGracePeriod
       & AS.casgHealthCheckType .~ fmap (pack . show) autoscalinggroup_healthcheckType
       & AS.casgLaunchConfigurationName ?~ fromRefRemote autoscalinggroup_launchConfiguration
@@ -742,3 +740,15 @@ instance Resource Autoscalinggroup where
     autoscalinggroup_loadBalancers <- lookup_ ledger (Reference "elb") `mapM` autoscalinggroup_loadBalancers
     autoscalinggroup_subnets <- lookup_ ledger (Reference "ec2-subnet") `mapM` autoscalinggroup_subnets
     return Autoscalinggroup{..}
+
+instance Resource Autoscalingoptions where
+  match = const . return . Right $ NeedsUpdate "(virtual)"
+  create Autoscalingoptions{..} = "(virtual)" <$ do
+    AS.updateAutoScalingGroup (fromRefRemote autoscalingoptions_autoScalingGroup)
+      & AS.uasgMinSize ?~ fromIntegral autoscalingoptions_minSize
+      & AS.uasgMaxSize ?~ fromIntegral autoscalingoptions_maxSize
+      & send
+  update _ = (<$) "(virtual)" . create
+  reify (lookup_ -> lookup) Autoscalingoptions{..} = do
+    autoscalingoptions_autoScalingGroup <- lookup (Reference "autoscaling-group") autoscalingoptions_autoScalingGroup
+    return Autoscalingoptions{..}

@@ -36,8 +36,6 @@ data Autoscalinggroup = Autoscalinggroup
      , autoscalinggroup_healthcheckType :: Maybe HealthcheckType
      , autoscalinggroup_launchConfiguration :: InfraRef Launchconfiguration
      , autoscalinggroup_loadBalancers :: [InfraRef Elb]
-     , autoscalinggroup_maxSize :: Integer
-     , autoscalinggroup_minSize :: Integer
      , autoscalinggroup_name :: Text
      , autoscalinggroup_region :: Text
      , autoscalinggroup_subnets :: [InfraRef Ec2subnet]
@@ -50,6 +48,18 @@ instance FromJSON Autoscalinggroup where
               { fieldLabelModifier = drop 17 }
 
 instance Hashable Autoscalinggroup
+
+data Autoscalingoptions = Autoscalingoptions
+     { autoscalingoptions_autoScalingGroup :: InfraRef Autoscalinggroup
+     , autoscalingoptions_maxSize :: Integer
+     , autoscalingoptions_minSize :: Integer
+     } deriving (Show, Generic)
+
+instance FromJSON Autoscalingoptions where
+  parseJSON = genericParseJSON defaultOptions
+              { fieldLabelModifier = drop 19 }
+
+instance Hashable Autoscalingoptions
 
 data BlockDeviceMapping = BlockDeviceMapping
      { blockDeviceMapping_blockDeviceMappingName :: Text
