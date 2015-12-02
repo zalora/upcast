@@ -1,1 +1,7 @@
-stack-7.8.4.yaml
+flags: {}
+packages:
+- '.'
+extra-deps:
+- vk-posix-pty-0.2.1
+- natural-sort-0.1.2
+resolver: nightly-2015-12-02
