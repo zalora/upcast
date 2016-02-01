@@ -98,6 +98,20 @@ let
 
         instance Hashable ${_tag}
       '';
+    } else if v._type == "Enum" then v // rec {
+      _repr = concatStringsSep " | " (map to-identifier v.options);
+      _tag = to-identifier key;
+      _decl = ''
+        data ${_tag} = ${_repr} deriving (Show, Generic)
+
+        instance FromJSON ${_tag} where
+          ${concatStringsSep "\n  " (
+              map (value: ''parseJSON (String "${value}") = pure ${to-identifier value}'') v.options
+          )}
+          parseJSON _ = empty
+
+        instance Hashable ${_tag}
+      '';
     } else v;
 
 
@@ -128,8 +142,10 @@ let
       bool = fake-type "Bool";
       attrsOf = fake-type-of "Attrs";
       listOf = fake-type-of "List";
+      nonEmptyListOf = fake-type-of "List";
       uniq = x: x;
       unspecified = fake-type "Value";
+      enum = strings: { _type = "Enum"; options = strings; };
       submodule = function:
         let
           exp = function { lib = inspectlib; name = ""; config = {}; infra = {}; };

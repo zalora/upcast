@@ -119,6 +119,11 @@ rec {
       substSubModules = m: listOf (elemType.substSubModules m);
     };
 
+    nonEmptyListOf = elemType: listOf elemType // {
+      check = value: (listOf elemType).check value && value != [];
+      name = "a non empty list of ${elemType.name}";
+    };
+
     attrsOf = elemType: mkOptionType {
       name = "attribute set of ${elemType.name}s";
       check = x: isAttrs x && all elemType.check (attrValues x);

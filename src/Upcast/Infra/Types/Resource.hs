@@ -40,7 +40,7 @@ import Data.ByteString.Lazy (toStrict)
 import Data.Conduit (runConduit, tryC, fuse)
 import Data.Conduit.List (consume)
 import Data.IP ((>:>), AddrRange(..), IPv4)
-import Data.List (partition)
+import Data.List (partition, sort)
 import Data.List.NonEmpty (NonEmpty((:|)), nonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty (toList)
 import Data.Map (Map, toList, insert, elems)
@@ -54,6 +54,7 @@ import qualified Data.Text as T (null, isPrefixOf, isSuffixOf, intercalate, take
 import qualified Data.Text.IO as T (readFile)
 import Data.Traversable (mapM, forM)
 import Data.Witherable (Witherable(..))
+import qualified Network.AWS.AutoScaling as AS -- (*)
 import qualified Network.AWS.Data as AWS (fromText)
 import qualified Network.AWS.EC2 as EC2 -- (*)
 import qualified Network.AWS.ELB as ELB -- (*)
@@ -659,3 +660,105 @@ instance Resource Elbinstanceset where
     elbinstanceset_elb <- lookup_ ledger (Reference "elb") elbinstanceset_elb
     elbinstanceset_instances <- lookup_ ledger (Reference "ec2-instance") `mapM` elbinstanceset_instances
     return Elbinstanceset{..}
+
+getLaunchConfigurationName :: AWS m => Launchconfiguration -> (ResourceId -> m ResourceId)
+getLaunchConfigurationName Launchconfiguration{..} fin = asks ctxTags <&> \tags ->
+  T.intercalate "-" $ sort (map snd tags) ++ [ launchconfiguration_prefix, fin ]
+
+instance Matcher Launchconfiguration AS.LaunchConfiguration where
+  type Rq Launchconfiguration = AS.DescribeLaunchConfigurations
+  request :: AWS m => Action m Launchconfiguration (Rq Launchconfiguration)
+  request = \f s -> const s <$> f AS.describeLaunchConfigurations
+  candidates :: AWS m => Launchconfiguration -> AS.DescribeLaunchConfigurationsResponse -> m [AS.LaunchConfiguration]
+  candidates lc@Launchconfiguration{..} response = do
+    getLaunchConfigurationName lc "" <&> \prefix  -> flip toListOf response
+      ( AS.dlcrsLaunchConfigurations
+      . folded
+      . filtered (T.isPrefixOf prefix . view AS.lcLaunchConfigurationName)
+      )
+  hashesTo :: Launchconfiguration -> AS.LaunchConfiguration -> Bool
+  hashesTo lc = view $ AS.lcLaunchConfigurationName . to (T.isSuffixOf $ "-" <> hashOf lc)
+  extractId = AS.lcLaunchConfigurationName
+
+instance Resource Launchconfiguration where
+  create :: AWS m => Launchconfiguration -> m ResourceId
+  create lc@Launchconfiguration{..} = do
+    launchconfiguration_name <- getLaunchConfigurationName lc (hashOf lc)
+    AS.createLaunchConfiguration launchconfiguration_name
+      & AS.clcImageId ?~ launchconfiguration_ami
+      & AS.clcAssociatePublicIPAddress ?~ launchconfiguration_associatePublicIPAddress
+      & AS.clcEBSOptimized ?~ launchconfiguration_ebsOptimized
+      & AS.clcIAMInstanceProfile .~ launchconfiguration_instanceProfileARN
+      & AS.clcInstanceType ?~ launchconfiguration_instanceType
+      & AS.clcKeyName .~ fmap fromRefRemote launchconfiguration_keyName
+      & AS.clcSecurityGroups .~ map fromRefRemote launchconfiguration_securityGroups
+      & send
+    return launchconfiguration_name
+  update :: AWS m => ResourceId -> Launchconfiguration -> m ResourceId
+  update current new = do AS.deleteLaunchConfiguration current & defer . send; create new
+  reify :: Map Reference ResourceId -> Launchconfiguration -> Either Missing Launchconfiguration
+  reify ledger Launchconfiguration{..} = do
+    launchconfiguration_keyName <- lookup_ ledger (Reference "ec2-keypair") `mapM` launchconfiguration_keyName
+    launchconfiguration_securityGroups <- lookup_ ledger (Reference "ec2-sg") `mapM` launchconfiguration_securityGroups
+    return Launchconfiguration{..}
+
+getAutoScalingGroupName :: AWS m => Autoscalinggroup -> (Text -> m ResourceId)
+getAutoScalingGroupName Autoscalinggroup{..} fin = asks ctxTags <&> \tags ->
+  T.intercalate "-" $ sort (map snd tags) ++ [ autoscalinggroup_name, fin ]
+
+-- Don't update when 'launchConfiguration' changes; that's managed by -options.
+-- (But we need one on initial 'create'. Awkward.)
+getAutoScalingGroupHash :: Autoscalinggroup -> Text
+getAutoScalingGroupHash group = hashOf $ group
+  { autoscalinggroup_launchConfiguration = RefRemote "" }
+
+instance Matcher Autoscalinggroup AS.AutoScalingGroup where
+  type Rq Autoscalinggroup = AS.DescribeAutoScalingGroups
+  request :: AWS m => Action m Autoscalinggroup (Rq Autoscalinggroup)
+  request = \f s -> const s <$> f AS.describeAutoScalingGroups
+  candidates :: AWS m => Autoscalinggroup -> AS.DescribeAutoScalingGroupsResponse -> m [AS.AutoScalingGroup]
+  candidates Autoscalinggroup{..} response = getAutoScalingGroupName Autoscalinggroup{..} "" <&> \prefix ->
+    response ^.. AS.dasgrsAutoScalingGroups . folded . filtered (view $ AS.asgAutoScalingGroupName . to (T.isPrefixOf prefix))
+  hashesTo :: Autoscalinggroup -> AS.AutoScalingGroup -> Bool
+  hashesTo group = view $ AS.asgAutoScalingGroupName . to (T.isSuffixOf $ getAutoScalingGroupHash group)
+  extractId = AS.asgAutoScalingGroupName
+
+instance Resource Autoscalinggroup where
+  create :: AWS m => Autoscalinggroup -> m ResourceId
+  create group@Autoscalinggroup{..} = do
+    autoscalinggroup_full_name <- getAutoScalingGroupName group (getAutoScalingGroupHash group)
+    AS.createAutoScalingGroup autoscalinggroup_full_name 0 0
+      & AS.casgHealthCheckGracePeriod ?~ fromIntegral autoscalinggroup_healthcheckGracePeriod
+      & AS.casgHealthCheckType .~ fmap (pack . show) autoscalinggroup_healthcheckType
+      & AS.casgLaunchConfigurationName ?~ fromRefRemote autoscalinggroup_launchConfiguration
+      & AS.casgLoadBalancerNames .~ fmap fromRefRemote autoscalinggroup_loadBalancers
+      & AS.casgVPCZoneIdentifier ?~ T.intercalate "," (fmap fromRefRemote autoscalinggroup_subnets)
+      & AS.casgTags .~ fmap
+          (\Tag{..} -> AS.tag tag_key autoscalinggroup_full_name "auto-scaling-group" tag_propagateAtLaunch tag_value)
+          autoscalinggroup_tag
+      & send
+    return autoscalinggroup_full_name
+  update :: AWS m => ResourceId -> Autoscalinggroup -> m ResourceId
+  update current new = do AS.deleteAutoScalingGroup current & defer . send; create new
+  reify :: Map Reference ResourceId -> Autoscalinggroup -> Either Missing Autoscalinggroup
+  reify ledger Autoscalinggroup{..} = do
+    autoscalinggroup_launchConfiguration <- lookup_ ledger (Reference "launch-configuration") autoscalinggroup_launchConfiguration
+    autoscalinggroup_loadBalancers <- lookup_ ledger (Reference "elb") `mapM` autoscalinggroup_loadBalancers
+    autoscalinggroup_subnets <- lookup_ ledger (Reference "ec2-subnet") `mapM` autoscalinggroup_subnets
+    return Autoscalinggroup{..}
+
+instance Resource Autoscalingoptions where
+  match = const . return . Right $ NeedsUpdate "(virtual)"
+  create Autoscalingoptions{..} = "(virtual)" <$ do
+    AS.updateAutoScalingGroup (fromRefRemote autoscalingoptions_autoScalingGroup)
+      & AS.uasgLaunchConfigurationName ?~ fromRefRemote autoscalingoptions_launchConfiguration
+      & AS.uasgMinSize ?~ fromIntegral autoscalingoptions_minSize
+      & AS.uasgMaxSize ?~ fromIntegral autoscalingoptions_maxSize
+      & send
+  update _ = (<$) "(virtual)" . create
+  reify ledger Autoscalingoptions{..} = do
+    autoscalingoptions_autoScalingGroup <-
+      lookup_ ledger (Reference "autoscaling-group") autoscalingoptions_autoScalingGroup
+    autoscalingoptions_launchConfiguration <-
+      lookup_ ledger (Reference "launch-configuration") autoscalingoptions_launchConfiguration
+    return Autoscalingoptions{..}
