@@ -3,7 +3,7 @@ module Upcast.Types where
 import Data.Text (Text)
 import Data.Aeson (Value)
 import Data.ByteString.Char8 (ByteString)
-import Upcast.Infra.Types (Infras(..))
+import Upcast.Infra.Input (Infras(..))
 
 newtype Remote = Remote String
                  deriving Show

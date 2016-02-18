@@ -13,7 +13,7 @@ import Data.List (find)
 import Data.Witherable (catMaybes)
 import qualified Network.AWS.EC2.Types as EC2 -- (*)
 import Upcast.Infra.NixTypes (Ec2keypair(..))
-import Upcast.Infra.Types (AWS, State(..))
+import Upcast.Infra.Amazonka (AWS, State(..))
 import Upcast.Types (Machine(..))
 
 machines :: AWS m => m [Machine]

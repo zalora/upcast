@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
 
-module Upcast.Infra.Types.Amazonka
+module Upcast.Infra.Amazonka
 ( AWS
 , State(..)
 , Context(..)
@@ -34,6 +34,7 @@ import qualified Network.AWS.EC2 as EC2
 import           Network.AWS.Env (HasEnv(..))
 import           Network.AWS.Types (Error)
 import           Network.AWS.Types (Region(..))
+import           Upcast.Infra.Types (ResourceId)
 import           Upcast.Infra.NixTypes
 
 -- *
@@ -67,7 +68,6 @@ instance Monoid State where
 
 -- *
 
-type ResourceId = Text
 
 type Tags = [(Text, Text)]
 

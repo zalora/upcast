@@ -26,9 +26,9 @@ import qualified Network.AWS.ELB as ELB -- (*)
 import qualified Network.AWS.Route53 as R53 -- (*)
 import           Prelude hiding (filter, mapM, forM)
 
-import           Upcast.Infra.Types.Amazonka -- (*)
+import           Upcast.Infra.Amazonka -- (*)
 import           Upcast.Infra.NixTypes -- (*)
-import           Upcast.Infra.Types.Common -- (*)
+import           Upcast.Infra.Types -- (*)
 
 -- * Elb Matcher
 

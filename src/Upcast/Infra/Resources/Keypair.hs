@@ -2,27 +2,23 @@
 {-# LANGUAGE RecordWildCards #-}
 module Upcast.Infra.Resources.Keypair where
 
-import Control.Applicative
-import Control.Monad.Trans (liftIO)
-import Control.Lens hiding (Context) -- (*)
-import Control.Lens.Action
-import Control.Monad.Trans.AWS (send)
-import Control.Monad.State (modify)
-import Control.Monad.Reader (MonadReader, asks)
-import Data.Monoid ((<>))
-import Data.Maybe (fromMaybe)
-
+import           Control.Applicative
+import           Control.Lens hiding (Context)
+import           Control.Lens.Action
+import           Control.Monad.Reader (MonadReader, asks)
+import           Control.Monad.State (modify)
+import           Control.Monad.Trans (liftIO)
+import           Control.Monad.Trans.AWS (send)
+import           Data.Maybe (fromMaybe)
+import           Data.Monoid ((<>))
+import           Data.Text (Text, pack, unpack)
 import qualified Data.Text as T (null, isPrefixOf, isSuffixOf, intercalate, take)
-import Data.Text (Text, pack, unpack)
-
 import qualified Network.AWS.EC2 as EC2 -- (*)
-
-import Upcast.Infra.Types.Amazonka (ResourceId)
-import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common
-
-import Upcast.Shell (exec, fgconsume)
-import Upcast.IO (expectRight)
+import           Upcast.IO (expectRight)
+import           Upcast.Infra.Amazonka
+import           Upcast.Infra.Types
+import           Upcast.Infra.NixTypes
+import           Upcast.Shell (exec, fgconsume)
 
 
 keyPrefix :: Tags -> Ec2keypair -> Text

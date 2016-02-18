@@ -11,24 +11,28 @@ module Upcast.Infra
 , dump
 ) where
 
-import Control.Applicative (Applicative, (<$>), empty)
-import Control.Lens hiding (Context)
-import Control.Monad.State (StateT(..))
-import Control.Monad.Trans.AWS (envLogger, newLogger, LogLevel(Trace), newEnv, Credentials(Discover), runAWST, AWST')
-import Control.Monad.Trans.Resource (ResourceT, runResourceT)
-import Data.Aeson (ToJSON(..))
-import Data.Foldable (foldrM)
-import Data.Graph (topSort)
-import Data.Monoid ((<>), mempty)
-import Data.Map (Map)
+import           Control.Applicative
+import           Control.Lens hiding (Context)
+import           Control.Monad.State (StateT(..))
+import           Control.Monad.Trans.AWS (envLogger, newLogger, LogLevel(Trace), newEnv, Credentials(Discover), runAWST, AWST')
+import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import           Data.Aeson (ToJSON(..))
+import           Data.Foldable (foldrM)
+import           Data.Graph (topSort)
+import           Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Text (Text, pack)
-import Data.Witherable (catMaybes, mapMaybe)
-import System.FilePath.Posix (splitFileName)
-import System.IO (stderr)
-import Upcast.Types (InfraContext(..), Machine)
-import Upcast.Infra.Machine (machines)
-import Upcast.Infra.Types (AWS(..), Graph(..), Infra, Resource(..), Reference(..), Context(..), State(..), MatchResult(..), Missing(..), DiscoveryError(..), ResourceId, validateRegion, Infras(..), splice)
+import           Data.Monoid ((<>), mempty)
+import           Data.Text (Text, pack)
+import           Data.Witherable (catMaybes, mapMaybe)
+import           System.FilePath.Posix (splitFileName)
+import           System.IO (stderr)
+import           Upcast.Infra.Amazonka
+import           Upcast.Infra.Graph
+import           Upcast.Infra.Input
+import           Upcast.Infra.Machine (machines)
+import           Upcast.Infra.Resource
+import           Upcast.Infra.Types
+import           Upcast.Types (InfraContext(..), Machine)
 
 -- | Searches existing resources maching infra in the provided resource
 -- graph, and yields what it finds.

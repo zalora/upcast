@@ -1,56 +1,82 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 
-module Upcast.Infra.Types
-( module Upcast.Infra.Types.Common
-, module Upcast.Infra.Types.Amazonka
-, module Upcast.Infra.Types.Graph
-, module Upcast.Infra.Types.Infra
-, module Upcast.Infra.Types.Resource
-, Infras(..)
-) where
+module Upcast.Infra.Types where
 
-import Upcast.Infra.Types.Common
-import Upcast.Infra.Types.Amazonka
-import Upcast.Infra.Types.Graph
-import Upcast.Infra.Types.Infra
-import Upcast.Infra.Types.Resource
+import           Control.Applicative
+import           Control.Lens hiding ((.=))
+import           Data.Aeson (object)
+import           Data.Aeson.Types (Value(..), ToJSON(..), FromJSON(..), Parser(..), parseMaybe, (.:), (.=))
+import           Data.Hashable (Hashable(..))
+import           Data.List (partition)
+import           Data.Map (Map)
+import qualified Data.Map as Map
+import           Data.Text (Text)
+import           GHC.Generics (Generic)
 
-import Control.Applicative ((<$>),(<*>),pure,empty)
-import Control.Lens -- (*)
-import Data.Aeson (Value(..), FromJSON(..), (.:), object)
-import Data.Aeson.Types (Parser(..), parseMaybe)
-import Data.Graph (vertices, graphFromEdges', topSort)
-import Data.HashMap.Strict (elems)
-import Data.Text (Text)
+import           Upcast.Infra.Graph
+import           Upcast.Infra.NixTypes
 
-data Infras = Infras
-  { realmName :: Text
-  , regions :: [Text]
-  , resources :: Graph Reference Infra
-  }
+type ResourceId = Text
 
-parseReference :: Value -> Parser Reference
-parseReference (Object h) = Reference <$> h .: "_type" <*> h .: "local"
-parseReference _ = empty
+-- *
 
-parseVertex :: Value -> Parser (Infra, Reference, [Reference])
-parseVertex o@(Object h) = (,,)
-  <$> parseJSON o
-  <*> (Reference <$> h .: "_type" <*> h .: "_name") -- Top-level / non-canonical.
-  <*> (concatMap (deep (to (parseMaybe parseReference) . _Just) & toListOf)
-  <$> pure (elems h))
-parseVertex _ = empty
+data Reference = Reference Text Text deriving (Eq, Ord, Show, Generic)
 
-instance FromJSON (Graph Reference Infra) where
-  parseJSON o@(Object _) = pure . Graph
-                         . (\(g,h) -> (g, \v -> if v `elem` vertices g then Just (h v) else Nothing))
-                         . graphFromEdges'
-                         $ o ^.. deep (to (parseMaybe parseVertex) . _Just)
-  parseJSON _ = empty
+instance Hashable Reference
 
-instance FromJSON Infras where
-  parseJSON obj@(Object o) = Infras
-                         <$> o .: "realm-name"
-                         <*> o .: "regions"
-                         <*> parseJSON obj
-  parseJSON _ = empty
+instance ToJSON k => ToJSON (Map Reference k) where
+  toJSON mr = object . Map.elems
+            . Map.mapWithKey (\c m -> c .= object (map (uncurry (.=)) m))
+            . flip (flip Map.foldrWithKey Map.empty) mr $ \(Reference c n) k tmp ->
+                Map.insert c ((n, k) : Map.findWithDefault [] c tmp) tmp
+
+data Missing = Missing { unMissing :: Reference }
+
+lookup_ :: Map Reference ResourceId -> (Text -> Reference) -> InfraRef a -> Either Missing (InfraRef a)
+lookup_ ledger report = \case
+  RefLocal n -> case Map.lookup (report n) ledger of
+    Just ref -> Right $ RefRemote ref
+    Nothing  -> Left . Missing $ report n
+  r@(RefRemote _) -> Right r
+
+-- *
+
+data MatchResult = OnwardWith ResourceId
+                 | NeedsUpdate ResourceId
+
+instance ToJSON MatchResult where
+  toJSON (OnwardWith  id) = object ["OnwardWith" .= id]
+  toJSON (NeedsUpdate id) = object ["NeedsUpdate" .= id]
+
+
+data DiscoveryError = NotFound
+                    | Ambiguous [Text]
+                    deriving Show
+
+toDiscovery :: [ResourceId] -> Either DiscoveryError ResourceId
+toDiscovery = \case
+  [one] -> Right one
+  []    -> Left NotFound
+  many  -> Left (Ambiguous many)
+
+virtual :: Monad m => a -> m (Either DiscoveryError MatchResult)
+virtual = const . return . Right $ NeedsUpdate "(virtual)"
+
+-- *
+
+fromRefRemote :: InfraRef a -> ResourceId
+fromRefRemote (RefRemote r) = r
+
+converge :: Eq a => [a] -> [a] -> ([a], [a])
+converge from to = (add, remove)
+  where (keep, remove) = partition (`elem` to) from
+        add = filter (`notElem` keep) to
+
+raise :: Functor f => Getter s a -> Getter (f s) (f a) -- XXX: Lawful?
+raise l = to . fmap $ view l
+
+append :: a -> Lens' [a] [a] -- XXX: Unlawful, be careful.
+append a = \f s -> init <$> f (a:s)

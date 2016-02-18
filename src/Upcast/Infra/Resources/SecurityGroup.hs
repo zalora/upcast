@@ -21,9 +21,9 @@ import qualified Data.Text as T (isPrefixOf, null)
 
 import qualified Network.AWS.EC2 as EC2 -- (*)
 
-import Upcast.Infra.Types.Amazonka -- (*)
+import Upcast.Infra.Amazonka -- (*)
 import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common -- (*)
+import Upcast.Infra.Types -- (*)
 
 -- *
 

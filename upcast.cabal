@@ -103,14 +103,20 @@ library
       Upcast.Environment
       Upcast.IO
       Upcast.Infra
+      Upcast.Infra.Amazonka
+      Upcast.Infra.Graph
+      Upcast.Infra.Input
       Upcast.Infra.Machine
       Upcast.Infra.NixTypes
+      Upcast.Infra.Resource
+      Upcast.Infra.Resources.EBS
+      Upcast.Infra.Resources.ELB
+      Upcast.Infra.Resources.Instance
+      Upcast.Infra.Resources.Keypair
+      Upcast.Infra.Resources.SecurityGroup
+      Upcast.Infra.Resources.Subnet
+      Upcast.Infra.Resources.VPC
       Upcast.Infra.Types
-      Upcast.Infra.Types.Amazonka
-      Upcast.Infra.Types.Common
-      Upcast.Infra.Types.Graph
-      Upcast.Infra.Types.Infra
-      Upcast.Infra.Types.Resource
       Upcast.Install
       Upcast.Shell
       Upcast.Shell.Run
@@ -133,11 +139,6 @@ executable fgrun
       base < 5
     , aeson
     , aeson-pretty
-    , amazonka >= 1.1
-    , amazonka-core >= 1.1
-    , amazonka-ec2 >= 1.1
-    , amazonka-elb >= 1.1
-    , amazonka-route53 >= 1.1
     , array
     , async
     , attoparsec
@@ -178,18 +179,8 @@ executable fgrun
   other-modules:
       Upcast.Deploy
       Upcast.Environment
-      Upcast.Infra
-      Upcast.Infra.Amazonka
-      Upcast.Infra.Match
-      Upcast.Infra.NixTypes
-      Upcast.Infra.Types
-      Upcast.Infra.Amazonka
-      Upcast.Infra.Types.Common
-      Upcast.Infra.Types.Graph
-      Upcast.Infra.Types.Infra
-      Upcast.Infra.Types.Resource
-      Upcast.Install
       Upcast.IO
+      Upcast.Install
       Upcast.Monad
       Upcast.Outputs
       Upcast.Shell
@@ -257,11 +248,17 @@ executable upcast
       Upcast.Infra.Machine
       Upcast.Infra.NixTypes
       Upcast.Infra.Types
-      Upcast.Infra.Types.Common
-      Upcast.Infra.Types.Amazonka
-      Upcast.Infra.Types.Graph
-      Upcast.Infra.Types.Infra
-      Upcast.Infra.Types.Resource
+      Upcast.Infra.Amazonka
+      Upcast.Infra.Graph
+      Upcast.Infra.Input
+      Upcast.Infra.Resource
+      Upcast.Infra.Resources.EBS
+      Upcast.Infra.Resources.ELB
+      Upcast.Infra.Resources.Instance
+      Upcast.Infra.Resources.Keypair
+      Upcast.Infra.Resources.SecurityGroup
+      Upcast.Infra.Resources.Subnet
+      Upcast.Infra.Resources.VPC
       Upcast.Install
       Upcast.IO
       Upcast.Monad
