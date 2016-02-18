@@ -115,6 +115,9 @@ match' infra = do
     []    -> fmap NeedsUpdate . toDiscovery $ view extractId <$> infras
     many  -> Left . Ambiguous $ view extractId <$> many
 
+virtual :: AWS m => a -> m (Either DiscoveryError MatchResult)
+virtual = const . return . Right $ NeedsUpdate "(virtual)"
+
 data Missing = Missing { unMissing :: Reference }
 
 class Resource a where
@@ -249,7 +252,7 @@ instance Resource Ec2sg where
 
 -- If permission's EC2.ipIPRanges contains multiple IP ranges,
 -- it will be break down into list of same permissions with a single
--- IP range each, for correct diff in the 'converge' function.    
+-- IP range each, for correct diff in the 'converge' function.
 singlifyIPRanges :: EC2.IPPermission -> [EC2.IPPermission]
 singlifyIPRanges permission =
   let ipRanges = view EC2.ipIPRanges permission in
@@ -270,7 +273,7 @@ converge from to = (add, remove)
 
 instance Resource Ec2sgruleset where
   match :: AWS m => Ec2sgruleset -> m (Either DiscoveryError MatchResult)
-  match = const . return . Right $ NeedsUpdate "(virtual)"
+  match = virtual
 
   create :: AWS m => Ec2sgruleset -> m ResourceId
   create Ec2sgruleset{..} = "(virtual)" <$ do
@@ -638,7 +641,7 @@ toElbInstance ref = ELB.instance' & ELB.iInstanceId .~ case ref of
   RefLocal  _ -> Nothing
 
 instance Resource Elbinstanceset where
-  match = const . return . Right $ NeedsUpdate "(virtual)"
+  match = virtual
   create Elbinstanceset{..} = "(virtual)" <$ do
     ELB.registerInstancesWithLoadBalancer (fromRefRemote elbinstanceset_elb)
       & ELB.riwlbInstances .~ map toElbInstance elbinstanceset_instances
