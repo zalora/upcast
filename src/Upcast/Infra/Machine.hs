@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards  #-}
 
-module Upcast.Infra.Machine 
+module Upcast.Infra.Machine
 ( machines
 ) where
 

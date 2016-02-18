@@ -3,11 +3,11 @@ sudo: false
 language: haskell
 
 env:
-- GHC_VERSION=7.10.2
+- GHC_VERSION=7.10.3
 
 install:
 - mkdir -p ~/bin
-- curl -sL -o - https://github.com/commercialhaskell/stack/releases/download/v0.1.8.0/stack-0.1.8.0-linux-x86_64.tar.gz | tar xfzO - --no-anchored stack > ~/bin/stack
+- curl -sL -o - https://github.com/commercialhaskell/stack/releases/download/v1.0.2/stack-1.0.2-linux-x86_64.tar.gz | tar xfzO - --no-anchored stack > ~/bin/stack
 - chmod +x ~/bin/stack
 - export PATH=/opt/ghc/$GHC_VERSION/bin:$PATH
 - export GHC_OPTIONS="-rtsopts -threaded"
@@ -32,7 +32,7 @@ addons:
     - libgmp3-dev
     - upx-ucl
     - binutils
-    - ghc-7.10.2
+    - ghc-7.10.3
 
     sources:
     - hvr-ghc
