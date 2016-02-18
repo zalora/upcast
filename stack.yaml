@@ -4,13 +4,13 @@ packages:
 extra-deps:
 - vk-posix-pty-0.2.1
 - natural-sort-0.1.2
-resolver: nightly-2015-12-02
-image:
-  container:
-    # need haskell-scratch with libgcc_s.so
-    # https://github.com/fpco/haskell-scratch/pull/10
-    base: "fpco/haskell-scratch:integer-gmp"
-    add:
-      nix/: /upcast/nix
-docker:
-  repo: "fpco/stack-build:lts-3.18"
+resolver: lts-5.3
+# image:
+#   container:
+#     # need haskell-scratch with libgcc_s.so
+#     # https://github.com/fpco/haskell-scratch/pull/10
+#     base: "fpco/haskell-scratch:integer-gmp"
+#     add:
+#       nix/: /upcast/nix
+# docker:
+#   repo: "fpco/stack-build:lts-3.18"
