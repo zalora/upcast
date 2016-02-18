@@ -30,7 +30,7 @@ readRegion s = case unpack s of
   "us-gov-west-1"      -> GovCloud
   "fips-us-gov-west-1" -> GovCloudFIPS
   "sa-east-1"          -> SaoPaulo
-  unk -> error ("unknown region " ++ unk)
+  unk                  -> error ("unknown region " ++ unk)
 
 validateRegion :: [Text] -> Region
 validateRegion [region] = readRegion region
