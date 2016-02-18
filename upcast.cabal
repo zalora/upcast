@@ -102,21 +102,21 @@ library
       Upcast.Deploy
       Upcast.Environment
       Upcast.IO
-      Upcast.Infra
-      Upcast.Infra.Amazonka
-      Upcast.Infra.Graph
-      Upcast.Infra.Input
-      Upcast.Infra.Machine
-      Upcast.Infra.NixTypes
-      Upcast.Infra.Resource
-      Upcast.Infra.Resources.EBS
-      Upcast.Infra.Resources.ELB
-      Upcast.Infra.Resources.Instance
-      Upcast.Infra.Resources.Keypair
-      Upcast.Infra.Resources.SecurityGroup
-      Upcast.Infra.Resources.Subnet
-      Upcast.Infra.Resources.VPC
-      Upcast.Infra.Types
+      Infracast
+      Infracast.Amazonka
+      Infracast.Graph
+      Infracast.Input
+      Infracast.Machine
+      Infracast.NixTypes
+      Infracast.Resource
+      Infracast.Resources.EBS
+      Infracast.Resources.ELB
+      Infracast.Resources.Instance
+      Infracast.Resources.Keypair
+      Infracast.Resources.SecurityGroup
+      Infracast.Resources.Subnet
+      Infracast.Resources.VPC
+      Infracast.Types
       Upcast.Install
       Upcast.Shell
       Upcast.Shell.Run
@@ -125,7 +125,6 @@ library
       Upcast.Types
   other-modules:
       Upcast.Monad
-      Upcast.Outputs
       Paths_upcast
   default-language: Haskell2010
 
@@ -182,7 +181,6 @@ executable fgrun
       Upcast.IO
       Upcast.Install
       Upcast.Monad
-      Upcast.Outputs
       Upcast.Shell
       Upcast.Shell.Run
       Upcast.Shell.Temp
@@ -244,25 +242,24 @@ executable upcast
   other-modules:
       Upcast.Deploy
       Upcast.Environment
-      Upcast.Infra
-      Upcast.Infra.Machine
-      Upcast.Infra.NixTypes
-      Upcast.Infra.Types
-      Upcast.Infra.Amazonka
-      Upcast.Infra.Graph
-      Upcast.Infra.Input
-      Upcast.Infra.Resource
-      Upcast.Infra.Resources.EBS
-      Upcast.Infra.Resources.ELB
-      Upcast.Infra.Resources.Instance
-      Upcast.Infra.Resources.Keypair
-      Upcast.Infra.Resources.SecurityGroup
-      Upcast.Infra.Resources.Subnet
-      Upcast.Infra.Resources.VPC
+      Infracast
+      Infracast.Machine
+      Infracast.NixTypes
+      Infracast.Types
+      Infracast.Amazonka
+      Infracast.Graph
+      Infracast.Input
+      Infracast.Resource
+      Infracast.Resources.EBS
+      Infracast.Resources.ELB
+      Infracast.Resources.Instance
+      Infracast.Resources.Keypair
+      Infracast.Resources.SecurityGroup
+      Infracast.Resources.Subnet
+      Infracast.Resources.VPC
       Upcast.Install
       Upcast.IO
       Upcast.Monad
-      Upcast.Outputs
       Upcast.Shell
       Upcast.Shell.Run
       Upcast.Shell.Temp

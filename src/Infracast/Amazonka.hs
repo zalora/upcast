@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
 
-module Upcast.Infra.Amazonka
+module Infracast.Amazonka
 ( AWS
 , State(..)
 , Context(..)
@@ -34,8 +34,8 @@ import qualified Network.AWS.EC2 as EC2
 import           Network.AWS.Env (HasEnv(..))
 import           Network.AWS.Types (Error)
 import           Network.AWS.Types (Region(..))
-import           Upcast.Infra.Types (ResourceId)
-import           Upcast.Infra.NixTypes
+import           Infracast.Types (ResourceId)
+import           Infracast.NixTypes
 
 -- *
 

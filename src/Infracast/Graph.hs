@@ -1,7 +1,7 @@
 {-# LANGUAGE InstanceSigs  #-}
 {-# LANGUAGE TupleSections #-}
 
-module Upcast.Infra.Graph
+module Infracast.Graph
 ( Graph(..)
 , splice
 ) where

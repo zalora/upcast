@@ -4,9 +4,9 @@ ghci:
 test-tree:
 	NIX_UPCAST=nix upcast infra-tree test/big-network.nix
 
-infra-nix: src/Upcast/Infra/NixTypes.hs
+infra-nix: src/Infracast/NixTypes.hs
 
-src/Upcast/Infra/NixTypes.hs: nix/inspect-types.nix
+src/Infracast/NixTypes.hs: nix/inspect-types.nix
 	nix-instantiate -I upcast=nix --eval --strict --json --show-trace $< | jq -r . > $@
 
 .PHONY: ghci test-tree inspect-types

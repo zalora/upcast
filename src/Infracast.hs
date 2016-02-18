@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ViewPatterns        #-}
 
-module Upcast.Infra
+module Infracast
 ( scan
 , accum
 , dump
@@ -26,13 +26,12 @@ import           Data.Text (Text, pack)
 import           Data.Witherable (catMaybes, mapMaybe)
 import           System.FilePath.Posix (splitFileName)
 import           System.IO (stderr)
-import           Upcast.Infra.Amazonka
-import           Upcast.Infra.Graph
-import           Upcast.Infra.Input
-import           Upcast.Infra.Machine (machines)
-import           Upcast.Infra.Resource
-import           Upcast.Infra.Types
-import           Upcast.Types (InfraContext(..), Machine)
+import           Infracast.Amazonka
+import           Infracast.Graph
+import           Infracast.Input
+import           Infracast.Machine (Machine, machines)
+import           Infracast.Resource
+import           Infracast.Types
 
 -- | Searches existing resources maching infra in the provided resource
 -- graph, and yields what it finds.

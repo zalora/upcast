@@ -11,7 +11,7 @@
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE TypeFamilies              #-}
 
-module Upcast.Infra.Resource
+module Infracast.Resource
 ( Resource(..)
 , Infra
 ) where
@@ -32,18 +32,18 @@ import           Data.Witherable (Witherable(..))
 import qualified Network.AWS.EC2 as EC2
 import qualified Network.AWS.ELB as ELB
 import           Prelude hiding (filter, mapM)
-import           Upcast.Infra.Amazonka
-import           Upcast.Infra.Graph
-import           Upcast.Infra.NixTypes
-import           Upcast.Infra.Types
+import           Infracast.Amazonka
+import           Infracast.Graph
+import           Infracast.NixTypes
+import           Infracast.Types
 
-import qualified Upcast.Infra.Resources.ELB as ELB
-import qualified Upcast.Infra.Resources.Instance as Instance
-import qualified Upcast.Infra.Resources.Keypair as Keypair
-import qualified Upcast.Infra.Resources.Subnet as Subnet
-import qualified Upcast.Infra.Resources.EBS as EBS
-import qualified Upcast.Infra.Resources.SecurityGroup as SG
-import qualified Upcast.Infra.Resources.VPC as VPC
+import qualified Infracast.Resources.ELB as ELB
+import qualified Infracast.Resources.Instance as Instance
+import qualified Infracast.Resources.Keypair as Keypair
+import qualified Infracast.Resources.Subnet as Subnet
+import qualified Infracast.Resources.EBS as EBS
+import qualified Infracast.Resources.SecurityGroup as SG
+import qualified Infracast.Resources.VPC as VPC
 
 -- *
 

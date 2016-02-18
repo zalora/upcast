@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 
-module Upcast.Infra.Input where
+module Infracast.Input where
 
 import Control.Applicative
 import Control.Lens hiding (Context)
@@ -9,9 +9,15 @@ import Data.Graph (vertices, graphFromEdges', topSort)
 import Data.HashMap.Strict (elems)
 import Data.Text (Text)
 import Data.Witherable (Witherable(..))
-import Upcast.Infra.Graph
-import Upcast.Infra.Resource (Infra(..))
-import Upcast.Infra.Types
+import Infracast.Graph
+import Infracast.Resource (Infra(..))
+import Infracast.Types
+
+data InfraContext = InfraContext
+  { inc_expressionFile :: String
+  , inc_infras :: Infras
+  , inc_verbose :: Bool
+  }
 
 data Infras = Infras
   { realmName :: Text

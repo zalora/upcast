@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Upcast.Infra.Types where
+module Infracast.Types where
 
 import           Control.Applicative
 import           Control.Lens hiding ((.=))
@@ -16,8 +16,8 @@ import qualified Data.Map as Map
 import           Data.Text (Text)
 import           GHC.Generics (Generic)
 
-import           Upcast.Infra.Graph
-import           Upcast.Infra.NixTypes
+import           Infracast.Graph
+import           Infracast.NixTypes
 
 type ResourceId = Text
 

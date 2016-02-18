@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards        #-}
 {-# LANGUAGE ViewPatterns           #-}
 
-module Upcast.Infra.Resources.SecurityGroup where
+module Infracast.Resources.SecurityGroup where
 
 import Control.Applicative -- (*)
 import Control.Monad.Trans (liftIO)
@@ -21,9 +21,9 @@ import qualified Data.Text as T (isPrefixOf, null)
 
 import qualified Network.AWS.EC2 as EC2 -- (*)
 
-import Upcast.Infra.Amazonka -- (*)
-import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types -- (*)
+import Infracast.Amazonka -- (*)
+import Infracast.NixTypes -- (*)
+import Infracast.Types -- (*)
 
 -- *
 

@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards        #-}
 {-# LANGUAGE ViewPatterns           #-}
 
-module Upcast.Infra.Resources.Subnet where
+module Infracast.Resources.Subnet where
 
 import Control.Applicative -- (*)
 import Control.Monad.Trans (liftIO)
@@ -19,9 +19,9 @@ import Data.Text (Text, unpack)
 
 import qualified Network.AWS.EC2 as EC2 -- (*)
 
-import Upcast.Infra.Amazonka -- (*)
-import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types -- (*)
+import Infracast.Amazonka -- (*)
+import Infracast.NixTypes -- (*)
+import Infracast.Types -- (*)
 
 -- *
 

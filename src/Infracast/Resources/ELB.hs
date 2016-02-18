@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Upcast.Infra.Resources.ELB where
+module Infracast.Resources.ELB where
 
 import           Control.Applicative -- (*)
 import           Control.Lens hiding (Context) -- (*)
@@ -26,9 +26,9 @@ import qualified Network.AWS.ELB as ELB -- (*)
 import qualified Network.AWS.Route53 as R53 -- (*)
 import           Prelude hiding (filter, mapM, forM)
 
-import           Upcast.Infra.Amazonka -- (*)
-import           Upcast.Infra.NixTypes -- (*)
-import           Upcast.Infra.Types -- (*)
+import           Infracast.Amazonka -- (*)
+import           Infracast.NixTypes -- (*)
+import           Infracast.Types -- (*)
 
 -- * Elb Matcher
 

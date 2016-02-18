@@ -3,7 +3,7 @@ module Upcast.Types where
 import Data.Text (Text)
 import Data.Aeson (Value)
 import Data.ByteString.Char8 (ByteString)
-import Upcast.Infra.Input (Infras(..))
+import Infracast.Input (Infras(..))
 
 newtype Remote = Remote String
                  deriving Show
@@ -18,23 +18,6 @@ data NixContext =
   { nix_expressionFile :: FilePath
   , nix_args :: [String]
   } deriving (Show)
-
-data InfraContext = InfraContext
-  { inc_expressionFile :: String
-  , inc_infras :: Infras
-  , inc_verbose :: Bool
-  }
-
--- | Structure used to pass arguments between evaluation and installation phases.
-data Machine =
-  Machine
-  { m_hostname :: Hostname
-  , m_publicIp :: Text
-  , m_privateIp :: Text
-  , m_instanceId :: Text
-  , m_keyFile :: Maybe Text
-  } deriving (Show)
-
 
 -- | Per-machine Nix closure install context used during 'upcast install'.
 data Install =

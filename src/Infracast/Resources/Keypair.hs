@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
-module Upcast.Infra.Resources.Keypair where
+module Infracast.Resources.Keypair where
 
 import           Control.Applicative
 import           Control.Lens hiding (Context)
@@ -15,9 +15,9 @@ import           Data.Text (Text, pack, unpack)
 import qualified Data.Text as T (null, isPrefixOf, isSuffixOf, intercalate, take)
 import qualified Network.AWS.EC2 as EC2 -- (*)
 import           Upcast.IO (expectRight)
-import           Upcast.Infra.Amazonka
-import           Upcast.Infra.Types
-import           Upcast.Infra.NixTypes
+import           Infracast.Amazonka
+import           Infracast.Types
+import           Infracast.NixTypes
 import           Upcast.Shell (exec, fgconsume)
 
 
