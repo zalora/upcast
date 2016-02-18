@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE DeriveGeneric    #-}
@@ -31,18 +32,19 @@ module Upcast.Infra.Types.Common
 ) where
 
 import Control.Applicative
-import Control.Lens hiding (Context)
+import Control.Lens hiding (Context, (.=))
 import Control.Monad (void, (<=<))
 import Control.Monad.Catch (MonadCatch, MonadThrow)
 import Control.Monad.Reader (MonadReader, asks)
 import Control.Monad.State (MonadState)
 import Control.Monad.Trans.AWS (Env, Rs, AWSPager(..), send, await, paginate, AWST, runAWST)
 import Control.Monad.Trans.Resource
+import Data.Aeson (ToJSON(..), (.=), object)
 import Data.Conduit (runConduit, tryC, fuse)
 import Data.Conduit.List (consume)
 import Data.Hashable (Hashable(..))
-import Data.Map (Map, toList, insert, elems)
-import qualified Data.Map as Map (lookup)
+import Data.Map (Map, toList, insert, elems, foldrWithKey, mapWithKey, findWithDefault)
+import qualified Data.Map as Map (lookup, empty)
 import Data.Monoid (Monoid(..), (<>))
 import Data.List (partition)
 import Data.Text (Text, pack, unpack)
@@ -65,9 +67,19 @@ type AWS m = ( Functor m
 
 type Tags = [(Text, Text)]
 
+-- *
+
 data Reference = Reference Text Text deriving (Eq, Ord, Show, Generic)
 
 instance Hashable Reference
+
+instance ToJSON k => ToJSON (Map Reference k) where
+  toJSON mr = object . elems
+            . mapWithKey (\c m -> c .= object (map (uncurry (.=)) m))
+            . flip (flip foldrWithKey Map.empty) mr $ \(Reference c n) k tmp ->
+                insert c ((n, k) : findWithDefault [] c tmp) tmp
+
+-- *
 
 data Context = Context
   { ctxEnv  :: Env
@@ -76,6 +88,8 @@ data Context = Context
 
 instance HasEnv Context where
   environment f ctx = f (ctxEnv ctx) <&> \env -> ctx { ctxEnv = env }
+
+-- *
 
 data State = State
   { stateKeyPairs  :: [Ec2keypair]
@@ -91,6 +105,12 @@ instance Monoid State where
 data MatchResult = OnwardWith ResourceId
                  | NeedsUpdate ResourceId
 
+instance ToJSON MatchResult where
+  toJSON (OnwardWith  id) = object ["OnwardWith" .= id]
+  toJSON (NeedsUpdate id) = object ["NeedsUpdate" .= id]
+
+-- *
+
 data DiscoveryError = NotFound | Ambiguous [Text] deriving Show
 
 toDiscovery :: [Text] -> Either DiscoveryError Text
@@ -99,8 +119,11 @@ toDiscovery = \case
   []    -> Left NotFound
   many  -> Left (Ambiguous many)
 
+-- *
 
 data Missing = Missing { unMissing :: Reference }
+
+-- *
 
 hashOf :: Hashable h => h -> Text
 hashOf = pack . show . hash
