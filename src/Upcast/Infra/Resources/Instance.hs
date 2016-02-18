@@ -35,9 +35,9 @@ import Network.AWS.Waiter (Wait(_waitAttempts), Accept(..))
 import qualified Network.AWS.Data as AWS (fromText)
 import qualified Network.AWS.EC2 as EC2 -- (*)
 
-import Upcast.Infra.Types.Amazonka (ResourceId)
+import Upcast.Infra.Types.Amazonka -- (*)
 import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common
+import Upcast.Infra.Types.Common -- (*)
 
 -- * Matcher
 

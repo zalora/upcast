@@ -26,14 +26,13 @@ import Control.Monad.State (modify)
 import Control.Monad.Trans.AWS (Rs, AWSPager(..))
 import Data.Map (Map)
 import Data.Monoid ((<>))
-import Data.Hashable (Hashable(..))
 import Data.Traversable (mapM)
 import Data.Witherable (Witherable(..))
 import qualified Network.AWS.EC2 as EC2 -- (*)
 import qualified Network.AWS.ELB as ELB -- (*)
-import Upcast.Infra.Types.Amazonka (ResourceId)
+import Upcast.Infra.Types.Amazonka -- (*)
 import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common
+import Upcast.Infra.Types.Common -- (*)
 
 import qualified Upcast.Infra.Resources.ELB as ELB
 import qualified Upcast.Infra.Resources.Instance as Instance
