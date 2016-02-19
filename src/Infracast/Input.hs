@@ -1,27 +1,23 @@
 {-# LANGUAGE FlexibleInstances #-}
 
-module Upcast.Infra.Types
-( module Upcast.Infra.Types.Common
-, module Upcast.Infra.Types.Amazonka
-, module Upcast.Infra.Types.Graph
-, module Upcast.Infra.Types.Infra
-, module Upcast.Infra.Types.Resource
-, Infras(..)
-) where
+module Infracast.Input where
 
-import Upcast.Infra.Types.Common
-import Upcast.Infra.Types.Amazonka
-import Upcast.Infra.Types.Graph
-import Upcast.Infra.Types.Infra
-import Upcast.Infra.Types.Resource
-
-import Control.Applicative ((<$>),(<*>),pure,empty)
-import Control.Lens -- (*)
-import Data.Aeson (Value(..), FromJSON(..), (.:), object)
-import Data.Aeson.Types (Parser(..), parseMaybe)
+import Control.Applicative
+import Control.Lens hiding (Context)
+import Data.Aeson.Types (Value(..), ToJSON(..), FromJSON(..), Parser(..), parseMaybe, (.:), (.=))
 import Data.Graph (vertices, graphFromEdges', topSort)
 import Data.HashMap.Strict (elems)
 import Data.Text (Text)
+import Data.Witherable (Witherable(..))
+import Infracast.Graph
+import Infracast.Resource (Infra(..))
+import Infracast.Types
+
+data InfraContext = InfraContext
+  { inc_expressionFile :: String
+  , inc_infras :: Infras
+  , inc_verbose :: Bool
+  }
 
 data Infras = Infras
   { realmName :: Text

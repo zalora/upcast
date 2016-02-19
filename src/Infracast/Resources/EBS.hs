@@ -2,9 +2,9 @@
 {-# LANGUAGE RecordWildCards        #-}
 {-# LANGUAGE LambdaCase             #-}
 
-module Upcast.Infra.Resources.EBS where
+module Infracast.Resources.EBS where
 
-import Control.Applicative
+import Control.Applicative -- (*)
 import Control.Monad.Trans (liftIO)
 import Control.Lens hiding (Context) -- (*)
 import Control.Lens.Action
@@ -16,9 +16,9 @@ import Data.Text (Text, unpack)
 
 import qualified Network.AWS.EC2 as EC2 -- (*)
 
-import Upcast.Infra.Types.Amazonka (ResourceId)
-import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common
+import Infracast.Amazonka -- (*)
+import Infracast.NixTypes -- (*)
+import Infracast.Types
 
 -- *
 

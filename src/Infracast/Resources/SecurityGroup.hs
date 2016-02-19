@@ -2,12 +2,12 @@
 {-# LANGUAGE RecordWildCards        #-}
 {-# LANGUAGE ViewPatterns           #-}
 
-module Upcast.Infra.Resources.SecurityGroup where
+module Infracast.Resources.SecurityGroup where
 
-import Control.Applicative
+import Control.Applicative -- (*)
 import Control.Monad.Trans (liftIO)
 import Control.Lens hiding (Context) -- (*)
-import Control.Lens.Action
+import Control.Lens.Action -- (*)
 import Control.Monad.Trans.AWS (send)
 import Control.Monad.Reader (MonadReader, asks)
 import Control.Monad (void, unless)
@@ -21,9 +21,9 @@ import qualified Data.Text as T (isPrefixOf, null)
 
 import qualified Network.AWS.EC2 as EC2 -- (*)
 
-import Upcast.Infra.Types.Amazonka (ResourceId)
-import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common
+import Infracast.Amazonka -- (*)
+import Infracast.NixTypes -- (*)
+import Infracast.Types -- (*)
 
 -- *
 

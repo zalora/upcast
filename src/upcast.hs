@@ -1,15 +1,15 @@
 module Main where
 
 import           Control.Monad (void)
+import qualified Infracast as Infra (scan, accum, dump)
+import           Infracast.Machine (machines2ssh, machines2nix)
+import           Infracast.Types (Reference(..))
 import           Options.Applicative
 import           Upcast.Deploy (nixSystemProfile)
 import           Upcast.Environment (nixPath, icontext, build)
 import           Upcast.IO
-import qualified Upcast.Infra as Infra (scan, accum, dump)
-import           Upcast.Infra.Types (Reference(..))
 import           Upcast.Install (install)
 import           Upcast.Monad
-import           Upcast.Outputs (machines2ssh, machines2nix)
 import           Upcast.Types
 
 main :: IO ()

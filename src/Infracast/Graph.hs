@@ -1,26 +1,22 @@
 {-# LANGUAGE InstanceSigs  #-}
 {-# LANGUAGE TupleSections #-}
 
-module Upcast.Infra.Types.Graph
+module Infracast.Graph
 ( Graph(..)
 , splice
 ) where
 
 import Prelude hiding (filter)
-import Control.Applicative (Applicative(..), (<$>), (<$))
-import Control.Lens (Lens, over, Field1(_1), Field2(_2), Field3(_3), to, _Just)
+import Control.Lens (Lens, over, Field1(_1), Field2(_2), Field3(_3))
 import Control.Monad (join)
 import Data.Array (array, assocs)
 import Data.Bifunctor (Bifunctor(..))
 import Data.Bifunctor.Flip (Flip(..))
 import Data.Bifoldable (Bifoldable(..))
 import Data.Bitraversable (Bitraversable(..))
-import Data.Foldable (Foldable(..), foldrM)
 import Data.Maybe (fromMaybe)
-import Data.Monoid (Monoid(..))
 import Data.Graph (Vertex, vertices)
 import qualified Data.Graph (Graph)
-import Data.Traversable (Traversable(..))
 import Data.Witherable (Witherable(..))
 
 newtype Graph l v = Graph { getGraph :: (Data.Graph.Graph, Vertex -> Maybe (v, l, [l])) }

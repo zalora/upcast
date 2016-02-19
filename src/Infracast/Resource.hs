@@ -1,48 +1,51 @@
-{-# LANGUAGE ConstraintKinds        #-}
-{-# LANGUAGE DefaultSignatures      #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE InstanceSigs           #-}
-{-# LANGUAGE LambdaCase             #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE RecordWildCards        #-}
-{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE ConstraintKinds           #-}
+{-# LANGUAGE DefaultSignatures         #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE FunctionalDependencies    #-}
+{-# LANGUAGE InstanceSigs              #-}
+{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE TypeFamilies              #-}
 
-module Upcast.Infra.Types.Resource
+module Infracast.Resource
 ( Resource(..)
-, MatchResult(..)
-, Missing(..)
-, DiscoveryError(..)
+, Infra
 ) where
 
-import Prelude hiding (filter, mapM)
-import Control.Applicative
-import Control.Lens hiding (Context) -- (*)
-import Control.Lens.Action
-import Control.Monad.Reader (MonadReader, asks)
-import Control.Monad.State (modify)
-import Control.Monad.Trans.AWS (Rs, AWSPager(..))
-import Data.Map (Map)
-import Data.Monoid ((<>))
-import Data.Hashable (Hashable(..))
-import Data.Traversable (mapM)
-import Data.Witherable (Witherable(..))
-import qualified Network.AWS.EC2 as EC2 -- (*)
-import qualified Network.AWS.ELB as ELB -- (*)
-import Upcast.Infra.Types.Amazonka (ResourceId)
-import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common
+import           Control.Applicative
+import           Control.Lens hiding (Context)
+import           Control.Lens.Action
+import           Control.Monad.Reader (MonadReader, asks)
+import           Control.Monad.State (modify)
+import           Control.Monad.Trans.AWS (Rs, AWSPager(..))
+import           Data.Aeson.Types (Value(..), ToJSON(..), FromJSON(..), Parser(..), parseMaybe, (.:), (.=))
+import           Data.Graph (vertices, graphFromEdges', topSort)
+import           Data.Map (Map)
+import           Data.Monoid ((<>))
+import           Data.Text (Text)
+import           Data.Traversable (mapM)
+import           Data.Witherable (Witherable(..))
+import qualified Network.AWS.EC2 as EC2
+import qualified Network.AWS.ELB as ELB
+import           Prelude hiding (filter, mapM)
+import           Infracast.Amazonka
+import           Infracast.Graph
+import           Infracast.NixTypes
+import           Infracast.Types
 
-import qualified Upcast.Infra.Resources.ELB as ELB
-import qualified Upcast.Infra.Resources.Instance as Instance
-import qualified Upcast.Infra.Resources.Keypair as Keypair
-import qualified Upcast.Infra.Resources.Subnet as Subnet
-import qualified Upcast.Infra.Resources.EBS as EBS
-import qualified Upcast.Infra.Resources.SecurityGroup as SG
-import qualified Upcast.Infra.Resources.VPC as VPC
+import qualified Infracast.Resources.ELB as ELB
+import qualified Infracast.Resources.Instance as Instance
+import qualified Infracast.Resources.Keypair as Keypair
+import qualified Infracast.Resources.Subnet as Subnet
+import qualified Infracast.Resources.EBS as EBS
+import qualified Infracast.Resources.SecurityGroup as SG
+import qualified Infracast.Resources.VPC as VPC
 
+-- *
 
 class Matcher a b | a -> b, b -> a where
   -- | The API action called to match the infra 'a'. Usually an instance of
@@ -219,3 +222,31 @@ instance Resource Elbinstanceset where
   create = ELB.createInstanceSet
   update = ELB.updateInstanceSet
   reify = ELB.reifyInstanceSet
+
+-- * One existential to wrap them all
+
+data Infra = forall a. (FromJSON a, Resource a, Show a) => Infra a
+
+instance Resource Infra where
+  match (Infra infra) = match infra
+  create (Infra infra) = create infra
+  update current (Infra infra) = update current infra
+  reify ledger (Infra infra) = Infra <$> reify ledger infra
+
+-- XXX: These choices are strictly ordered because some JSON representations
+-- are ambiguous with respect to each other absent '_name'. Something like
+-- 'o .: _name ~ "ec2-subnet" *> parseJSON value :: ...' might help, but I
+-- haven't tried it yet.
+instance FromJSON Infra where
+  parseJSON value = (Infra <$> (parseJSON value :: Parser Ebs))
+                <|> (Infra <$> (parseJSON value :: Parser Ec2instance))
+                <|> (Infra <$> (parseJSON value :: Parser Ec2keypair))
+                <|> (Infra <$> (parseJSON value :: Parser Ec2subnet))
+                <|> (Infra <$> (parseJSON value :: Parser Ec2sg))
+                <|> (Infra <$> (parseJSON value :: Parser Ec2sgruleset))
+                <|> (Infra <$> (parseJSON value :: Parser Ec2vpc))
+                <|> (Infra <$> (parseJSON value :: Parser Elb))
+                <|> (Infra <$> (parseJSON value :: Parser Elbinstanceset))
+
+instance Show Infra where
+  showsPrec n (Infra a) = showsPrec n a

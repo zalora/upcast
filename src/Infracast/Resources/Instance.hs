@@ -4,7 +4,7 @@
 {-# LANGUAGE MultiWayIf             #-}
 {-# LANGUAGE LambdaCase             #-}
 
-module Upcast.Infra.Resources.Instance where
+module Infracast.Resources.Instance where
 
 import Control.Applicative
 import Control.Monad.Trans (liftIO)
@@ -35,9 +35,9 @@ import Network.AWS.Waiter (Wait(_waitAttempts), Accept(..))
 import qualified Network.AWS.Data as AWS (fromText)
 import qualified Network.AWS.EC2 as EC2 -- (*)
 
-import Upcast.Infra.Types.Amazonka (ResourceId)
-import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common
+import Infracast.Amazonka -- (*)
+import Infracast.NixTypes -- (*)
+import Infracast.Types -- (*)
 
 -- * Matcher
 

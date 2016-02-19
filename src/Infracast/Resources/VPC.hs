@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE RecordWildCards        #-}
 
-module Upcast.Infra.Resources.VPC where
+module Infracast.Resources.VPC where
 
 import Control.Applicative
 import Control.Monad.Trans (liftIO)
@@ -16,9 +16,9 @@ import Data.Text (Text, unpack)
 
 import qualified Network.AWS.EC2 as EC2 -- (*)
 
-import Upcast.Infra.Types.Amazonka -- (*)
-import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common
+import Infracast.Amazonka -- (*)
+import Infracast.NixTypes -- (*)
+import Infracast.Types -- (*)
 
 -- *
 

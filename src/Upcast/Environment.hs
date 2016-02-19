@@ -13,12 +13,13 @@ import           Data.Aeson (eitherDecodeStrict)
 import qualified Data.ByteString.Char8 as B8
 import           Data.Maybe (isJust, fromJust)
 
+import           Infracast.Input (InfraContext(..))
 import           Upcast.Deploy (nixCopyClosureTo, nixRealise, nixSetProfile)
 import           Upcast.IO (expectRight, srsly)
 import           Upcast.Monad (sequenceMaybe, when)
 import           Upcast.Shell
 import           Upcast.Types (NixContext(..), InfraCli(..),
-                               InfraContext(..), Build(..))
+                               Build(..))
 
 import           Paths_upcast (getDataFileName)
 

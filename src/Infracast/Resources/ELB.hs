@@ -3,53 +3,32 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Upcast.Infra.Resources.ELB where
+module Infracast.Resources.ELB where
 
-import Prelude hiding (readFile, filter, mapM, forM)
-import Control.Applicative (Applicative(..), (<$>), (<*>), (<$), empty, pure, (<|>))
-import Control.Lens hiding (Context) -- (*)
-import Control.Lens.Action
-import Control.Monad (void, (<=<), unless, filterM)
-import Control.Monad.Catch (MonadThrow, throwM)
-import Control.Monad.Reader (MonadReader, asks)
-import Control.Monad.State (modify)
-import Control.Monad.Trans (liftIO)
-import Control.Monad.Trans.AWS (Rs, AWSPager(..), send, await, paginate, AWST, runAWST)
-import Control.Monad.Trans.Resource (ResourceT, runResourceT, register, liftResourceT, ReleaseKey)
-import Data.Aeson (encode)
-import Data.Aeson.Lens () -- Plated Value
-import Data.Aeson.Types (Value(String), object)
-import qualified Data.ByteString.Base64 as Base64 (encode)
-import Data.ByteString.Lazy (toStrict)
-import Data.Conduit (runConduit, tryC, fuse)
-import Data.Conduit.List (consume)
-import Data.IP ((>:>), AddrRange(..), IPv4)
-import Data.List (partition)
-import Data.List.NonEmpty (NonEmpty((:|)), nonEmpty)
+import           Control.Applicative -- (*)
+import           Control.Lens hiding (Context) -- (*)
+import           Control.Lens.Action -- (*)
+import           Control.Monad (void, unless)
+import           Control.Monad.Reader (asks)
+import           Control.Monad.Trans.AWS (Rs, AWSPager(..), send, await, paginate, AWST, runAWST)
+import           Data.Hashable (Hashable(..))
+import           Data.List.NonEmpty (NonEmpty((:|)), nonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty (toList)
-import Data.Map (Map, toList, insert, elems)
-import qualified Data.Map as Map (lookup)
-import Data.Maybe (fromMaybe, maybeToList, fromJust, isNothing)
-import Data.Monoid ((<>))
-import Data.Hashable (Hashable(..))
-import Data.Text (Text, pack, unpack)
-import Data.Text.Encoding (decodeUtf8)
-import qualified Data.Text as T (null, isPrefixOf, isSuffixOf, intercalate, take)
-import qualified Data.Text.IO as T (readFile)
-import Data.Traversable (mapM, forM)
-import Data.Witherable (Witherable(..))
-import qualified Network.AWS.Data as AWS (fromText)
+import           Data.Map (Map)
+import           Data.Maybe (fromMaybe, maybeToList, fromJust, isNothing)
+import           Data.Monoid ((<>))
+import           Data.Text (Text, pack, unpack)
+import qualified Data.Text as T (isPrefixOf, take)
+import           Data.Traversable (mapM, forM)
+import           Data.Witherable (Witherable(..))
 import qualified Network.AWS.EC2 as EC2 -- (*)
 import qualified Network.AWS.ELB as ELB -- (*)
 import qualified Network.AWS.Route53 as R53 -- (*)
-import Network.AWS.Types (Error)
-import Network.AWS.Waiter (Wait(_waitAttempts), Accept(..))
-import Upcast.IO (expectRight)
+import           Prelude hiding (filter, mapM, forM)
 
-
-import Upcast.Infra.Types.Amazonka (ResourceId)
-import Upcast.Infra.NixTypes -- (*)
-import Upcast.Infra.Types.Common
+import           Infracast.Amazonka -- (*)
+import           Infracast.NixTypes -- (*)
+import           Infracast.Types -- (*)
 
 -- * Elb Matcher
 
