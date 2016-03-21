@@ -1,1 +1,1 @@
-:set -XOverloadedStrings -isrc
+:set -XOverloadedStrings -ilib -icmd

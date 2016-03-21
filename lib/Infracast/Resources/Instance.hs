@@ -34,6 +34,7 @@ import Data.Text.Encoding (decodeUtf8)
 import Network.AWS.Waiter (Wait(_waitAttempts), Accept(..))
 import qualified Network.AWS.Data as AWS (fromText)
 import qualified Network.AWS.EC2 as EC2 -- (*)
+import qualified Network.AWS.CloudWatch as CW -- (*)
 
 import Infracast.Amazonka -- (*)
 import Infracast.NixTypes -- (*)
