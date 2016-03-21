@@ -125,66 +125,6 @@ library
       Paths_upcast
   default-language: Haskell2010
 
-executable fgrun
-  main-is: fgrun.hs
-  buildable: False
-  hs-source-dirs:
-      src
-  default-extensions: OverloadedStrings
-  build-depends:
-      base < 5
-    , aeson
-    , aeson-pretty
-    , array
-    , async
-    , attoparsec
-    , base64-bytestring
-    , bifunctors
-    , bytestring
-    , conduit
-    , resourcet
-    , conduit-extra
-    , containers
-    , directory
-    , exceptions
-    , filepath
-    , hashable
-    , iproute
-    , lens
-    , lens-action
-    , lens-aeson
-    , lifted-base
-    , mtl
-    , natural-sort
-    , optparse-applicative >= 0.11.0.1
-    , pretty-show
-    , process
-    , random
-    , resourcet
-    , scientific
-    , semigroups
-    , tagged
-    , text
-    , time
-    , unix
-    , unordered-containers
-    , vector
-    , vk-posix-pty >= 0.2.1
-    , witherable
-    , xml-conduit
-  other-modules:
-      Upcast.Deploy
-      Upcast.Environment
-      Upcast.IO
-      Upcast.Install
-      Upcast.Monad
-      Upcast.Shell
-      Upcast.Shell.Run
-      Upcast.Shell.Temp
-      Upcast.Shell.Types
-      Upcast.Types
-  default-language: Haskell2010
-
 executable upcast
   main-is: upcast.hs
   hs-source-dirs:
