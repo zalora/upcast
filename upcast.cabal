@@ -1,14 +1,10 @@
--- This file has been generated from package.yaml by hpack version 0.5.4.
---
--- see: https://github.com/sol/hpack
-
 name:           upcast
 version:        0.1.1.0
 license-file:   LICENSE
 license:        MIT
 author:         Vladimir Kirillov
 maintainer:     vlad.ki@zalora.com
-copyright:      2014, 2015 Zalora South East Asia Pte Ltd
+copyright:      2014, 2015, 2016 Zalora South East Asia Pte Ltd
 build-type:     Simple
 cabal-version:  >= 1.10
 synopsis:       Nix-based Linux deployment platform tools
