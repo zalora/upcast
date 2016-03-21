@@ -78,7 +78,7 @@ xformMapping BlockDeviceMapping{..} =
 -- * instance Resource Ec2instance where
 
 create :: AWS m => Ec2instance -> m ResourceId
-create Ec2instance{..} = do
+create infra@Ec2instance{..} = do
   udata <- mapM (fmap String . T.readFile . unpack) ec2instance_userData
        <&> insert "hostname" (String ec2instance_name)
        <&> decodeUtf8 . Base64.encode . toStrict . encode . object . toList
@@ -99,8 +99,7 @@ create Ec2instance{..} = do
                                     ]
         & EC2.rMonitoring ?~ EC2.runInstancesMonitoringEnabled True
         & EC2.rBlockDeviceMappings .~ (catMaybes . elems . fmap xformMapping $ ec2instance_blockDeviceMapping)
-        & send <&> view (EC2.rInstances . to head)
-      >>= (\i -> addInstance i >> return (i ^. EC2.insInstanceId))
+        & send <&> view EC2.insInstanceId . view (EC2.rInstances . to head)
   asks ctxTags >>= toEc2Tags [inst] . (("Name", ec2instance_name):) . (("hash", hashOf Ec2instance{..}):)
   await EC2.instanceRunning (EC2.describeInstances & EC2.diiInstanceIds .~ [inst])
   forM ec2instance_blockDeviceMapping $ \BlockDeviceMapping{..} -> do
@@ -110,6 +109,7 @@ create Ec2instance{..} = do
           EC2.attachVolume volume inst blockDeviceMapping_blockDeviceMappingName
       | T.isPrefixOf "ephemeral" volume -> Nothing
       | otherwise -> error $ "Don't know how to handle volume " ++ show volume
+  Right (OnwardWith _) <- match infra -- need its side-effect with full instance info
   return inst
 
 update :: AWS m => ResourceId -> Ec2instance -> m ResourceId
