@@ -15,7 +15,9 @@ let
         { imports = [<upcast/infra-types.nix>]; }
       ];
     }).config;
-    out = eval1 spec.infra;
+    out = if (spec.upcast-eval-infra or true)
+            then eval1 spec.infra
+            else spec.infra;
     meta = {
       realm-name = spec.realm-name or "";
       regions = unique (sort (x: y: x == y) (map (x: x.region) (collect (as: as ? region) out)));
