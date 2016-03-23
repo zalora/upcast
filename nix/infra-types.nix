@@ -1,7 +1,7 @@
+{ lib ? import <upcast/lib>, ... }:
 let
-  lib = import <upcast/lib>;
   inherit (lib) attrValues mapAttrs;
-  modernise-infra = k: v: { lib, ... }: let
+  modernise-infra = k: v: { ... }: let
     inherit (lib) mkOption types;
     inherit (import <upcast/aws/common.nix> { inherit lib; }) infra-submodule;
   in {

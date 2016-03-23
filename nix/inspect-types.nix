@@ -151,7 +151,7 @@ let
     ((if builtins.typeOf x == "path" then import x else x)
      { infra = {}; config = {}; lib = inspectlib; }
     ).options
-  ) (import <upcast/infra-types.nix>).imports;
+  ) (import <upcast/infra-types.nix> {}).imports;
   out = mapAttrs augment (foldAttrs (x: y: x // y) {} toplevel);
 
   cat = concatStringsSep "\n";
